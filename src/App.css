@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+#root {
+  min-width: 1450px;
+  min-height: 100vh;
+  /* margin: 0 auto; */
+  padding: 2rem;
+  color: black;
+  background-color: white;
+}
+
+
