@@ -1,15 +1,70 @@
-import { Formik, Form, ErrorMessage, Field } from "formik";
+import { Formik, Form, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { editPairingValue } from "../api/endpoints";
 
-interface PairingItem {
-  id: string;
-  number?: number;
-  name?: string;
-}
+// Function to decrypt userId (Base64 decoding example)
+const decryptData = (data: string): string => {
+  return atob(data); // Base64 decode
+};
 
 const ParticipantForm = () => {
+  const location = useLocation();
+  const [formData, setFormData] = useState<any | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [groupKey, setGroupKey] = useState<string | null>(null);
+  const [keyIndex, setKeyIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const groupingPurpose = queryParams.get("groupingPurpose");
+    const pairings = queryParams.get("pairings");
+    const encryptedUserId = queryParams.get("userId");
+
+    if (encryptedUserId) {
+      const decryptedUserId = decryptData(encryptedUserId);
+      setUserId(decryptedUserId);
+    }
+
+    try {
+      if (pairings) {
+        const parsedPairings = JSON.parse(decodeURIComponent(pairings));
+        // Ensure that parsedPairings is an object
+        if (typeof parsedPairings === "object" && parsedPairings !== null) {
+          const groupKeys = Object.keys(parsedPairings);
+
+          if (groupKeys.length > 0 && groupingPurpose) {
+            // Pick a random groupKey from available keys
+            const randomGroupKey =
+              groupKeys[Math.floor(Math.random() * groupKeys.length)];
+            setGroupKey(randomGroupKey);
+
+            // Find a suitable keyIndex
+            const group = parsedPairings[randomGroupKey];
+            const track = initialValues.track;
+            const index = group.findIndex(
+              (entry: any) => entry.role === track && !entry.name
+            );
+
+            if (index !== -1) {
+              setKeyIndex(index);
+            }
+          }
+
+          setFormData({
+            groupingPurpose,
+            numGroups: queryParams.get("numGroups"),
+            numParticipants: queryParams.get("numParticipants"),
+            pairings: parsedPairings,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to parse pairings:", error);
+    }
+  }, [location.search]);
+
   const initialValues = {
     firstName: "",
     lastName: "",
@@ -26,90 +81,46 @@ const ParticipantForm = () => {
       .required("Email is required"),
   });
 
-  const [groupingPurpose, setGroupingPurpose] = useState<string>("");
-  const [numGroups, setNumGroups] = useState<number>(0);
-  const [numParticipants, setNumParticipants] = useState<number>(0);
-  const [pairings, setPairings] = useState<any[]>([]);
-
-  useEffect(() => {
-    const queryParams = new URLSearchParams(window.location.search);
-
-    const purpose = queryParams.get("groupingPurpose");
-    const groups = queryParams.get("numGroups");
-    const participants = queryParams.get("numParticipants");
-    const pairingData = queryParams.get("pairings");
-
-    if (purpose) setGroupingPurpose(purpose);
-    if (groups) setNumGroups(Number(groups));
-    if (participants) setNumParticipants(Number(participants));
-    if (pairingData) {
-      try {
-        const parsedPairings = JSON.parse(decodeURIComponent(pairingData));
-        setPairings(parsedPairings);
-      } catch (error) {
-        console.error("Error parsing pairings data:", error);
-      }
-    }
-  }, []);
-
-  const combinedArray = Object.values(pairings).flat();
-  const itemsWithoutName = combinedArray.filter(
-    (item) => !item.hasOwnProperty("name")
-  );
-
-  const randomIndex = Math.floor(Math.random() * itemsWithoutName.length);
-  const randomItem = itemsWithoutName[randomIndex];
-  const selectedOldId = randomItem ? randomItem.id : null;
-
   const handleSubmit = async (values: typeof initialValues) => {
-    if (selectedOldId === null) {
-      return;
-    }
+    if (formData && userId) {
+      const { pairings, groupingPurpose } = formData;
+      const track = values.track;
 
-    const keys = Object.keys(pairings);
+      if (pairings && groupKey !== null && keyIndex !== null) {
+        // Select the group key based on groupingPurpose if available
+        const selectedGroupKey = groupKey || Object.keys(pairings)[0]; // Default to the first group key if groupKey is not set
 
-    if (keys.length === 0) {
-      return;
-    }
-    console.log({ pairings });
-    const randomKey = keys[Math.floor(Math.random() * keys.length)];
-    const pairingsIndex = keys.indexOf(randomKey);
-    const selectedPairing = pairings[pairingsIndex];
-    console.log({ selectedPairing });
-    if (!selectedPairing) {
-      return;
-    }
-    const filteredPairing = selectedPairing.filter(
-      (item: PairingItem) => !item.hasOwnProperty("name")
-    );
+        const group = pairings[selectedGroupKey];
+        const index = group.findIndex(
+          (entry: any) => entry.role === track && !entry.name
+        );
+        const id = index !== -1 ? group[index].id : null;
+        if (index !== -1) {
+          const newValue = {
+            name: `${values.firstName} ${values.lastName}`,
+            track: values.track,
+            email: values.email,
+          };
 
-    if (filteredPairing.length === 0) {
-      return;
-    }
-
-    const pairingIndex = Math.floor(Math.random() * filteredPairing.length);
-    console.log({ pairingIndex });
-    const indexId = filteredPairing[pairingIndex].id;
-    console.log({ indexId });
-    const newValue = {
-      id: indexId,
-      name: `${values.firstName} ${values.lastName}`,
-      track: values.track,
-      email: values.email,
-    };
-
-    try {
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
-      const userId = user.uid;
-      await editPairingValue(
-        userId,
-        groupingPurpose,
-        pairingsIndex,
-        pairingIndex,
-        newValue
-      );
-    } catch (error) {
-      console.error("Error updating pairing:", error);
+          console.log({ selectedGroupKey }, { group }, { index }, { id });
+          await editPairingValue(
+            userId,
+            groupingPurpose,
+            selectedGroupKey,
+            index,
+            id,
+            newValue
+          );
+        } else {
+          console.error("No matching entry found for the track:", track);
+        }
+      } else {
+        console.error(
+          "Pairings data is missing or groupKey/keyIndex is not set."
+        );
+      }
+    } else {
+      console.error("Form data or user ID is missing.");
     }
   };
 
@@ -121,15 +132,18 @@ const ParticipantForm = () => {
         validationSchema={validationSchema}
         onSubmit={handleSubmit}
       >
-        {() => (
+        {({ values, handleChange, handleBlur }) => (
           <Form className="flex flex-col gap-4">
             <div>
-              <Field
+              <input
                 type="text"
                 id="firstName"
                 name="firstName"
                 placeholder="Enter your first name"
                 className="p-2 w-[350px] bg-transparent border rounded"
+                value={values.firstName}
+                onChange={handleChange}
+                onBlur={handleBlur}
               />
               <ErrorMessage
                 name="firstName"
@@ -138,12 +152,15 @@ const ParticipantForm = () => {
               />
             </div>
             <div>
-              <Field
+              <input
                 type="text"
                 id="lastName"
                 name="lastName"
                 placeholder="Enter your last name"
                 className="p-2 w-[350px] bg-transparent border rounded"
+                value={values.lastName}
+                onChange={handleChange}
+                onBlur={handleBlur}
               />
               <ErrorMessage
                 name="lastName"
@@ -152,12 +169,15 @@ const ParticipantForm = () => {
               />
             </div>
             <div>
-              <Field
+              <input
                 type="text"
                 id="track"
                 name="track"
                 placeholder="Enter your track"
                 className="p-2 w-[350px] bg-transparent border rounded"
+                value={values.track}
+                onChange={handleChange}
+                onBlur={handleBlur}
               />
               <ErrorMessage
                 name="track"
@@ -166,12 +186,15 @@ const ParticipantForm = () => {
               />
             </div>
             <div>
-              <Field
+              <input
                 type="email"
                 id="email"
                 name="email"
                 placeholder="Enter your email"
                 className="p-2 w-[350px] bg-transparent border rounded"
+                value={values.email}
+                onChange={handleChange}
+                onBlur={handleBlur}
               />
               <ErrorMessage
                 name="email"

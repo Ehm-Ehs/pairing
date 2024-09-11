@@ -7,15 +7,16 @@ export interface User {
   export interface Participant {
     id: string;
     number: number;
+    role: string;
   }
   
   export interface Pairing {
+    characteristics: { count: number; name: string }[];
     groupingPurpose: string;
     numGroups: number;
     numParticipants: number;
-    pairings: { [groupNumber: string]: Participant[] }; 
+    groups: Participant[][];
   }
-  
   export interface GroupingsPageProps {
     uid: string;
     firstName: string;
@@ -25,7 +26,6 @@ export interface User {
   }
  
  
-  
 export interface HomeProps {
-    data: GroupingsPageProps | null;
+    data: GroupingsPageProps;
 }

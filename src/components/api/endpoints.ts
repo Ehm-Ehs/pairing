@@ -3,7 +3,6 @@ import {
   getDoc,
   updateDoc,
   arrayUnion,
-  arrayRemove,
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import Auth from "./auth.module";
@@ -11,7 +10,8 @@ import Auth from "./auth.module";
 export interface FormValues {
   numParticipants: string;
   numGroups: string;
-  pairings: {
+  characteristics: { name: string; count: string }[];
+  groups: {
     [key: number]: {
       id: string;
       number: number;
@@ -32,35 +32,33 @@ export const fetchUserData = async (
           try {
             const docRef = doc(db, "Users", user.uid);
             const docSnap = await getDoc(docRef);
-
             if (docSnap.exists()) {
               setUserDetails(docSnap.data());
               console.log("doc", docSnap.data());
-              resolve(); // Resolve the promise when user data is set
+              resolve(); 
             } else {
               console.log("No user data found in Firestore");
-              setUserDetails(null); // Set user details to null when no data is found
-              resolve(); // Resolve the promise
+              setUserDetails(null); 
+              resolve(); 
             }
           } catch (error) {
             console.error("Error fetching user data:", error);
-            reject(error); // Reject the promise on error
+            reject(error); 
           }
         } else {
           console.log("No user is logged in");
-          setUserDetails(null); // Set user details to null when no user is logged in
-          resolve(); // Resolve the promise
+          setUserDetails(null);
+          resolve(); 
         }
       });
     } else {
       console.log("User is not authenticated");
-      setUserDetails(null); // Set user details to null if not authenticated
-      resolve(); // Resolve the promise
+      setUserDetails(null); 
+      resolve(); 
     }
   });
 };
 
-// Add a new employee
 export async function addPairing(userId: string, pairingData: FormValues) {
   try {
     const userRef = doc(db, "Users", userId);
@@ -76,32 +74,75 @@ export async function addPairing(userId: string, pairingData: FormValues) {
 }
 
 
+// export async function editPairingValue(
+//   userId: string,
+//   groupingPurpose: string,
+//   groupKey:string,
+//   keyIndex:number,
+//   id:string,
+//   newValue: {  name: string; track: string; email: string }
+// ) {
+//   try {
+
+//     const userRef = doc(db, "Users", userId);
+//     console.log("triggered")
+
+//     console.log('userRef:', userRef);
+
+//     const pairingPath = `pairings.${groupingPurpose}.${groupKey}.${keyIndex}.${id}`;
+//     console.log('pairingPath:', pairingPath);
+
+//     // await updateDoc(userRef, {
+//     //   [`pairings.${groupingPurpose}.${groupKey}.${keyIndex}.${id}`]: arrayUnion(newValue),
+//     // });
+//     console.log('Update successful');
+//   } catch (error) {
+//     console.log("Error updating pairing value:", error);
+//   }
+// }
+
+
+
+
 export async function editPairingValue(
   userId: string,
   groupingPurpose: string,
-  pairingIndex: number,
-  pairingsIndex: number,
-  newValue: { id: string; name: string; track: string; email: string }
+  groupKey: string,
+  keyIndex: number,
+  id: string,
+  newValue: { name: string; track: string; email: string }
 ) {
   try {
     const userRef = doc(db, "Users", userId);
-    console.log('userRef:', userRef);
-
-    const pairingPath = `pairings.${groupingPurpose}.pairings.${pairingsIndex}.${pairingIndex}`;
-    console.log('pairingPath:', pairingPath);
-
-    const userDoc = await getDoc(userRef);
-    if (userDoc.exists()) {
-      const data = userDoc.data();
-      console.log('Document data:', data);
-    } else {
-      console.log('Document does not exist');
+    const docSnap = await getDoc(userRef);
+    if (!docSnap.exists()) {
+      console.log("No user data found.");
+      return;
     }
 
+    const data = docSnap.data();
+    if (!data || !data.pairings || !data.pairings[groupingPurpose] || !data.pairings[groupingPurpose][groupKey] || !Array.isArray(data.pairings[groupingPurpose][groupKey])) {
+      console.log("Pairings data not found.");
+      return;
+    }
+
+    const currentGroups = data.pairings[groupingPurpose][groupKey];
+    const groupIndex = currentGroups.findIndex((group: { id: string }) => group.id === id);
+
+    if (groupIndex === -1) {
+      console.log("Group with specified ID not found.");
+      return;
+    }
+
+    const updatedGroups = currentGroups.filter((group: { id: string }) => group.id !== id);
+    updatedGroups.splice(groupIndex, 0, { ...newValue, id });
+const par=`pairings.${groupingPurpose}.${groupKey}`
+console.log({par})
     await updateDoc(userRef, {
-      [`pairings.${groupingPurpose}.pairings.${pairingsIndex}.${pairingIndex}`]: arrayUnion(newValue),
+      [`pairings.${groupingPurpose}.${groupKey}`]: updatedGroups,
     });
-    console.log('Update successful');
+
+    console.log("Pairing updated successfully!");
   } catch (error) {
     console.error("Error updating pairing value:", error);
   }

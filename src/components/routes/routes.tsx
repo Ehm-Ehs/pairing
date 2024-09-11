@@ -1,4 +1,4 @@
-import Home from "../home";
+import Home from "../home/home";
 import Result from "../result";
 
 export const routes = [
