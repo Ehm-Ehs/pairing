@@ -149,7 +149,7 @@ const Result = ({ data }: ResultProps) => {
           {selectedIndex !== null && (
             <Button
               onClick={() => window.history.back()}
-              variant="outline"
+              variant="ghost"
               className="mt-4"
             >
               Back to All Events
