@@ -2,7 +2,7 @@ import React from "react";
 import { useLocation } from "react-router-dom";
 import Header from "../nav/header";
 import { Card, CardHeader, CardTitle, CardContent } from "../common/card";
-import { Badge } from "../common/badge";
+import { Badge } from "../common/Badge";
 import { Participant } from "../types";
 import { FaUsers, FaCheckCircle } from "react-icons/fa";
 

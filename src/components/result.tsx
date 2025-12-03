@@ -26,7 +26,7 @@ interface ResultProps {
   data: GroupingsPageProps | null;
 }
 
-import { Badge } from "../components/common/badge";
+import { Badge } from "./common/Badge";
 
 const Result = ({ data }: ResultProps) => {
   const [copiedLink, setCopiedLink] = useState<number | null>(null);
