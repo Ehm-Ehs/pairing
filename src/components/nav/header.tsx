@@ -12,12 +12,11 @@ function Header({ children, user }: HeaderProps) {
     <div>
       <div className="flex items-center justify-between px-10 text-[#5324FB]">
         <Link to="/home">
-          {" "}
           <div className="flex items-center gap-2 py-5">
             <div className="w-10 h-10">
               <Logo />
             </div>
-            <p className="pt-3 font-semibold text-black">Pairing</p>
+            <p className="pt-3 font-semibold text-black">Pair Form</p>
           </div>
         </Link>
 

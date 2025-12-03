@@ -11,7 +11,6 @@ import {
   FaChartBar,
   FaSync,
   FaArrowRight,
-  FaGift,
   FaLock,
   FaCheckCircle,
   FaUserSecret,
@@ -166,14 +165,14 @@ const LandingPage = () => {
     <div className="min-h-screen bg-white text-gray-900 font-sans">
       {/* Navigation */}
       <nav className="flex items-center justify-between px-4 py-4 md:px-6 max-w-7xl mx-auto">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 flex-shrink-0">
-            <Logo />
+        <Link to="/home">
+          <div className="flex items-center gap-2 py-5">
+            <div className="w-10 h-10">
+              <Logo />
+            </div>
+            <p className="pt-3 font-semibold text-black">Pair Form</p>
           </div>
-          <span className="text-xl font-bold tracking-tight hidden sm:inline-block pt-4 px-4">
-            Pairing
-          </span>
-        </div>
+        </Link>
         <div className="flex gap-2 md:gap-4">
           <Link
             to="/login"
@@ -462,12 +461,14 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div className="md:col-span-2">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-[#3A76F0] rounded-xl flex items-center justify-center">
-                  <FaGift className="w-6 h-6 text-white" />
+              <Link to="/home">
+                <div className="flex items-center gap-2 py-5">
+                  <div className="w-10 h-10">
+                    <Logo />
+                  </div>
+                  <p className="pt-3 font-semibold text-black">Pair Form</p>
                 </div>
-                <span className="text-xl">PairForm</span>
-              </div>
+              </Link>
               <p className="text-sm text-muted-foreground max-w-md">
                 Smart automation for balanced groups. Built for real workshops,
                 Secret Santa events, and team formation — not demos.
