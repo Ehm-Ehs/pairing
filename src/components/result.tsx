@@ -26,7 +26,7 @@ interface ResultProps {
   data: GroupingsPageProps | null;
 }
 
-import { Badge } from "../components/common/badge";
+import { Badge } from "./common/Badge";
 
 const Result = ({ data }: ResultProps) => {
   const [copiedLink, setCopiedLink] = useState<number | null>(null);
@@ -149,7 +149,7 @@ const Result = ({ data }: ResultProps) => {
           {selectedIndex !== null && (
             <Button
               onClick={() => window.history.back()}
-              variant="outline"
+              variant="ghost"
               className="mt-4"
             >
               Back to All Events
