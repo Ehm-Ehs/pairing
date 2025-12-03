@@ -8,6 +8,8 @@ export interface User {
     id: string;
     number: number;
     role: string;
+    name?: string;
+    email?: string;
   }
   
   export interface Pairing {
@@ -15,7 +17,7 @@ export interface User {
     groupingPurpose: string;
     numGroups: number;
     numParticipants: number;
-    groups: Participant[][];
+    groups: { [key: number]: Participant[] };
   }
   export interface GroupingsPageProps {
     uid: string;

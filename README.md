@@ -1,50 +1,69 @@
-# React + TypeScript + Vite
+# Group Raffle / Pairing Tool
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React-based application designed to help organizers create balanced groups for events, workshops, or classes, and allow participants to self-register into specific roles.
 
-Currently, two official plugins are available:
+## 🚀 Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### For Organizers
+- **Automated Group Generation**: Define the number of participants and groups, and let the app calculate the structure.
+- **Role Balancing**: Specify "Characteristics" (e.g., Developer, Designer, Manager) to ensure every group has the required mix of skills.
+- **Real-time Dashboard**: Monitor group filling in real-time.
+- **Shareable Links**: Generate unique links for participants to join specific sessions.
 
-## Expanding the ESLint configuration
+### For Participants
+- **Self-Service Registration**: Join a group by simply clicking a link and entering details.
+- **Role Selection**: Automatically see available slots for your specific role/track.
+- **Instant Confirmation**: Get immediate feedback when you've successfully joined a group.
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+## 🛠️ Tech Stack
 
-- Configure the top-level `parserOptions` property like this:
+- **Frontend**: React, TypeScript, Vite
+- **Styling**: Tailwind CSS
+- **Backend/Database**: Firebase (Firestore, Auth)
+- **Routing**: React Router DOM
+- **Forms**: Formik + Yup validation
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+## 📦 Installation & Setup
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd random-selection
+   ```
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+3. **Environment Configuration**
+   Create a `.env` file in the root directory with your Firebase configuration:
+   ```env
+   VITE_API_KEY=your_api_key
+   VITE_AUTH_DOMAIN=your_auth_domain
+   VITE_PROJECT_ID=your_project_id
+   VITE_STORAGE_BUCKET=your_storage_bucket
+   VITE_MESSAGING_SENDER_ID=your_messaging_sender_id
+   VITE_APP_ID=your_app_id
+   ```
+
+4. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+## 📖 Usage
+
+1. **Log In**: Access the app and sign in using your credentials.
+2. **Create Event**: Navigate to the Home page, enter the total number of participants and groups, and define the required roles (characteristics).
+3. **Generate**: Click "Get Pairings" to generate the empty group slots.
+4. **Share**: Use the "Share" page to get a link for your participants.
+5. **Monitor**: Watch the "Your Pairing" page as slots fill up.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is licensed under the MIT License.

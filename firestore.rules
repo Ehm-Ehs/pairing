@@ -1,0 +1,23 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow users to read and write their own user document
+    match /Users/{userId} {
+      // Allow owner to do everything
+      allow create, delete: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow public read (needed for participants to fetch current state)
+      allow read: if true;
+
+      // Allow update if owner OR if only updating 'pairings' (for participants)
+      allow update: if (request.auth != null && request.auth.uid == userId) || 
+                   (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pairings']));
+    }
+    
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

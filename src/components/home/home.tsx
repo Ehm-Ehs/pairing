@@ -1,194 +1,300 @@
-import React, { useState } from "react";
-import { v4 as uuidv4 } from "uuid";
-import * as Yup from "yup";
-import { addPairing } from "../api/endpoints";
-import FormComponent from "./form";
-import PairingResults from "./pairings";
+import { Button } from "../common/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../common/card";
+import {
+  FaPlus,
+  FaExternalLinkAlt,
+  FaLink,
+  FaUsers,
+  FaClock,
+  FaChartLine,
+  FaCalendarAlt,
+} from "react-icons/fa";
+import { toast } from "react-toastify";
+import { GroupingsPageProps, Pairing } from "../types";
+import { useNavigate } from "react-router-dom";
 
-// Define the types
-interface Characteristic {
-  name: string;
-  count: string;
+interface HomeProps {
+  data: GroupingsPageProps | null;
 }
 
-interface FormValues {
-  numParticipants: string;
-  numGroups: string;
-  groupingPurpose: string;
-  characteristics: Characteristic[];
-}
+export default function Home({ data }: HomeProps) {
+  const navigate = useNavigate();
+  const events = data?.pairings || [];
+  const organizerName = data?.firstName || "Organizer";
+  console.log({ events, organizerName });
+  // Calculate overall stats
+  const totalEvents = events.length;
 
-const Home: React.FC = () => {
-  const [formValues, setFormValues] = useState<FormValues>({
-    numParticipants: "",
-    numGroups: "",
-    groupingPurpose: "",
-    characteristics: [{ name: "", count: "" }],
+  let totalFilledSlots = 0;
+  let totalSlots = 0;
+
+  events.forEach((event) => {
+    totalSlots += parseInt(event.numParticipants.toString());
+
+    let currentEventFilled = 0;
+    Object.values(event.groups).forEach((group) => {
+      // Only count participants that have a name (not placeholders)
+      currentEventFilled += group.filter((p: any) => p.name).length;
+    });
+    totalFilledSlots += currentEventFilled;
   });
 
-  const [groups, setGroups] = useState<{
-    [key: number]: { id: string; number: number; role: string }[];
-  } | null>(null);
-
-  const validationSchema = Yup.object({
-    numParticipants: Yup.number()
-      .positive("Number of participants must be greater than zero")
-      .integer("Number of participants must be an integer")
-      .required("Number of participants is required"),
-    numGroups: Yup.number()
-      .positive("Number of groups must be greater than zero")
-      .integer("Number of groups must be an integer")
-      .required("Number of groups is required")
-      .test(
-        "divisible",
-        "Number of participants must be divisible by number of groups",
-        function (numGroups) {
-          const { numParticipants } = this.parent;
-          if (numGroups === 0) return false;
-          return Number(numParticipants) % numGroups === 0;
-        }
-      ),
-    groupingPurpose: Yup.string().required("Group purpose is required"),
-    characteristics: Yup.array().of(
-      Yup.object({
-        name: Yup.string().required("Characteristic name is required"),
-        count: Yup.number()
-          .positive("Count must be greater than zero")
-          .integer("Count must be an integer")
-          .required("Count is required"),
-      })
-    ),
-  });
-
-  const handleFormSubmit = (values: FormValues) => {
-    setFormValues(values);
+  const copyJoinLink = (eventId: string) => {
+    // Logic for join link might need adjustment based on how sharing works in this app
+    // For now, let's assume a similar pattern or just copy a share link
+    const url = `${window.location.origin}/share?eventId=${eventId}`; // Placeholder logic
+    navigator.clipboard.writeText(url);
+    toast.success("Join link copied to clipboard!");
   };
 
-  const handleSubmitPairings = async (formValues: FormValues, groups: any) => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const userId = user.uid;
+  const getEventStats = (event: Pairing) => {
+    const totalSlots = parseInt(event.numParticipants.toString());
+    let filledSlots = 0;
+    Object.values(event.groups).forEach((group) => {
+      // Only count participants that have a name
+      filledSlots += group.filter((p: any) => p.name).length;
+    });
 
-    if (!userId) {
-      console.error("User ID not found in local storage.");
-      return;
-    }
+    const fillPercentage =
+      totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0;
 
-    const submissionData = {
-      ...formValues,
-      groups,
-    };
-    console.log({ submissionData });
-    try {
-      const response = await addPairing(userId, submissionData);
-      console.log("Submission successful", response);
-    } catch (error) {
-      console.error("Error during submission:", error);
-    }
+    return { totalSlots, filledSlots, fillPercentage };
   };
 
-  const handleGetPairing = () => {
-    const numParticipants = parseInt(formValues.numParticipants, 10);
-    const numGroups = parseInt(formValues.numGroups, 10);
+  const handleCreateNew = () => {
+    navigate("/create-event");
+  };
 
-    if (
-      isNaN(numParticipants) ||
-      isNaN(numGroups) ||
-      numParticipants <= 0 ||
-      numGroups <= 0
-    ) {
-      console.error("Invalid number of participants or groups.");
-      return;
-    }
-
-    const characteristicPools: {
-      [key: string]: { id: string; number: number; role: string }[];
-    } = {};
-
-    formValues.characteristics.forEach((char) => {
-      const participants = Array.from(
-        { length: parseInt(char.count, 10) },
-        (_, i) => ({
-          id: uuidv4(),
-          number: i + 1,
-          role: char.name,
-        })
-      );
-      characteristicPools[char.name] = participants;
-    });
-
-    const groups: {
-      [key: number]: { id: string; number: number; role: string }[];
-    } = {};
-    for (let i = 0; i < numGroups; i++) {
-      groups[i + 1] = [];
-    }
-
-    // Flatten the pools into a single array
-    const allParticipants = Object.values(characteristicPools).flat();
-
-    // Shuffle participants to ensure random distribution
-    const shuffledParticipants = allParticipants.sort(
-      () => Math.random() - 0.5
-    );
-
-    // Ensure each group has at least one characteristic from each type
-    const participantsPerGroup: {
-      [key: number]: { id: string; number: number; role: string }[];
-    } = {};
-    formValues.characteristics.forEach((char) => {
-      const chars = characteristicPools[char.name];
-      for (let i = 0; i < numGroups; i++) {
-        const groupNumber = i + 1;
-        if (!participantsPerGroup[groupNumber]) {
-          participantsPerGroup[groupNumber] = [];
-        }
-        const charParticipant = chars[i % chars.length];
-        participantsPerGroup[groupNumber].push(charParticipant);
-      }
-    });
-
-    // Distribute remaining participants evenly
-    const remainingParticipants = shuffledParticipants.filter(
-      (participant) =>
-        !Object.values(participantsPerGroup)
-          .flat()
-          .some((p) => p.id === participant.id)
-    );
-
-    remainingParticipants.forEach((participant, index) => {
-      const groupNumber = (index % numGroups) + 1;
-      participantsPerGroup[groupNumber].push(participant);
-    });
-
-    // Convert participantsPerGroup to the format required
-    Object.keys(participantsPerGroup).forEach((key) => {
-      const groupNumber = parseInt(key, 10);
-      groups[groupNumber] = participantsPerGroup[groupNumber];
-    });
-
-    setGroups(groups);
-    handleSubmitPairings(formValues, groups);
+  const handleViewEvent = (index: number) => {
+    navigate(`/your-pairing?index=${index}`);
   };
 
   return (
-    <div className="flex flex-col justify-center items-center">
-      <h1 className="text-2xl mb-6">Group Raffle</h1>
-      <div className="flex flex-col pb-10 px-10 mt-5">
-        <FormComponent
-          initialValues={formValues}
-          validationSchema={validationSchema}
-          onSubmit={handleFormSubmit}
-        />
-        <button
-          onClick={handleGetPairing}
-          className="bg-blue-700 text-white p-2 rounded mt-4 hover:bg-blue-800"
-        >
-          Get Pairings
-        </button>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+      {/* Header */}
+      <header className="border-b border-border bg-white/80 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl">Welcome back, {organizerName}!</h1>
+              <p className="text-muted-foreground mt-1">
+                Manage your events and track participant progress
+              </p>
+            </div>
+            <Button
+              onClick={handleCreateNew}
+              size="lg"
+              className="bg-[#3A76F0] hover:bg-[#2f5fc7]"
+            >
+              <FaPlus className="w-5 h-5 mr-2" />
+              Create New Event
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Stats Overview */}
+        {totalEvents > 0 && (
+          <div className="grid md:grid-cols-4 gap-6 mb-12">
+            <Card className="bg-white">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Total Events
+                    </p>
+                    <p className="text-3xl mt-2">{totalEvents}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-[#3A76F0]/10 rounded-xl flex items-center justify-center">
+                    <FaCalendarAlt className="w-6 h-6 text-[#3A76F0]" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Fill Rate</p>
+                    <p className="text-3xl mt-2">
+                      {totalSlots > 0
+                        ? Math.round((totalFilledSlots / totalSlots) * 100)
+                        : 0}
+                      %
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-[#FFC857]/10 rounded-xl flex items-center justify-center">
+                    <FaChartLine className="w-6 h-6 text-[#FFC857]" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Events List */}
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <h2>Your Events</h2>
+            {totalEvents > 0 && (
+              <p className="text-sm text-muted-foreground">
+                {totalEvents} event{totalEvents !== 1 ? "s" : ""} created
+              </p>
+            )}
+          </div>
+
+          {events.length === 0 ? (
+            <Card className="bg-white">
+              <CardContent className="py-16 text-center">
+                <div className="w-16 h-16 bg-[#3A76F0]/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <FaPlus className="w-8 h-8 text-[#3A76F0]" />
+                </div>
+                <h3 className="mb-2">No events yet</h3>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  Create your first Secret Santa or team formation event to get
+                  started
+                </p>
+                <Button
+                  onClick={handleCreateNew}
+                  size="lg"
+                  className="bg-[#3A76F0] hover:bg-[#2f5fc7]"
+                >
+                  <FaPlus className="w-5 h-5 mr-2" />
+                  Create Your First Event
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {events.map((event, index) => {
+                const stats = getEventStats(event);
+                const isComplete = stats.filledSlots === stats.totalSlots;
+
+                return (
+                  <Card
+                    key={index}
+                    className="bg-white hover:shadow-lg transition-shadow"
+                  >
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-lg mb-1">
+                            {event.groupingPurpose}
+                          </CardTitle>
+                          <CardDescription className="flex items-center gap-2 text-xs">
+                            <FaClock className="w-3 h-3" />
+                            {/* Date is not in Pairing type, so we might skip or use a placeholder if needed */}
+                            Recently
+                          </CardDescription>
+                        </div>
+                        {isComplete && (
+                          <div className="flex-shrink-0">
+                            <div className="bg-[#60E1B1]/10 text-[#60E1B1] px-2 py-1 rounded-md text-xs">
+                              Complete
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Progress Bar */}
+                      <div>
+                        <div className="flex items-center justify-between text-sm mb-2">
+                          <span className="text-muted-foreground">
+                            Progress
+                          </span>
+                          <span
+                            className={
+                              stats.fillPercentage === 100
+                                ? "text-[#60E1B1]"
+                                : "text-foreground"
+                            }
+                          >
+                            {stats.filledSlots}/{stats.totalSlots} filled (
+                            {stats.fillPercentage}%)
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-500 ${
+                              stats.fillPercentage === 100
+                                ? "bg-[#60E1B1]"
+                                : stats.fillPercentage > 50
+                                ? "bg-[#3A76F0]"
+                                : "bg-[#FFC857]"
+                            }`}
+                            style={{ width: `${stats.fillPercentage}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Event Details */}
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <FaUsers className="w-4 h-4" />
+                          <span>{event.numParticipants} people</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <div className="w-4 h-4 bg-[#3A76F0]/10 rounded flex items-center justify-center">
+                            <span className="text-[10px] text-[#3A76F0]">
+                              {event.numGroups}
+                            </span>
+                          </div>
+                          <span>{event.numGroups} groups</span>
+                        </div>
+                      </div>
+
+                      {/* Roles */}
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Characteristics:
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {event.characteristics.map((char, idx) => (
+                            <div
+                              key={idx}
+                              className="bg-slate-100 text-xs px-2 py-1 rounded"
+                            >
+                              {char.name} ({char.count})
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          onClick={() => handleViewEvent(index)}
+                          className="flex-1 bg-[#3A76F0] hover:bg-[#2f5fc7]"
+                          size="sm"
+                        >
+                          <FaExternalLinkAlt className="w-4 h-4 mr-2" />
+                          View Details
+                        </Button>
+                        <Button
+                          onClick={() => copyJoinLink(event.groupingPurpose)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <FaLink className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
-      <PairingResults formValues={formValues} groups={groups} />
     </div>
   );
-};
-
-export default Home;
+}

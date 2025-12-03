@@ -1,0 +1,82 @@
+
+DevTools listening on ws://127.0.0.1:59033/devtools/browser/4156ebb9-4085-4d89-b36d-bbe8dbde7183
+
+===========================
+
+  (Run Starting)
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ Cypress:        15.7.0                                                                         │
+  │ Browser:        Electron 138 (headless)                                                        │
+  │ Node Version:   v20.17.0 (/Users/mac/.nvm/versions/node/v20.17.0/bin/node)                     │
+  │ Specs:          1 found (auth.cy.ts)                                                           │
+  │ Searched:       cypress/e2e/**/*.cy.{js,jsx,ts,tsx}                                            │
+  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                    
+  Running:  auth.cy.ts                                                                      (1 of 1)
+[26527:1202/180612.142647:ERROR:ui/gl/gl_display.cc:408] EGL Driver message (Error) eglQueryDeviceAttribEXT: Bad attribute.
+
+
+  Authentication Flow
+    ✓ should navigate to sign up page and show validation errors (2768ms)
+[26526:1202/180623.290972:ERROR:net/cert/internal/trust_store_mac.cc:817] Error parsing certificate:
+ERROR: Failed parsing extensions
+
+    1) should allow a user to sign up
+    ✓ should allow a user to sign in (2151ms)
+
+
+  2 passing (9s)
+  1 failing
+
+  1) Authentication Flow
+       should allow a user to sign up:
+     Error: No toast message appeared after sign up submission
+      at Context.eval (webpack://random-selection/./cypress/e2e/auth.cy.ts:50:19)
+      at getRet (http://localhost:5173/__cypress/runner/cypress_runner.js:122456:20)
+      at tryCatcher (http://localhost:5173/__cypress/runner/cypress_runner.js:1777:23)
+      at Promise.attempt.Promise.try (http://localhost:5173/__cypress/runner/cypress_runner.js:4285:29)
+      at Context.thenFn (http://localhost:5173/__cypress/runner/cypress_runner.js:122467:66)
+      at Context.then (http://localhost:5173/__cypress/runner/cypress_runner.js:122718:21)
+      at wrapped (http://localhost:5173/__cypress/runner/cypress_runner.js:145808:19)
+      at <unknown> (http://localhost:5173/__cypress/runner/cypress_runner.js:151755:15)
+      at tryCatcher (http://localhost:5173/__cypress/runner/cypress_runner.js:1777:23)
+
+
+
+
+  (Results)
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ Tests:        3                                                                                │
+  │ Passing:      2                                                                                │
+  │ Failing:      1                                                                                │
+  │ Pending:      0                                                                                │
+  │ Skipped:      0                                                                                │
+  │ Screenshots:  1                                                                                │
+  │ Video:        false                                                                            │
+  │ Duration:     8 seconds                                                                        │
+  │ Spec Ran:     auth.cy.ts                                                                       │
+  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+  (Screenshots)
+
+  -  /Users/mac/Desktop/me/random-selection/cypress/screenshots/auth.cy.ts/Authentica    (2560x1440)
+     tion Flow -- should allow a user to sign up (failed).png                                       
+
+
+===========================
+
+  (Run Finished)
+
+
+       Spec                                              Tests  Passing  Failing  Pending  Skipped  
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ ✖  auth.cy.ts                               00:08        3        2        1        -        - │
+  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+    ✖  1 of 1 failed (100%)                     00:08        3        2        1        -        -  
+
