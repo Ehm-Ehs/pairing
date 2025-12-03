@@ -1,0 +1,74 @@
+
+DevTools listening on ws://127.0.0.1:58111/devtools/browser/c5e2df10-a1a3-4c14-a96f-79aa6300cc7c
+
+===========================
+
+  (Run Starting)
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ Cypress:        15.7.0                                                                         │
+  │ Browser:        Electron 138 (headless)                                                        │
+  │ Node Version:   v20.17.0 (/Users/mac/.nvm/versions/node/v20.17.0/bin/node)                     │
+  │ Specs:          1 found (auth.cy.ts)                                                           │
+  │ Searched:       cypress/e2e/**/*.cy.{js,jsx,ts,tsx}                                            │
+  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                    
+  Running:  auth.cy.ts                                                                      (1 of 1)
+[23606:1202/180346.803440:ERROR:ui/gl/gl_display.cc:408] EGL Driver message (Error) eglQueryDeviceAttribEXT: Bad attribute.
+
+
+  Authentication Flow
+    ✓ should navigate to sign up page and show validation errors (1888ms)
+[23600:1202/180355.955739:ERROR:net/cert/internal/trust_store_mac.cc:817] Error parsing certificate:
+ERROR: Failed parsing extensions
+
+    1) should allow a user to sign up
+    ✓ should allow a user to sign in (2257ms)
+
+
+  2 passing (18s)
+  1 failing
+
+  1) Authentication Flow
+       should allow a user to sign up:
+     AssertionError: Timed out retrying after 10000ms: expected '<div.Toastify>' to contain 'Sign up successful!'
+      at Context.eval (webpack://random-selection/./cypress/e2e/auth.cy.ts:38:44)
+
+
+
+
+  (Results)
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ Tests:        3                                                                                │
+  │ Passing:      2                                                                                │
+  │ Failing:      1                                                                                │
+  │ Pending:      0                                                                                │
+  │ Skipped:      0                                                                                │
+  │ Screenshots:  1                                                                                │
+  │ Video:        false                                                                            │
+  │ Duration:     17 seconds                                                                       │
+  │ Spec Ran:     auth.cy.ts                                                                       │
+  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+  (Screenshots)
+
+  -  /Users/mac/Desktop/me/random-selection/cypress/screenshots/auth.cy.ts/Authentica    (2560x1440)
+     tion Flow -- should allow a user to sign up (failed).png                                       
+
+
+===========================
+
+  (Run Finished)
+
+
+       Spec                                              Tests  Passing  Failing  Pending  Skipped  
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ ✖  auth.cy.ts                               00:17        3        2        1        -        - │
+  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+    ✖  1 of 1 failed (100%)                     00:17        3        2        1        -        -  
+

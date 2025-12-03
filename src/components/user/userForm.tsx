@@ -1,20 +1,42 @@
 import { Formik, Form, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { editPairingValue } from "../api/endpoints";
+import { toast } from "react-toastify";
 
 // Function to decrypt userId (Base64 decoding example)
 const decryptData = (data: string): string => {
   return atob(data); // Base64 decode
 };
 
+interface PairingEntry {
+  id: string;
+  role: string;
+  name?: string;
+  email?: string;
+}
+
+interface FormData {
+  groupingPurpose: string | null;
+  numGroups: string | null;
+  numParticipants: string | null;
+  pairings: Record<string, PairingEntry[]>;
+}
+
+const initialValues = {
+  firstName: "",
+  lastName: "",
+  track: "",
+  email: "",
+};
+
 const ParticipantForm = () => {
   const location = useLocation();
-  const [formData, setFormData] = useState<any | null>(null);
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState<FormData | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [groupKey, setGroupKey] = useState<string | null>(null);
-  const [keyIndex, setKeyIndex] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
@@ -23,8 +45,15 @@ const ParticipantForm = () => {
     const encryptedUserId = queryParams.get("userId");
 
     if (encryptedUserId) {
-      const decryptedUserId = decryptData(encryptedUserId);
-      setUserId(decryptedUserId);
+      try {
+        const decryptedUserId = decryptData(encryptedUserId);
+        setUserId(decryptedUserId);
+      } catch (error) {
+        console.error("Failed to decrypt user ID:", error);
+        toast.error("Invalid link. Please ask the organizer for a new link.");
+      }
+    } else {
+      toast.error("Missing user ID in the link.");
     }
 
     try {
@@ -32,26 +61,6 @@ const ParticipantForm = () => {
         const parsedPairings = JSON.parse(decodeURIComponent(pairings));
         // Ensure that parsedPairings is an object
         if (typeof parsedPairings === "object" && parsedPairings !== null) {
-          const groupKeys = Object.keys(parsedPairings);
-
-          if (groupKeys.length > 0 && groupingPurpose) {
-            // Pick a random groupKey from available keys
-            const randomGroupKey =
-              groupKeys[Math.floor(Math.random() * groupKeys.length)];
-            setGroupKey(randomGroupKey);
-
-            // Find a suitable keyIndex
-            const group = parsedPairings[randomGroupKey];
-            const track = initialValues.track;
-            const index = group.findIndex(
-              (entry: any) => entry.role === track && !entry.name
-            );
-
-            if (index !== -1) {
-              setKeyIndex(index);
-            }
-          }
-
           setFormData({
             groupingPurpose,
             numGroups: queryParams.get("numGroups"),
@@ -59,18 +68,16 @@ const ParticipantForm = () => {
             pairings: parsedPairings,
           });
         }
+      } else {
+        toast.error("Missing pairing data in the link.");
       }
     } catch (error) {
       console.error("Failed to parse pairings:", error);
+      toast.error(
+        "Invalid pairing data. Please ask the organizer for a new link."
+      );
     }
   }, [location.search]);
-
-  const initialValues = {
-    firstName: "",
-    lastName: "",
-    track: "",
-    email: "",
-  };
 
   const validationSchema = Yup.object({
     firstName: Yup.string().required("First name is required"),
@@ -82,135 +89,196 @@ const ParticipantForm = () => {
   });
 
   const handleSubmit = async (values: typeof initialValues) => {
-    if (formData && userId) {
-      const { pairings, groupingPurpose } = formData;
-      const track = values.track;
+    if (!formData || !userId) {
+      toast.error("Missing form data or user ID. Cannot submit.");
+      return;
+    }
 
-      if (pairings && groupKey !== null && keyIndex !== null) {
-        // Select the group key based on groupingPurpose if available
-        const selectedGroupKey = groupKey || Object.keys(pairings)[0]; // Default to the first group key if groupKey is not set
+    setLoading(true);
+    const { pairings, groupingPurpose } = formData;
+    const track = values.track;
 
-        const group = pairings[selectedGroupKey];
-        const index = group.findIndex(
-          (entry: any) => entry.role === track && !entry.name
+    try {
+      // Find a group that has an empty slot for the requested track
+      let selectedGroupKey: string | null = null;
+      let index = -1;
+      let id: string | null = null;
+
+      // Iterate through all groups to find an available slot
+      const groupKeys = Object.keys(pairings);
+      // Shuffle keys to distribute randomly if multiple slots exist (optional, but good for fairness)
+      groupKeys.sort(() => Math.random() - 0.5);
+
+      for (const key of groupKeys) {
+        const group = pairings[key];
+        const foundIndex = group.findIndex(
+          (entry: PairingEntry) =>
+            entry.role.toLowerCase() === track.toLowerCase() && !entry.name
         );
-        const id = index !== -1 ? group[index].id : null;
-        if (index !== -1) {
-          const newValue = {
-            name: `${values.firstName} ${values.lastName}`,
-            track: values.track,
-            email: values.email,
-          };
 
-          console.log({ selectedGroupKey }, { group }, { index }, { id });
-          await editPairingValue(
-            userId,
-            groupingPurpose,
-            selectedGroupKey,
-            index,
-            id,
-            newValue
-          );
-        } else {
-          console.error("No matching entry found for the track:", track);
+        if (foundIndex !== -1) {
+          selectedGroupKey = key;
+          index = foundIndex;
+          id = group[foundIndex].id;
+          break; // Found a slot, stop searching
         }
+      }
+
+      if (selectedGroupKey && index !== -1 && id && groupingPurpose) {
+        const newValue = {
+          name: `${values.firstName} ${values.lastName}`,
+          track: values.track,
+          email: values.email,
+        };
+
+        await editPairingValue(
+          userId,
+          groupingPurpose,
+          selectedGroupKey,
+          index,
+          id,
+          newValue
+        );
+
+        toast.success("Successfully registered!");
+        // Redirect after a short delay
+        setTimeout(() => {
+          navigate("/"); // Or wherever you want to send them
+        }, 2000);
       } else {
-        console.error(
-          "Pairings data is missing or groupKey/keyIndex is not set."
+        console.error("No matching entry found for the track:", track);
+        toast.error(
+          `No available slot found for the track: ${track}. Please check with the organizer.`
         );
       }
-    } else {
-      console.error("Form data or user ID is missing.");
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      toast.error("An error occurred while submitting. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col justify-center items-center p-6 rounded-lg">
-      <h1 className="text-2xl mb-4">Participant Form</h1>
-      <Formik
-        initialValues={initialValues}
-        validationSchema={validationSchema}
-        onSubmit={handleSubmit}
-      >
-        {({ values, handleChange, handleBlur }) => (
-          <Form className="flex flex-col gap-4">
-            <div>
-              <input
-                type="text"
-                id="firstName"
-                name="firstName"
-                placeholder="Enter your first name"
-                className="p-2 w-[350px] bg-transparent border rounded"
-                value={values.firstName}
-                onChange={handleChange}
-                onBlur={handleBlur}
-              />
-              <ErrorMessage
-                name="firstName"
-                component="div"
-                className="text-red-500"
-              />
-            </div>
-            <div>
-              <input
-                type="text"
-                id="lastName"
-                name="lastName"
-                placeholder="Enter your last name"
-                className="p-2 w-[350px] bg-transparent border rounded"
-                value={values.lastName}
-                onChange={handleChange}
-                onBlur={handleBlur}
-              />
-              <ErrorMessage
-                name="lastName"
-                component="div"
-                className="text-red-500"
-              />
-            </div>
-            <div>
-              <input
-                type="text"
-                id="track"
-                name="track"
-                placeholder="Enter your track"
-                className="p-2 w-[350px] bg-transparent border rounded"
-                value={values.track}
-                onChange={handleChange}
-                onBlur={handleBlur}
-              />
-              <ErrorMessage
-                name="track"
-                component="div"
-                className="text-red-500"
-              />
-            </div>
-            <div>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                placeholder="Enter your email"
-                className="p-2 w-[350px] bg-transparent border rounded"
-                value={values.email}
-                onChange={handleChange}
-                onBlur={handleBlur}
-              />
-              <ErrorMessage
-                name="email"
-                component="div"
-                className="text-red-500"
-              />
-            </div>
-            <button
-              type="submit"
-              className="bg-blue-700 text-white p-2 rounded hover:bg-blue-800"
-            >
-              Submit
-            </button>
-          </Form>
-        )}
-      </Formik>
+    <div className="flex flex-col justify-center items-center p-6 rounded-lg min-h-screen bg-gray-50">
+      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+        <h1 className="text-2xl font-bold mb-6 text-center">
+          Participant Registration
+        </h1>
+        <Formik
+          initialValues={initialValues}
+          validationSchema={validationSchema}
+          onSubmit={handleSubmit}
+        >
+          {({ values, handleChange, handleBlur }) => (
+            <Form className="flex flex-col gap-4">
+              <div>
+                <label
+                  htmlFor="firstName"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  id="firstName"
+                  name="firstName"
+                  placeholder="Enter your first name"
+                  className="p-2 w-full bg-transparent border rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  value={values.firstName}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                />
+                <ErrorMessage
+                  name="firstName"
+                  component="div"
+                  className="text-red-500 text-sm mt-1"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="lastName"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  id="lastName"
+                  name="lastName"
+                  placeholder="Enter your last name"
+                  className="p-2 w-full bg-transparent border rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  value={values.lastName}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                />
+                <ErrorMessage
+                  name="lastName"
+                  component="div"
+                  className="text-red-500 text-sm mt-1"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="track"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Track / Role
+                </label>
+                <input
+                  type="text"
+                  id="track"
+                  name="track"
+                  placeholder="e.g. Designer, Developer"
+                  className="p-2 w-full bg-transparent border rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  value={values.track}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                />
+                <ErrorMessage
+                  name="track"
+                  component="div"
+                  className="text-red-500 text-sm mt-1"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Email
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  placeholder="Enter your email"
+                  className="p-2 w-full bg-transparent border rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  value={values.email}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                />
+                <ErrorMessage
+                  name="email"
+                  component="div"
+                  className="text-red-500 text-sm mt-1"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className={`mt-4 p-2 rounded text-white font-medium transition-colors ${
+                  loading
+                    ? "bg-blue-400 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
+              >
+                {loading ? "Submitting..." : "Submit"}
+              </button>
+            </Form>
+          )}
+        </Formik>
+      </div>
     </div>
   );
 };

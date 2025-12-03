@@ -1,4 +1,5 @@
 function Error() {
+  console.log("Error component rendered");
   return <div>Error</div>;
 }
 

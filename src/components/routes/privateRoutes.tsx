@@ -8,8 +8,9 @@ const ProtectedRoute = () => {
   const user = isAuthenticated
     ? JSON.parse(localStorage.getItem("user") || "{}")
     : null;
-  console.log("sssssss", user);
+  console.log("ProtectedRoute check:", { isAuthenticated, user });
   if (!isAuthenticated || !user) {
+    console.log("Redirecting to login...");
     return <Navigate to="/login" state={{ from: location }} />;
   }
 
