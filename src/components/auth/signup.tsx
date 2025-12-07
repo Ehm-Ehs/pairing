@@ -109,7 +109,7 @@ const Signup = () => {
           }) => (
             <Form
               onSubmit={handleSubmit}
-              className="flex flex-col gap-4 bg-white pt-5 pb-10 px-10 mt-5 rounded shadow-xl"
+              className="flex flex-col gap-4 bg-white pt-5 pb-10 px-6 md:px-10 mt-5 rounded shadow-xl w-full max-w-md mx-4"
             >
               {" "}
               <div className="text-black text-2xl mb-6 text-center">
@@ -123,7 +123,7 @@ const Signup = () => {
                   type="text"
                   name="firstName"
                   placeholder="First Name"
-                  className="p-2 w-full max-w-[350px] bg-transparent border rounded"
+                  className="p-2 w-full bg-transparent border rounded"
                   value={values.firstName}
                   onChange={handleChange}
                   onBlur={handleBlur}
@@ -137,7 +137,7 @@ const Signup = () => {
                   type="text"
                   name="lastName"
                   placeholder="Last Name"
-                  className="p-2 w-full max-w-[350px] bg-transparent border rounded"
+                  className="p-2 w-full bg-transparent border rounded"
                   value={values.lastName}
                   onChange={handleChange}
                   onBlur={handleBlur}
@@ -151,7 +151,7 @@ const Signup = () => {
                   type="email"
                   name="email"
                   placeholder="Email"
-                  className="p-2 w-full max-w-[350px] bg-transparent border rounded"
+                  className="p-2 w-full bg-transparent border rounded"
                   value={values.email}
                   onChange={handleChange}
                   onBlur={handleBlur}
@@ -166,7 +166,7 @@ const Signup = () => {
                     type={showPassword ? "text" : "password"}
                     name="password"
                     placeholder="Password"
-                    className="p-2 w-full max-w-[350px] bg-transparent border rounded pr-10"
+                    className="p-2 w-full bg-transparent border rounded pr-10"
                     value={values.password}
                     onChange={handleChange}
                     onBlur={handleBlur}
@@ -188,7 +188,7 @@ const Signup = () => {
                     type={showConfirmPassword ? "text" : "password"}
                     name="confirmPassword"
                     placeholder="Confirm Password"
-                    className="p-2 w-full max-w-[350px] bg-transparent border rounded pr-10"
+                    className="p-2 w-full bg-transparent border rounded pr-10"
                     value={values.confirmPassword}
                     onChange={handleChange}
                     onBlur={handleBlur}

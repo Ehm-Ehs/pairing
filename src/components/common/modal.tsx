@@ -1,5 +1,5 @@
 import React from "react";
-import { Button } from "./button";
+
 import {
   Card,
   CardContent,
@@ -42,10 +42,18 @@ export const Modal: React.FC<ModalProps> = ({
           <CardContent>
             {children}
             <div className="flex justify-end gap-4 mt-6">
-              <Button variant="outline" onClick={onClose}>
+              <div
+                className="p-2 border border-gray-300 rounded bg-red-400 cursor-pointer "
+                onClick={onClose}
+              >
                 {cancelText}
-              </Button>
-              <Button onClick={onConfirm}>{confirmText}</Button>
+              </div>
+              <div
+                className="p-2 border border-gray-300 rounded bg-green-400 cursor-pointer"
+                onClick={onConfirm}
+              >
+                {confirmText}
+              </div>
             </div>
           </CardContent>
         </Card>

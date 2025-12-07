@@ -1,9 +1,4 @@
-import {
-  doc,
-  getDoc,
-  updateDoc,
-  arrayUnion,
-} from "firebase/firestore";
+import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import Auth from "./auth.module";
 
@@ -11,6 +6,7 @@ export interface FormValues {
   numParticipants: string;
   numGroups: string;
   characteristics: { name: string; count: string }[];
+  characteristicsLabel?: string;
   groups: {
     [key: number]: {
       id: string;
@@ -35,27 +31,27 @@ export const fetchUserData = async (
             if (docSnap.exists()) {
               setUserDetails(docSnap.data());
               console.log("doc", docSnap.data());
-              resolve(); 
+              resolve();
             } else {
               console.log("No user data found in Firestore");
-              setUserDetails(null); 
-              resolve(); 
+              setUserDetails(null);
+              resolve();
             }
           } catch (error) {
             console.error("Error fetching user data:", error);
-            reject(error); 
+            reject(error);
           }
         } else {
           console.log("No user is logged in");
           Auth.deAuthenticateUser();
           setUserDetails(null);
-          resolve(); 
+          resolve();
         }
       });
     } else {
       console.log("User is not authenticated");
-      setUserDetails(null); 
-      resolve(); 
+      setUserDetails(null);
+      resolve();
     }
   });
 };
@@ -73,7 +69,6 @@ export async function addPairing(userId: string, pairingData: FormValues) {
     console.error("Error adding pairing:", error);
   }
 }
-
 
 export async function editPairingValue(
   userId: string,
@@ -103,30 +98,30 @@ export async function editPairingValue(
         // Check if the group exists
         if (groups && groups[groupKey]) {
           const group = groups[groupKey];
-          
+
           // Find the participant in the group
-          // We can use keyIndex if it corresponds to the array index, 
+          // We can use keyIndex if it corresponds to the array index,
           // but checking ID is safer if the array order might have changed (though unlikely if we just read it)
           // Let's use the ID to be sure, or keyIndex if ID check fails/is redundant.
           // The previous logic passed keyIndex which was found via findIndex.
-          
+
           const participantIndex = group.findIndex((p: any) => p.id === id);
 
           if (participantIndex !== -1) {
-             // Update the participant
-             group[participantIndex] = {
-               ...group[participantIndex],
-               ...newValue
-             };
+            // Update the participant
+            group[participantIndex] = {
+              ...group[participantIndex],
+              ...newValue,
+            };
 
-             // Update the pairings array in the local copy
-             pairings[pairingIndex] = pairing;
+            // Update the pairings array in the local copy
+            pairings[pairingIndex] = pairing;
 
-             // Write back to Firestore
-             await updateDoc(userRef, {
-               pairings: pairings
-             });
-             console.log("Pairing updated successfully!");
+            // Write back to Firestore
+            await updateDoc(userRef, {
+              pairings: pairings,
+            });
+            console.log("Pairing updated successfully!");
           } else {
             console.error("Participant not found in group.");
           }
@@ -143,9 +138,6 @@ export async function editPairingValue(
     console.error("Error updating pairing value:", error);
   }
 }
-
-
-
 
 // export async function editPairingValue(
 //   userId: string,

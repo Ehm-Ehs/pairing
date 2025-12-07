@@ -1,4 +1,3 @@
-
 import { Formik, Form, Field } from "formik";
 import * as Yup from "yup";
 import { signInWithEmailAndPassword } from "firebase/auth";
@@ -69,7 +68,7 @@ const SignIn = () => {
         onSubmit={handleSubmit}
       >
         {({ errors, touched }) => (
-          <Form className="flex flex-col gap-4 bg-white pt-5 pb-10 px-10 mt-5 rounded shadow-xl">
+          <Form className="flex flex-col gap-4 bg-white pt-5 pb-10 px-6 md:px-10 mt-5 rounded shadow-xl w-full max-w-md mx-4">
             <div className="text-black text-2xl mb-6 text-center">
               <p className="text-2xl pb-2 font-medium">Login</p>
               <p className="text-sm">
@@ -81,7 +80,7 @@ const SignIn = () => {
                 type="email"
                 name="email"
                 placeholder="Email"
-                className="p-2 w-full max-w-[350px] bg-transparent border rounded"
+                className="p-2 w-full bg-transparent border rounded"
               />
               {errors.email && touched.email ? (
                 <div className="text-red-500">{errors.email}</div>
@@ -92,7 +91,7 @@ const SignIn = () => {
                 type="password"
                 name="password"
                 placeholder="Password"
-                className="p-2 w-full max-w-[350px] bg-transparent border rounded"
+                className="p-2 w-full bg-transparent border rounded"
               />
               {errors.password && touched.password ? (
                 <div className="text-red-500">{errors.password}</div>
