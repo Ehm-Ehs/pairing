@@ -16,6 +16,7 @@ interface FormValues {
   numGroups: string;
   groupingPurpose: string;
   characteristics: Characteristic[];
+  characteristicsLabel: string;
 }
 
 import { Modal } from "../common/modal";
@@ -25,6 +26,7 @@ const CreateParing: React.FC = () => {
     numParticipants: "",
     numGroups: "",
     groupingPurpose: "",
+    characteristicsLabel: "",
     characteristics: [{ name: "", count: "" }],
   });
 
@@ -212,6 +214,7 @@ const CreateParing: React.FC = () => {
   // ... existing code
 
   const handleSubmitPairings = async (formValues: FormValues, groups: any) => {
+    console.log({ formValues, groups });
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const userId = user.uid;
 
@@ -237,7 +240,7 @@ const CreateParing: React.FC = () => {
   };
 
   return (
-    <div className=" h-screen flex justify-center gap-20 md:py-16 md:px-8 p-4 bg-gradient-to-br from-blue-50 to-indigo-50">
+    <div className="min-h-screen flex flex-col md:flex-row justify-center gap-8 md:gap-20 md:py-16 md:px-8 p-4 bg-gradient-to-br from-blue-50 to-indigo-50">
       <div className="flex flex-col justify-center items-center ">
         <div className="flex flex-col pb-10 p-10  border rounded shadow-lg bg-white">
           <FormComponent

@@ -75,7 +75,9 @@ const Result = ({ data }: ResultProps) => {
       pairing.groupingPurpose
     )}&numGroups=${pairing.numGroups}&numParticipants=${
       pairing.numParticipants
-    }&pairings=${serializedPairings}`;
+    }&characteristicsLabel=${encodeURIComponent(
+      pairing.characteristicsLabel || ""
+    )}&pairings=${serializedPairings}`;
 
     if (isShortened) {
       setIsLoadingLink(actualIndex);
@@ -111,7 +113,9 @@ const Result = ({ data }: ResultProps) => {
       pairing.groupingPurpose
     )}&numGroups=${pairing.numGroups}&numParticipants=${
       pairing.numParticipants
-    }&pairings=${serializedPairings}&userId=${encryptedUserId}`;
+    }&characteristicsLabel=${encodeURIComponent(
+      pairing.characteristicsLabel || ""
+    )}&pairings=${serializedPairings}&userId=${encryptedUserId}`;
 
     if (isShortened) {
       setIsLoadingForm(actualIndex);
@@ -147,13 +151,12 @@ const Result = ({ data }: ResultProps) => {
           </h1>
           <p className="text-muted-foreground mt-1">{data.email}</p>
           {selectedIndex !== null && (
-            <Button
+            <div
               onClick={() => window.history.back()}
-              variant="ghost"
-              className="mt-4"
+              className="mt-4 cursor-pointer"
             >
               Back to All Events
-            </Button>
+            </div>
           )}
         </div>
 

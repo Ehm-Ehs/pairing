@@ -87,14 +87,15 @@ export default function Home({ data }: HomeProps) {
                 Manage your events and track participant progress
               </p>
             </div>
-            <Button
+            <div
               onClick={handleCreateNew}
-              size="lg"
-              className="bg-[#3A76F0] hover:bg-[#2f5fc7]"
+              className="bg-[#3A76F0] hover:bg-[#2f5fc7] p-2 rounded-lg flex items-center cursor-pointer"
             >
               <FaPlus className="w-5 h-5 mr-2" />
-              Create New Event
-            </Button>
+              <p className="hidden sm:block text-sm font-medium">
+                Create New Event
+              </p>
+            </div>
           </div>
         </div>
       </header>
@@ -273,19 +274,18 @@ export default function Home({ data }: HomeProps) {
                       <div className="flex gap-2 pt-2">
                         <Button
                           onClick={() => handleViewEvent(index)}
-                          className="flex-1 bg-[#3A76F0] hover:bg-[#2f5fc7]"
+                          className="flex-1 bg-[#3A76F0] hover:bg-[#2f5fc7] text-white"
                           size="sm"
                         >
                           <FaExternalLinkAlt className="w-4 h-4 mr-2" />
                           View Details
                         </Button>
-                        <Button
+                        <div
                           onClick={() => copyJoinLink(event.groupingPurpose)}
-                          variant="outline"
-                          size="sm"
+                          className="flex items-center justify-center bg-slate-100 text-xs px-2 py-1 rounded"
                         >
                           <FaLink className="w-4 h-4" />
-                        </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

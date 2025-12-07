@@ -22,6 +22,7 @@ interface FormData {
   numGroups: string | null;
   numParticipants: string | null;
   pairings: Record<string, PairingEntry[]>;
+  characteristicsLabel?: string;
 }
 
 const initialValues = {
@@ -66,6 +67,7 @@ const ParticipantForm = () => {
             numGroups: queryParams.get("numGroups"),
             numParticipants: queryParams.get("numParticipants"),
             pairings: parsedPairings,
+            characteristicsLabel: queryParams.get("characteristicsLabel") || "",
           });
         }
       } else {
@@ -161,7 +163,7 @@ const ParticipantForm = () => {
 
   return (
     <div className="flex flex-col justify-center items-center p-6 rounded-lg min-h-screen bg-gray-50">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+      <div className="bg-white px-6 py-8 md:p-8 rounded-lg shadow-md w-full max-w-md">
         <h1 className="text-2xl font-bold mb-6 text-center">
           Participant Registration
         </h1>
@@ -223,13 +225,20 @@ const ParticipantForm = () => {
                   htmlFor="track"
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
-                  Track / Role
+                  {formData?.characteristicsLabel
+                    ? formData.characteristicsLabel.charAt(0).toUpperCase() +
+                      formData.characteristicsLabel.slice(1)
+                    : "Track / Role"}
                 </label>
                 <input
                   type="text"
                   id="track"
                   name="track"
-                  placeholder="e.g. Designer, Developer"
+                  placeholder={`e.g. ${
+                    formData?.characteristicsLabel
+                      ? formData.characteristicsLabel
+                      : "Designer, Developer"
+                  }`}
                   className="p-2 w-full bg-transparent border rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   value={values.track}
                   onChange={handleChange}

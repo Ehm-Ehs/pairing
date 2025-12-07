@@ -8,7 +8,9 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Error from "./components/nav/error";
 import { useState, useEffect } from "react";
-import { fetchUserData } from "./components/api/endpoints";
+import { auth, db } from "./components/api/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 import ProtectedRoute from "./components/routes/privateRoutes";
 import Layout from "./components/nav/layout";
 import Result from "./components/result";
@@ -36,17 +38,27 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        await fetchUserData(setUser); // Pass setUser as setUserDetails
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-        setUser(null); // Set user to null in case of error
-      } finally {
-        setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        try {
+          const docRef = doc(db, "Users", currentUser.uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            setUser(docSnap.data() as GroupingsPageProps);
+          } else {
+            setUser(null);
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+          setUser(null);
+        }
+      } else {
+        setUser(null);
       }
-    };
-    fetchUser();
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const getLoadingContext = (pathname: string) => {

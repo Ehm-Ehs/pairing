@@ -1,4 +1,5 @@
 /* eslint-disable no-irregular-whitespace */
+import { useState } from "react";
 import { TypeAnimation } from "react-type-animation";
 import { Link } from "react-router-dom";
 import Logo from "../../assets/logo";
@@ -14,13 +15,16 @@ import {
   FaLock,
   FaCheckCircle,
   FaUserSecret,
-  FaEye,
   FaDice,
   FaFileExcel,
+  FaBars,
+  FaTimes,
 } from "react-icons/fa";
 import { Button } from "../common/button";
 
 const LandingPage = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   const scrollToHowItWorks = () => {
     const element = document.getElementById("how-it-works");
     element?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -76,10 +80,7 @@ const LandingPage = () => {
       title: "Last-minute changes",
       icon: <FaSync className="text-3xl mb-2 text-red-500" />,
     },
-    {
-      title: "Accidental reveals",
-      icon: <FaEye className="text-3xl mb-2 text-red-500" />,
-    },
+
     {
       title: "Manual name drawing chaos",
       icon: <FaDice className="text-3xl mb-2 text-red-500" />,
@@ -164,7 +165,7 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen bg-white text-gray-900 font-sans">
       {/* Navigation */}
-      <nav className="flex items-center justify-between px-4 py-4 md:px-6 max-w-7xl mx-auto">
+      <nav className="relative flex items-center justify-between px-4 py-4 md:px-6 max-w-7xl mx-auto z-50">
         <Link to="/home">
           <div className="flex items-center gap-2 py-5">
             <div className="w-10 h-10">
@@ -173,7 +174,9 @@ const LandingPage = () => {
             <p className="pt-3 font-semibold text-black">Pair Form</p>
           </div>
         </Link>
-        <div className="flex gap-2 md:gap-4">
+
+        {/* Desktop Menu */}
+        <div className="hidden md:flex gap-2 md:gap-4">
           <Link
             to="/login"
             className="px-3 py-2 md:px-4 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
@@ -187,41 +190,76 @@ const LandingPage = () => {
             Sign up
           </Link>
         </div>
+
+        {/* Mobile Menu Button */}
+        <div
+          className="md:hidden text-gray-600 focus:outline-none p-2"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+        >
+          {isMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
+        </div>
+
+        {/* Mobile Menu Dropdown */}
+        {isMenuOpen && (
+          <div className="absolute top-full left-0 right-0 bg-white shadow-lg rounded-b-lg border-t border-gray-100 p-4 flex flex-col gap-4 md:hidden animate-in slide-in-from-top-2">
+            <Link
+              to="/login"
+              className="px-4 py-3 text-center text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Log in
+            </Link>
+            <Link
+              to="/sign-up"
+              className="px-4 py-3 text-center text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Sign up
+            </Link>
+          </div>
+        )}
       </nav>
 
       {/* Hero Section */}
-      <main className="flex flex-col items-center justify-center text-center px-4 mt-12 mb-20 md:mt-20 md:mb-32">
+      <main className="flex flex-col  sm:items-center sm:justify-center sm:text-center px-4 mt-12 mb-20 md:mt-20 md:mb-32">
         <div className="inline-flex items-center px-3 py-1 rounded-full border border-blue-100 bg-blue-50 text-blue-600 text-xs font-medium mb-8">
           <span className="flex w-2 h-2 bg-blue-600 rounded-full mr-2"></span>
           Smart automation for balanced groups
         </div>
-        <h1 className="text-4xl md:text-7xl font-extrabold tracking-tight text-gray-900 mb-6 max-w-4xl">
+        <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-gray-900 mb-6 max-w-4xl">
           Pairing formation, <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
             perfected.
           </span>
         </h1>
-        <p className="text-xl text-gray-600 max-w-2xl mb-10 leading-relaxed">
+        <p className="hidden sm:block text-xl text-gray-600 max-w-2xl mb-10 leading-relaxed">
           Effortlessly organize workshops, classes, and events. Create Balanced
           Groups in Minutes No spreadsheets. No chaos. Just seamless, automated
           team formation with role balancing built in seconds, not hours.
         </p>
+        <p className="block sm:hidden text-xl text-gray-600 max-w-2xl mb-10 leading-relaxed">
+          Create Balanced Groups in Minutes No spreadsheets. No chaos. Just
+          seamless, automated team formation with role balancing built in
+          seconds, not hours.
+        </p>
 
         {/* Stats */}
-        <div className="flex items-center gap-8 pt-4 mb-10">
+        <div className="flex gap-2 md:flex-row items-center md:gap-8 pt-4 mb-10">
           {stats.map((stat, index) => (
-            <div key={index} className="flex items-center">
+            <div
+              key={index}
+              className={`flex items-center ${
+                index !== 0 ? "border-l border-gray-200 pl-4 md:pl-8" : ""
+              }`}
+            >
               <div>
-                <div className="text-2xl flex items-center gap-2">
+                <div className="sm:text-2xl text-xl flex items-center gap-2">
                   {stat.value}
                 </div>
                 <div className="text-sm text-muted-foreground">
                   {stat.label}
                 </div>
               </div>
-              {index < stats.length - 1 && (
-                <div className="w-px h-12 bg-border ml-8" />
-              )}
             </div>
           ))}
         </div>
@@ -251,20 +289,20 @@ const LandingPage = () => {
         <div className="flex flex-col w-full sm:w-auto sm:flex-row gap-4">
           <Link
             to="/sign-up"
-            className="px-8 py-4 text-lg font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            className="sm:px-8 sm:py-4 px-4 py-2 text-lg font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
           >
             Create Balanced Pairings
           </Link>
-          <button
-            className="px-8 py-4 text-lg font-semibold text-gray-700 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-all"
+          <div
+            className="sm:px-8 text-center sm:py-4 px-4 py-2 text-lg font-semibold text-gray-700 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-all"
             onClick={scrollToHowItWorks}
           >
             See How It Works
-          </button>
+          </div>
         </div>
       </main>
 
-      <section className="py-20 bg-white">
+      <section className="sm:py-20 py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-5xl mx-auto text-center space-y-6">
             <h2 className="text-4xl md:text-7xl font-medium text-gray-900 mb-6 ">
@@ -275,11 +313,11 @@ const LandingPage = () => {
               roles, distributing participants evenly, and updating assignments
               as people join is slow, error-prone, and chaotic.
             </p>
-            <div className="flex gap-6 pt-8">
+            <div className="flex flex-wrap justify-center gap-6 pt-8">
               {painPoints.map((point, index) => (
                 <Card
                   key={index}
-                  className="border-destructive/20 bg-destructive/5"
+                  className="border-destructive/20 bg-destructive/5 w-56 sm:w-fit h-full"
                 >
                   <CardContent className=" flex flex-col pt-6 text-center items-center">
                     {point.icon}
@@ -347,7 +385,7 @@ const LandingPage = () => {
               Powerful features that make Pairing effortless
             </p>
           </div>
-          <div className="flex gap-8 md:gap-12">
+          <div className="flex flex-col md:flex-row gap-8 md:gap-12">
             {features.map((feature, index) => (
               <div
                 key={index}
@@ -379,7 +417,10 @@ const LandingPage = () => {
           </div>
           <div className="grid md:grid-cols-2 gap-8 lg:gap-12 max-w-5xl mx-auto">
             {steps.map((step, index) => (
-              <div key={index} className="flex gap-6">
+              <div
+                key={index}
+                className="flex flex-col md:flex-row gap-6 items-center md:items-start text-center md:text-left"
+              >
                 <div className="flex-shrink-0 w-12 h-12 bg-[#3A76F0] rounded-xl flex items-center justify-center">
                   <span className="text-white font-bold">{index + 1}</span>
                 </div>
