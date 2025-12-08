@@ -10,7 +10,7 @@ import Error from "./components/nav/error";
 import { useState, useEffect } from "react";
 import { auth, db } from "./components/api/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, DocumentSnapshot } from "firebase/firestore";
 import ProtectedRoute from "./components/routes/privateRoutes";
 import Layout from "./components/nav/layout";
 import Result from "./components/result";
@@ -38,27 +38,45 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    let unsubscribeSnapshot: () => void;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
-        try {
-          const docRef = doc(db, "Users", currentUser.uid);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            setUser(docSnap.data() as GroupingsPageProps);
-          } else {
+        // User is signed in, listen to their document
+        const docRef = doc(db, "Users", currentUser.uid);
+        unsubscribeSnapshot = onSnapshot(
+          docRef,
+          (docSnap: DocumentSnapshot) => {
+            if (docSnap.exists()) {
+              setUser(docSnap.data() as GroupingsPageProps);
+            } else {
+              console.log("No user data found yet");
+              setUser(null);
+            }
+            setLoading(false);
+          },
+          (error: Error) => {
+            console.error("Error fetching user data:", error);
             setUser(null);
+            setLoading(false);
           }
-        } catch (error) {
-          console.error("Error fetching user data:", error);
-          setUser(null);
-        }
+        );
       } else {
+        // User is signed out
         setUser(null);
+        setLoading(false);
+        if (unsubscribeSnapshot) {
+          unsubscribeSnapshot();
+        }
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+      }
+    };
   }, []);
 
   const getLoadingContext = (pathname: string) => {
