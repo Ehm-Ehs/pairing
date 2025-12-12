@@ -242,7 +242,7 @@ const CreateParing: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col md:flex-row justify-center gap-8 md:gap-20 md:py-16 md:px-8 p-4 bg-gradient-to-br from-blue-50 to-indigo-50">
       <div className="flex flex-col justify-center items-center ">
-        <div className="flex flex-col pb-10 p-10  border rounded shadow-lg bg-white">
+        <div className="flex flex-col p-6 md:p-10 border rounded shadow-lg bg-white w-full">
           <FormComponent
             initialValues={formValues}
             validationSchema={validationSchema}

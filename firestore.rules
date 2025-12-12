@@ -14,6 +14,12 @@ service cloud.firestore {
       allow update: if (request.auth != null && request.auth.uid == userId) || 
                    (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pairings']));
     }
+
+    // Allow creation of emails for notifications (requires triggers extension)
+    // allowing public create because participants (unauthenticated) need to trigger emails
+    match /mail/{emailId} {
+      allow create: if true;
+    }
     
     // Default deny
     match /{document=**} {

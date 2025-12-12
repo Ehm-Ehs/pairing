@@ -142,6 +142,49 @@ const ParticipantForm = () => {
           newValue
         );
 
+        // 1. Notify the new participant
+        if (values.email) {
+          import("../api/email").then(({ sendEmail }) => {
+            sendEmail({
+              to: values.email,
+              subject: `You're in Group ${selectedGroupKey?.replace(
+                "Group ",
+                ""
+              )}! 🎉`,
+              templateParams: {
+                user_name: values.firstName,
+                group_name: selectedGroupKey,
+                track: values.track,
+                site_url: window.location.origin,
+              },
+            });
+          });
+        }
+
+        // 2. Notify existing group members
+        const groupMembers = pairings[selectedGroupKey] || [];
+        const existingMembersEmails = groupMembers
+          .filter(
+            (m: PairingEntry) => m.email && m.email !== values.email && m.name
+          )
+          .map((m: PairingEntry) => m.email!);
+
+        if (existingMembersEmails.length > 0) {
+          import("../api/email").then(({ sendEmail }) => {
+            sendEmail({
+              to: existingMembersEmails,
+              subject: `New Member Joined ${selectedGroupKey}! 👋`,
+              templateParams: {
+                user_name: "Team", // Addressing the group
+                new_member_name: `${values.firstName} ${values.lastName}`,
+                group_name: selectedGroupKey,
+                track: values.track,
+                site_url: window.location.origin,
+              },
+            });
+          });
+        }
+
         toast.success("Successfully registered!");
         // Redirect after a short delay
         setTimeout(() => {
@@ -162,8 +205,8 @@ const ParticipantForm = () => {
   };
 
   return (
-    <div className="flex flex-col justify-center items-center p-6 rounded-lg min-h-screen bg-gray-50">
-      <div className="bg-white px-6 py-8 md:p-8 rounded-lg shadow-md w-full max-w-md">
+    <div className="flex flex-col justify-center items-center p-4 rounded-lg min-h-screen bg-gray-50">
+      <div className="bg-white p-6 md:p-10 rounded-lg shadow-md w-full max-w-md">
         <h1 className="text-2xl font-bold mb-6 text-center">
           Participant Registration
         </h1>
