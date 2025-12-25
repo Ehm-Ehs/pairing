@@ -56,7 +56,13 @@ const Signup = () => {
 
       const accessToken = await user.getIdToken();
       if (accessToken && user) {
-        Auth.authenticateUser({ accessToken, data: user });
+        const userToStore = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+        };
+        Auth.authenticateUser({ accessToken, data: userToStore });
         toast.success("Sign up successful!", {
           position: "top-center",
           autoClose: 3000,
@@ -94,7 +100,13 @@ const Signup = () => {
       const accessToken = await user.getIdToken();
 
       if (accessToken && user) {
-        Auth.authenticateUser({ accessToken, data: user });
+        const userToStore = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+        };
+        Auth.authenticateUser({ accessToken, data: userToStore });
 
         // Include the userId in the Firestore document
         await setDoc(doc(db, "Users", user.uid), {
@@ -141,7 +153,7 @@ const Signup = () => {
         <div className="w-10 h-10">
           <Logo />
         </div>
-        <p className="pt-3 font-semibold">Pairing</p>
+        <p className="pt-3 font-semibold">Pair Form </p>
       </div>
       <div>
         <Formik

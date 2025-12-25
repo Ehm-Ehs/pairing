@@ -13,11 +13,13 @@ import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot, DocumentSnapshot } from "firebase/firestore";
 import ProtectedRoute from "./components/routes/privateRoutes";
 import Layout from "./components/nav/layout";
-import Result from "./components/result";
-import { GroupingsPageProps } from "./components/types";
+import Result from "./components/result/Result";
+import { GroupingsPageProps } from "./types";
 import CreateParing from "./components/home/createParing";
 
 import SharePage from "./components/share/share";
+import JoinSecretSanta from "./components/join/JoinSecretSanta";
+import JoinSuccess from "./components/join/JoinSuccess";
 import LandingPage from "./components/landing/LandingPage";
 import { Loading } from "./components/common/loading";
 import {
@@ -141,6 +143,8 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/form" element={<UserForm />} />
         <Route path="/share" element={<SharePage />} />
+        <Route path="/event/:userId/:eventId" element={<JoinSecretSanta />} />
+        <Route path="/event/success" element={<JoinSuccess />} />
 
         <Route path="/login" element={<SigninPage />} />
         <Route path="/sign-up" element={<SignupPage />} />

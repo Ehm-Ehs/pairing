@@ -1,69 +1,87 @@
-# Group Raffle / Pairing Tool
+# Pair Form - Random Group Generator
 
-A React-based application designed to help organizers create balanced groups for events, workshops, or classes, and allow participants to self-register into specific roles.
+Effortlessly create random pairings and groups for your team, class, or event. Pair Form makes group generation simple and fair.
 
-## 🚀 Features
+## Features
 
-### For Organizers
-- **Automated Group Generation**: Define the number of participants and groups, and let the app calculate the structure.
-- **Role Balancing**: Specify "Characteristics" (e.g., Developer, Designer, Manager) to ensure every group has the required mix of skills.
-- **Real-time Dashboard**: Monitor group filling in real-time.
-- **Shareable Links**: Generate unique links for participants to join specific sessions.
+- **Random Group Generation**: Automatically generate random pairs or groups based on your participants.
+- **Authentication**: Secure Sign Up and Sign In functionality using Firebase.
+- **Participant Management**: Easily add and manage users for your events.
+- **Dashboard**: A central hub to view and manage your pairings.
+- **Event Creation**: Create custom events, specifying group sizes and other parameters.
+- **Share Results**: Generate unique URLs to share grouping results with others.
 
-### For Participants
-- **Self-Service Registration**: Join a group by simply clicking a link and entering details.
-- **Role Selection**: Automatically see available slots for your specific role/track.
-- **Instant Confirmation**: Get immediate feedback when you've successfully joined a group.
+## Tech Stack
 
-## 🛠️ Tech Stack
+- **Framework**: [React](https://reactjs.org/) with [Vite](https://vitejs.dev/)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Authentication & Backend**: [Firebase](https://firebase.google.com/)
+- **State Management**: React Hooks & Context
+- **Forms**: [Formik](https://formik.org/) & [Yup](https://github.com/jquense/yup)
+- **Notifications**: [React Toastify](https://github.com/fkhadra/react-toastify)
+- **Icons**: [React Icons](https://react-icons.github.io/react-icons/)
 
-- **Frontend**: React, TypeScript, Vite
-- **Styling**: Tailwind CSS
-- **Backend/Database**: Firebase (Firestore, Auth)
-- **Routing**: React Router DOM
-- **Forms**: Formik + Yup validation
+## Getting Started
 
-## 📦 Installation & Setup
+Follow these instructions to get a copy of the project up and running on your local machine.
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd random-selection
-   ```
+### Prerequisites
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+Make sure you have Node.js installed on your system.
 
-3. **Environment Configuration**
-   Create a `.env` file in the root directory with your Firebase configuration:
-   ```env
-   VITE_API_KEY=your_api_key
-   VITE_AUTH_DOMAIN=your_auth_domain
-   VITE_PROJECT_ID=your_project_id
-   VITE_STORAGE_BUCKET=your_storage_bucket
-   VITE_MESSAGING_SENDER_ID=your_messaging_sender_id
-   VITE_APP_ID=your_app_id
-   ```
+- [Node.js](https://nodejs.org/)
 
-4. **Run the development server**
-   ```bash
-   npm run dev
-   ```
+### Installation
 
-## 📖 Usage
+1.  Clone the repository:
 
-1. **Log In**: Access the app and sign in using your credentials.
-2. **Create Event**: Navigate to the Home page, enter the total number of participants and groups, and define the required roles (characteristics).
-3. **Generate**: Click "Get Pairings" to generate the empty group slots.
-4. **Share**: Use the "Share" page to get a link for your participants.
-5. **Monitor**: Watch the "Your Pairing" page as slots fill up.
+    ```bash
+    git clone https://github.com/your-username/random-selection.git
+    cd random-selection
+    ```
 
-## 🤝 Contributing
+2.  Install dependencies:
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+    ```bash
+    npm install
+    ```
 
-## 📄 License
+3.  Set up Environment Variables:
+    Create a `.env.local` file in the root directory and add your Firebase configuration keys:
+    ```env
+    VITE_FIREBASE_API_KEY=your_api_key
+    VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
+    VITE_FIREBASE_PROJECT_ID=your_project_id
+    VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+    VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+    VITE_FIREBASE_APP_ID=your_app_id
+    ```
+
+### Running Locally
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173) (or the port shown in your terminal) to view it in the browser.
+
+### Building for Production
+
+To build the app for production:
+
+```bash
+npm run build
+```
+
+To preview the production build locally:
+
+```bash
+npm run preview
+```
+
+## License
 
 This project is licensed under the MIT License.

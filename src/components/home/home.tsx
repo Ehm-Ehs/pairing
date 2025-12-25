@@ -14,9 +14,11 @@ import {
   FaClock,
   FaChartLine,
   FaCalendarAlt,
+  FaGift,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
-import { GroupingsPageProps, Pairing } from "../types";
+import { generateSecretSantaPairs } from "../api/endpoints";
+import { GroupingsPageProps, Pairing } from "../../types";
 import { useNavigate } from "react-router-dom";
 
 interface HomeProps {
@@ -35,25 +37,51 @@ export default function Home({ data }: HomeProps) {
   let totalSlots = 0;
 
   events.forEach((event) => {
-    totalSlots += parseInt(event.numParticipants.toString());
+    if (event.type === "secret-santa") {
+      totalSlots += event.config?.expectedParticipants || 0;
+      totalFilledSlots += event.participants?.length || 0;
+    } else {
+      totalSlots += parseInt(event.numParticipants.toString());
 
-    let currentEventFilled = 0;
-    Object.values(event.groups).forEach((group) => {
-      // Only count participants that have a name (not placeholders)
-      currentEventFilled += group.filter((p: any) => p.name).length;
-    });
-    totalFilledSlots += currentEventFilled;
+      let currentEventFilled = 0;
+      Object.values(event.groups).forEach((group) => {
+        // Only count participants that have a name (not placeholders)
+        currentEventFilled += group.filter((p: any) => p.name).length;
+      });
+      totalFilledSlots += currentEventFilled;
+    }
   });
 
-  const copyJoinLink = (eventId: string) => {
-    // Logic for join link might need adjustment based on how sharing works in this app
-    // For now, let's assume a similar pattern or just copy a share link
-    const url = `${window.location.origin}/share?eventId=${eventId}`; // Placeholder logic
+  const copyJoinLink = (event: Pairing) => {
+    // Determine URL based on event type
+    let url = "";
+    if (event.type === "secret-santa") {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const uid = user.uid || ""; // Should be available
+      url = `${window.location.origin}/event/${uid}/${event.id}`;
+    } else {
+      // Fallback for role-based (usually handled in Result view, but if we need a quick link here)
+      // We might not have all info to construct the full 'form' URL as easily here without serialization overhead
+      // So maybe just point to a generic share/result page
+      url = `${
+        window.location.origin
+      }/share?groupingPurpose=${encodeURIComponent(event.groupingPurpose)}`;
+    }
+
     navigator.clipboard.writeText(url);
-    toast.success("Join link copied to clipboard!");
+    toast.success("Link copied to clipboard!");
   };
 
   const getEventStats = (event: Pairing) => {
+    if (event.type === "secret-santa") {
+      const totalSlots = event.config?.expectedParticipants || 0;
+      const filledSlots = event.participants ? event.participants.length : 0;
+      const fillPercentage =
+        totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0;
+      return { totalSlots, filledSlots, fillPercentage };
+    }
+
+    // Default to Role-Based logic
     const totalSlots = parseInt(event.numParticipants.toString());
     let filledSlots = 0;
     Object.values(event.groups).forEach((group) => {
@@ -69,6 +97,27 @@ export default function Home({ data }: HomeProps) {
 
   const handleCreateNew = () => {
     navigate("/create-event");
+  };
+
+  // Re-implementing correctly with userId retrieval
+  const handleGeneratePairs = async (eventId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    if (!user.uid) {
+      toast.error("User not found");
+      return;
+    }
+    try {
+      await generateSecretSantaPairs(user.uid, eventId);
+      toast.success("Pairs generated successfully!");
+    } catch (error: any) {
+      console.error("Error generating pairs:", error);
+      toast.error(error.message || "Failed to generate pairs");
+    }
+  };
+
+  const handleShare = (pairing: Pairing, index: number) => {
+    navigate(`/your-pairing?index=${index}`);
   };
 
   const handleViewEvent = (index: number) => {
@@ -241,47 +290,79 @@ export default function Home({ data }: HomeProps) {
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <FaUsers className="w-4 h-4" />
-                          <span>{event.numParticipants} people</span>
+                          <span>
+                            {event.type === "secret-santa"
+                              ? event.config?.expectedParticipants
+                              : event.numParticipants}{" "}
+                            people
+                          </span>
                         </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <div className="w-4 h-4 bg-[#3A76F0]/10 rounded flex items-center justify-center">
-                            <span className="text-[10px] text-[#3A76F0]">
-                              {event.numGroups}
+                        {event.type !== "secret-santa" && (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <div className="w-4 h-4 bg-[#3A76F0]/10 rounded flex items-center justify-center">
+                              <span className="text-[10px] text-[#3A76F0]">
+                                {event.numGroups}
+                              </span>
+                            </div>
+                            <span>{event.numGroups} groups</span>
+                          </div>
+                        )}
+                        {event.type === "secret-santa" && (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <span>
+                              {event.config?.allowWishlist
+                                ? "Wishlist Enabled"
+                                : "No Wishlist"}
                             </span>
                           </div>
-                          <span>{event.numGroups} groups</span>
-                        </div>
+                        )}
                       </div>
 
                       {/* Roles */}
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-2">
-                          Characteristics:
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {event.characteristics.map((char, idx) => (
-                            <div
-                              key={idx}
-                              className="bg-slate-100 text-xs px-2 py-1 rounded"
-                            >
-                              {char.name} ({char.count})
+                      {event.type !== "secret-santa" &&
+                        event.characteristics && (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-2">
+                              Characteristics:
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {event.characteristics.map((char, idx) => (
+                                <div
+                                  key={idx}
+                                  className="bg-slate-100 text-xs px-2 py-1 rounded"
+                                >
+                                  {char.name} ({char.count})
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                      </div>
+                          </div>
+                        )}
 
                       {/* Actions */}
                       <div className="flex gap-2 pt-2">
+                        {event.type === "secret-santa" &&
+                          event.status === "open" && (
+                            <Button
+                              variant="secondary"
+                              onClick={(e) => handleGeneratePairs(event.id, e)}
+                              className="flex-1 bg-green-50 text-green-600 hover:bg-green-100 border-green-200"
+                            >
+                              <FaGift className="w-4 h-4 mr-2" />
+                              Generate Pairs
+                            </Button>
+                          )}
+
                         <Button
-                          onClick={() => handleViewEvent(index)}
-                          className="flex-1 bg-[#3A76F0] hover:bg-[#2f5fc7] text-white"
+                          variant="secondary"
+                          onClick={() => handleShare(event, index)}
+                          className="flex-1 bg-slate-50 text-gray-700 hover:bg-slate-100 border-slate-200"
                           size="sm"
                         >
                           <FaExternalLinkAlt className="w-4 h-4 mr-2" />
                           View Details
                         </Button>
                         <div
-                          onClick={() => copyJoinLink(event.groupingPurpose)}
+                          onClick={() => copyJoinLink(event)}
                           className="flex items-center justify-center bg-slate-100 text-xs px-2 py-1 rounded"
                         >
                           <FaLink className="w-4 h-4" />

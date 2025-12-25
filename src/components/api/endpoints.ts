@@ -2,18 +2,9 @@ import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import Auth from "./auth.module";
 
-export interface FormValues {
-  numParticipants: string;
-  numGroups: string;
-  characteristics: { name: string; count: string }[];
-  characteristicsLabel?: string;
-  groups: {
-    [key: number]: {
-      id: string;
-      number: number;
-    }[];
-  };
-}
+import { Pairing } from "../../types";
+
+// Removed local FormValues interface in favor of shared Pairing type
 
 export const fetchUserData = async (
   setUserDetails: (data: any) => void
@@ -56,14 +47,13 @@ export const fetchUserData = async (
   });
 };
 
-export async function addPairing(userId: string, pairingData: FormValues) {
+export async function addPairing(userId: string, pairingData: Pairing) {
   try {
     const userRef = doc(db, "Users", userId);
     console.log("here");
-    const response = updateDoc(userRef, {
+    await updateDoc(userRef, {
       pairings: arrayUnion(pairingData),
     });
-    console.log({ response });
     console.log("Pairing added successfully!");
   } catch (error) {
     console.error("Error adding pairing:", error);
@@ -182,3 +172,125 @@ export async function editPairingValue(
 //     console.error("Error updating pairing value:", error);
 //   }
 // }
+// ... existing file content
+
+export async function addParticipantToSecretSanta(
+  userId: string,
+  eventId: string,
+  participant: any
+) {
+  try {
+    const userRef = doc(db, "Users", userId);
+    const docSnap = await getDoc(userRef);
+
+    if (docSnap.exists()) {
+      const userData = docSnap.data();
+      const pairings = userData.pairings || [];
+      const pairingIndex = pairings.findIndex((p: any) => p.id === eventId);
+
+      if (pairingIndex !== -1) {
+        const pairing = pairings[pairingIndex];
+        if (!pairing.participants) {
+          pairing.participants = [];
+        }
+        pairing.participants.push(participant);
+        pairings[pairingIndex] = pairing;
+
+        await updateDoc(userRef, { pairings });
+        console.log("Participant added successfully");
+      } else {
+        throw new Error("Event not found");
+      }
+    } else {
+      throw new Error("Organizer not found");
+    }
+  } catch (error) {
+    console.error("Error adding participant:", error);
+    throw error;
+  }
+}
+
+export async function generateSecretSantaPairs(
+  userId: string,
+  eventId: string
+) {
+  try {
+    const userRef = doc(db, "Users", userId);
+    const docSnap = await getDoc(userRef);
+
+    if (docSnap.exists()) {
+      const userData = docSnap.data();
+      const pairings = userData.pairings || [];
+      const pairingIndex = pairings.findIndex((p: any) => p.id === eventId);
+
+      if (pairingIndex !== -1) {
+        const pairing = pairings[pairingIndex];
+        const participants = pairing.participants || [];
+
+        if (participants.length < 2) {
+          throw new Error("Not enough participants to generate pairs");
+        }
+
+        // Shuffle participants
+        const shuffled = [...participants].sort(() => Math.random() - 0.5);
+        const pairs = [];
+
+        for (let i = 0; i < shuffled.length; i++) {
+          const santa = shuffled[i];
+          const receiver = shuffled[(i + 1) % shuffled.length];
+          pairs.push({
+            santaId: santa.id,
+            receiverId: receiver.id,
+          });
+        }
+
+        pairing.pairs = pairs;
+        pairing.status = "locked"; // Lock the event
+        pairings[pairingIndex] = pairing;
+
+        await updateDoc(userRef, { pairings });
+        console.log("Pairs generated successfully");
+      } else {
+        throw new Error("Event not found");
+      }
+    }
+  } catch (error) {
+    console.error("Error generating pairs:", error);
+    throw error;
+  }
+}
+
+export async function removeParticipantFromSecretSanta(
+  userId: string,
+  eventId: string,
+  participantId: string
+) {
+  try {
+    const userRef = doc(db, "Users", userId);
+    const docSnap = await getDoc(userRef);
+
+    if (docSnap.exists()) {
+      const userData = docSnap.data();
+      const pairings = userData.pairings || [];
+      const pairingIndex = pairings.findIndex((p: any) => p.id === eventId);
+
+      if (pairingIndex !== -1) {
+        const pairing = pairings[pairingIndex];
+        if (pairing.participants) {
+          pairing.participants = pairing.participants.filter(
+            (p: any) => p.id !== participantId
+          );
+          pairings[pairingIndex] = pairing;
+
+          await updateDoc(userRef, { pairings });
+          console.log("Participant removed successfully");
+        }
+      } else {
+        throw new Error("Event not found");
+      }
+    }
+  } catch (error) {
+    console.error("Error removing participant:", error);
+    throw error;
+  }
+}
