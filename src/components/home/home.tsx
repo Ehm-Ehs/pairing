@@ -116,11 +116,7 @@ export default function Home({ data }: HomeProps) {
     }
   };
 
-  const handleShare = (pairing: Pairing, index: number) => {
-    navigate(`/your-pairing?index=${index}`);
-  };
-
-  const handleViewEvent = (index: number) => {
+  const handleShare = (index: number) => {
     navigate(`/your-pairing?index=${index}`);
   };
 
@@ -354,7 +350,7 @@ export default function Home({ data }: HomeProps) {
 
                         <Button
                           variant="secondary"
-                          onClick={() => handleShare(event, index)}
+                          onClick={() => handleShare(index)}
                           className="flex-1 bg-slate-50 text-gray-700 hover:bg-slate-100 border-slate-200"
                           size="sm"
                         >

@@ -6,7 +6,7 @@ import FormComponent from "./form";
 import PairingResults from "./pairings";
 import { ModeSelection } from "./ModeSelection";
 import SecretSantaForm from "./SecretSantaForm";
-import { Pairing, RoleBasedPairing, SecretSantaPairing } from "../../types";
+import { RoleBasedPairing, SecretSantaPairing } from "../../types";
 
 // Define the types
 interface Characteristic {
