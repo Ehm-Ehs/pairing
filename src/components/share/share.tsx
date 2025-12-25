@@ -3,31 +3,135 @@ import { useLocation } from "react-router-dom";
 import Header from "../nav/header";
 import { Card, CardHeader, CardTitle, CardContent } from "../common/card";
 import { Badge } from "../common/Badge";
-import { Participant } from "../types";
-import { FaUsers, FaCheckCircle } from "react-icons/fa";
+import { Participant } from "../../types";
+import {
+  FaUsers,
+  FaCheckCircle,
+  FaGift,
+  FaCalendarAlt,
+  FaMoneyBillWave,
+} from "react-icons/fa";
 
 const SharePage: React.FC = () => {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
 
+  const type = searchParams.get("type") || "role-based";
   const groupingPurpose = searchParams.get("groupingPurpose");
-  const numGroups = searchParams.get("numGroups");
   const numParticipants = searchParams.get("numParticipants");
-  const pairings = searchParams.get("pairings");
 
-  // Parse the serialized pairings back into an object
-  const parsedPairings = pairings
-    ? JSON.parse(decodeURIComponent(pairings))
-    : {};
-
-  if (!groupingPurpose || !numGroups || !numParticipants || !pairings) {
+  if (!groupingPurpose) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
             Invalid Link
           </h1>
-          <p className="text-gray-500">The pairing data could not be loaded.</p>
+          <p className="text-gray-500">The event data could not be loaded.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Secret Santa View ---
+  if (type === "secret-santa") {
+    const configParam = searchParams.get("config");
+    const config = configParam
+      ? JSON.parse(decodeURIComponent(configParam))
+      : {};
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-green-50">
+        <Header />
+        <div className="max-w-4xl mx-auto p-6 md:py-12">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-red-100 rounded-full mb-6 shadow-sm">
+              <FaGift className="w-10 h-10 text-red-500" />
+            </div>
+            <h1 className="text-4xl font-extrabold text-gray-900 mb-3 tracking-tight">
+              {groupingPurpose}
+            </h1>
+            <Badge className="bg-green-500 text-white border-0 text-md px-3 py-1">
+              Secret Santa Event
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-red-100 flex items-start gap-4">
+              <div className="bg-red-50 p-3 rounded-lg">
+                <FaUsers className="w-6 h-6 text-red-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                  Participants
+                </p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {numParticipants} Joined
+                </p>
+              </div>
+            </div>
+
+            {config.exchangeDate && (
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-red-100 flex items-start gap-4">
+                <div className="bg-red-50 p-3 rounded-lg">
+                  <FaCalendarAlt className="w-6 h-6 text-red-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                    Exchange Date
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {config.exchangeDate}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {config.budget && (
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-red-100 flex items-start gap-4">
+                <div className="bg-red-50 p-3 rounded-lg">
+                  <FaMoneyBillWave className="w-6 h-6 text-red-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                    Budget
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {config.budget}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Card className="border-t-4 border-red-500 shadow-md">
+            <CardContent className="pt-8 pb-8 text-center">
+              <p className="text-lg text-gray-600 mb-6">
+                Ready to find out who you are gifting?
+              </p>
+              <p className="text-sm text-gray-500 italic max-w-md mx-auto">
+                Contact the organizer specifically for your "Reveal Link" if you
+                haven't received it yet. This page is for event details only.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Role Based View ---
+  const numGroups = searchParams.get("numGroups");
+  const pairings = searchParams.get("pairings");
+  const parsedPairings = pairings
+    ? JSON.parse(decodeURIComponent(pairings))
+    : {};
+
+  if (!numGroups || !pairings) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Loading...</h1>
         </div>
       </div>
     );
@@ -91,7 +195,9 @@ const SharePage: React.FC = () => {
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base">
-                        Group {groupIndex + 1}
+                        {isNaN(Number(groupKey))
+                          ? groupKey
+                          : `Group ${groupIndex + 1}`}
                       </CardTitle>
                       <Badge variant="secondary">{groupFilled} members</Badge>
                     </div>

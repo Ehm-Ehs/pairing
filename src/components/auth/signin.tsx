@@ -48,7 +48,13 @@ const SignIn = () => {
 
       const accessToken = await user.getIdToken();
       if (accessToken && user) {
-        Auth.authenticateUser({ accessToken, data: user });
+        const userToStore = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+        };
+        Auth.authenticateUser({ accessToken, data: userToStore });
         toast.success("Login successful!", {
           position: "top-center",
           autoClose: 3000,
@@ -78,7 +84,13 @@ const SignIn = () => {
       const accessToken = await user.getIdToken();
 
       if (accessToken && user) {
-        Auth.authenticateUser({ accessToken, data: user });
+        const userToStore = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+        };
+        Auth.authenticateUser({ accessToken, data: userToStore });
 
         toast.success("Login successful!", {
           position: "top-center",
@@ -108,7 +120,7 @@ const SignIn = () => {
         <div className="w-10 h-10">
           <Logo />
         </div>
-        <p className="pt-3 font-semibold">Pairing</p>
+        <p className="pt-3 font-semibold">Pair Form</p>
       </div>
       <Formik
         initialValues={{ email: "", password: "" }}
