@@ -1,15 +1,15 @@
 import { Formik, Form, Field } from "formik";
 import * as Yup from "yup";
 import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
-import { auth, googleProvider, db } from "../api/firebase";
+import { auth, googleProvider, db } from "../../services/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../../assets/logo";
-import Auth from "../api/auth.module";
+import Auth from "../../services/auth.module";
 import { toast } from "react-toastify"; // Import toast
 import { FaGoogle } from "react-icons/fa";
 import { v4 as uuidv4 } from "uuid";
-import { sendEmail } from "../api/email";
+import { sendEmail } from "../../services/email";
 
 const SignIn = () => {
   const navigate = useNavigate();
@@ -80,6 +80,18 @@ const SignIn = () => {
       console.log("User logged in successfully:", response);
 
       const { user } = response;
+
+      const docRef = doc(db, "Users", user.uid);
+      const docSnap = await getDoc(docRef);
+
+      if (!docSnap.exists()) {
+        await auth.signOut();
+        toast.error("Account details not found. Please sign up.", {
+          position: "top-center",
+        });
+        navigate("/sign-up");
+        return;
+      }
 
       const accessToken = await user.getIdToken();
 

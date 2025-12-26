@@ -2,7 +2,7 @@ import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import Auth from "./auth.module";
 
-import { Pairing } from "../../types";
+import { Pairing } from "../types";
 
 // Removed local FormValues interface in favor of shared Pairing type
 

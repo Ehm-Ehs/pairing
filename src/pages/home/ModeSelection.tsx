@@ -1,6 +1,6 @@
 import React from "react";
 import { FaUsers, FaGift } from "react-icons/fa";
-import { Card, CardContent } from "../common/card";
+import { Card, CardContent } from "../../components/ui/card";
 
 interface ModeSelectionProps {
   onSelect: (mode: "role-based" | "secret-santa") => void;
@@ -41,9 +41,11 @@ export const ModeSelection: React.FC<ModeSelectionProps> = ({ onSelect }) => {
             <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-red-100 transition-colors">
               <FaGift className="w-8 h-8 text-red-500" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">Secret Santa</h3>
+            <h3 className="text-xl font-semibold mb-2">
+              Single Pairings (1:1)
+            </h3>
             <p className="text-gray-500">
-              Anonymous 1:1 gift exchange with optional wishlists
+              Anonymous 1:1 pairing (Secret Santa or Just Pair)
             </p>
           </CardContent>
         </Card>

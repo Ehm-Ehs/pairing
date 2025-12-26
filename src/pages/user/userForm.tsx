@@ -2,7 +2,7 @@ import { Formik, Form, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { editPairingValue } from "../api/endpoints";
+import { editPairingValue } from "../../services/endpoints";
 import { toast } from "react-toastify";
 
 // Function to decrypt userId (Base64 decoding example)
@@ -62,12 +62,26 @@ const ParticipantForm = () => {
         const parsedPairings = JSON.parse(decodeURIComponent(pairings));
         // Ensure that parsedPairings is an object
         if (typeof parsedPairings === "object" && parsedPairings !== null) {
+          let label = queryParams.get("characteristicsLabel") || "";
+
+          // Fallback: If no label is provided, but pairings have roles, default to "Role"
+          if (!label) {
+            const hasRoles = Object.values(parsedPairings).some((group: any) =>
+              group.some(
+                (member: any) => member.role && member.role.trim() !== ""
+              )
+            );
+            if (hasRoles) {
+              label = "Role";
+            }
+          }
+
           setFormData({
             groupingPurpose,
             numGroups: queryParams.get("numGroups"),
             numParticipants: queryParams.get("numParticipants"),
             pairings: parsedPairings,
-            characteristicsLabel: queryParams.get("characteristicsLabel") || "",
+            characteristicsLabel: label,
           });
         }
       } else {
@@ -84,7 +98,11 @@ const ParticipantForm = () => {
   const validationSchema = Yup.object({
     firstName: Yup.string().required("First name is required"),
     lastName: Yup.string().required("Last name is required"),
-    track: Yup.string().required("Track is required"),
+    track: Yup.string().when([], {
+      is: () => !!formData?.characteristicsLabel,
+      then: (schema) => schema.required("Track is required"),
+      otherwise: (schema) => schema.optional(),
+    }),
     email: Yup.string()
       .email("Invalid email address")
       .required("Email is required"),
@@ -113,10 +131,18 @@ const ParticipantForm = () => {
 
       for (const key of groupKeys) {
         const group = pairings[key];
-        const foundIndex = group.findIndex(
-          (entry: PairingEntry) =>
-            entry.role.toLowerCase() === track.toLowerCase() && !entry.name
-        );
+        const foundIndex = group.findIndex((entry: PairingEntry) => {
+          // If track is provided (Role based), match role.
+          // If track is NOT provided (Random), match any empty slot (no name) that has no specific role requirement OR empty role.
+          if (track) {
+            return (
+              entry.role.trim().toLowerCase() === track.trim().toLowerCase() &&
+              !entry.name
+            );
+          } else {
+            return !entry.name; // Just looking for an empty slot
+          }
+        });
 
         if (foundIndex !== -1) {
           selectedGroupKey = key;
@@ -144,7 +170,7 @@ const ParticipantForm = () => {
 
         // 1. Notify the new participant
         if (values.email) {
-          import("../api/email").then(({ sendEmail }) => {
+          import("../../services/email").then(({ sendEmail }) => {
             sendEmail({
               to: values.email,
               subject: `You're in Group ${selectedGroupKey?.replace(
@@ -170,7 +196,7 @@ const ParticipantForm = () => {
           .map((m: PairingEntry) => m.email!);
 
         if (existingMembersEmails.length > 0) {
-          import("../api/email").then(({ sendEmail }) => {
+          import("../../services/email").then(({ sendEmail }) => {
             sendEmail({
               to: existingMembersEmails,
               subject: `New Member Joined ${selectedGroupKey}! 👋`,
@@ -188,7 +214,13 @@ const ParticipantForm = () => {
         toast.success("Successfully registered!");
         // Redirect after a short delay
         setTimeout(() => {
-          navigate("/"); // Or wherever you want to send them
+          navigate("/user/success", {
+            state: {
+              groupName: selectedGroupKey,
+              role: values.track,
+              eventName: groupingPurpose,
+            },
+          });
         }, 2000);
       } else {
         console.error("No matching entry found for the track:", track);
@@ -208,7 +240,7 @@ const ParticipantForm = () => {
     <div className="flex flex-col justify-center items-center p-4 rounded-lg min-h-screen bg-gray-50">
       <div className="bg-white p-6 md:p-10 rounded-lg shadow-md w-full max-w-md">
         <h1 className="text-2xl font-bold mb-6 text-center">
-          Participant Registration
+          {formData?.groupingPurpose || "Participant Registration"}
         </h1>
         <Formik
           initialValues={initialValues}
@@ -263,36 +295,36 @@ const ParticipantForm = () => {
                   className="text-red-500 text-sm mt-1"
                 />
               </div>
-              <div>
-                <label
-                  htmlFor="track"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  {formData?.characteristicsLabel
-                    ? formData.characteristicsLabel.charAt(0).toUpperCase() +
-                      formData.characteristicsLabel.slice(1)
-                    : "Track / Role"}
-                </label>
-                <input
-                  type="text"
-                  id="track"
-                  name="track"
-                  placeholder={`e.g. ${
-                    formData?.characteristicsLabel
-                      ? formData.characteristicsLabel
-                      : "Designer, Developer"
-                  }`}
-                  className="p-2 w-full bg-transparent border rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  value={values.track}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                />
-                <ErrorMessage
-                  name="track"
-                  component="div"
-                  className="text-red-500 text-sm mt-1"
-                />
-              </div>
+              {formData?.characteristicsLabel && (
+                <div>
+                  <label
+                    htmlFor="track"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    {formData.characteristicsLabel.charAt(0).toUpperCase() +
+                      formData.characteristicsLabel.slice(1)}
+                  </label>
+                  <input
+                    type="text"
+                    id="track"
+                    name="track"
+                    placeholder={`e.g. ${
+                      formData.characteristicsLabel === "Role"
+                        ? "Designer, Developer"
+                        : formData.characteristicsLabel
+                    }`}
+                    className="p-2 w-full bg-transparent border rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    value={values.track}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                  <ErrorMessage
+                    name="track"
+                    component="div"
+                    className="text-red-500 text-sm mt-1"
+                  />
+                </div>
+              )}
               <div>
                 <label
                   htmlFor="email"

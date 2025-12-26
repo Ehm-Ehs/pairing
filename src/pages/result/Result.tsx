@@ -1,16 +1,16 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { GroupingsPageProps } from "../../types";
-import { removeParticipantFromSecretSanta } from "../api/endpoints";
+import { removeParticipantFromSecretSanta } from "../../services/endpoints";
 import { toast } from "react-toastify";
-import { Button } from "../common/button";
+import { Button } from "../../components/ui/button";
 import {
   Card,
   CardHeader,
   CardTitle,
   CardDescription,
   CardContent,
-} from "../common/card";
+} from "../../components/ui/card";
 import {
   FaCheck,
   FaCopy,
@@ -29,7 +29,7 @@ interface ResultProps {
   data: GroupingsPageProps | null;
 }
 
-import { Badge } from "../common/Badge";
+import { Badge } from "../../components/ui/Badge";
 
 const Result = ({ data }: ResultProps) => {
   const [copiedLink, setCopiedLink] = useState<number | null>(null);
@@ -467,6 +467,8 @@ const Result = ({ data }: ResultProps) => {
                     <div className="mb-8">
                       <h3 className="text-lg font-semibold mb-3">
                         Characteristics Distribution
+                        {pairing.characteristicsLabel &&
+                          ` - ${pairing.characteristicsLabel}`}
                       </h3>
                       <div className="flex flex-wrap gap-2">
                         {pairing.characteristics.map((char, i) => (

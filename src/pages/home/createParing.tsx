@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import * as Yup from "yup";
-import { addPairing } from "../api/endpoints";
-import FormComponent from "./form";
+import { toast } from "react-toastify";
+import { auth } from "../../services/firebase";
+import { addPairing } from "../../services/endpoints";
+import FormComponent from "./RoleBasedForm";
 import PairingResults from "./pairings";
 import { ModeSelection } from "./ModeSelection";
 import SecretSantaForm from "./SecretSantaForm";
@@ -20,9 +22,10 @@ interface FormValues {
   groupingPurpose: string;
   characteristics: Characteristic[];
   characteristicsLabel: string;
+  isRandom?: boolean;
 }
 
-import { Modal } from "../common/modal";
+import { Modal } from "../../components/ui/modal";
 
 const CreateParing: React.FC = () => {
   const [eventType, setEventType] = useState<
@@ -35,6 +38,7 @@ const CreateParing: React.FC = () => {
     groupingPurpose: "",
     characteristicsLabel: "",
     characteristics: [{ name: "", count: "" }], // Start with one empty char
+    isRandom: false, // Default to Role Based
   });
 
   const [groups, setGroups] = useState<{
@@ -97,7 +101,7 @@ const CreateParing: React.FC = () => {
       groups[i + 1] = [];
     }
 
-    if (useCharacteristics) {
+    if (useCharacteristics && finalCharacteristics.length > 0) {
       const characteristicPools: {
         [key: string]: { id: string; number: number; role: string }[];
       } = {};
@@ -108,7 +112,7 @@ const CreateParing: React.FC = () => {
           (_, i) => ({
             id: uuidv4(),
             number: i + 1,
-            role: char.name,
+            role: char.name.trim(),
           })
         );
         characteristicPools[char.name] = participants;
@@ -156,6 +160,20 @@ const CreateParing: React.FC = () => {
         const groupNumber = parseInt(key, 10);
         groups[groupNumber] = participantsPerGroup[groupNumber];
       });
+    } else {
+      // Random Mode: Generate Generic Slots
+      const totalParticipants = parseInt(values.numParticipants, 10);
+      const participantsPerGroup = Math.floor(totalParticipants / numGroups);
+      const remainder = totalParticipants % numGroups;
+
+      for (let i = 0; i < numGroups; i++) {
+        const count = participantsPerGroup + (i < remainder ? 1 : 0);
+        groups[i + 1] = Array.from({ length: count }, (_, j) => ({
+          id: uuidv4(),
+          number: j + 1,
+          role: "", // Empty role for random
+        }));
+      }
     }
 
     setGroups(groups);
@@ -168,6 +186,14 @@ const CreateParing: React.FC = () => {
 
     handleSubmitRoleBased(submissionValues, groups);
   };
+
+  const resultsRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (groups && resultsRef.current) {
+      resultsRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [groups]);
 
   const handleFormSubmit = (values: FormValues) => {
     setFormValues(values);
@@ -229,9 +255,12 @@ const CreateParing: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const handleSubmitRoleBased = async (formValues: FormValues, groups: any) => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const userId = user.uid;
-    if (!userId) return;
+    const userId = auth.currentUser?.uid;
+
+    if (!userId) {
+      toast.error("You must be logged in to create a pairing");
+      return;
+    }
 
     setLoading(true);
 
@@ -244,7 +273,7 @@ const CreateParing: React.FC = () => {
       numParticipants: parseInt(formValues.numParticipants, 10),
       numGroups: parseInt(formValues.numGroups, 10),
       characteristics: formValues.characteristics.map((c) => ({
-        name: c.name,
+        name: c.name.trim(),
         count: parseInt(c.count, 10),
       })),
       characteristicsLabel: formValues.characteristicsLabel,
@@ -261,9 +290,12 @@ const CreateParing: React.FC = () => {
   };
 
   const handleSubmitSecretSanta = async (values: any) => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const userId = user.uid;
-    if (!userId) return;
+    const userId = auth.currentUser?.uid;
+
+    if (!userId) {
+      toast.error("You must be logged in to create a Secret Santa event");
+      return;
+    }
 
     setLoading(true);
 
@@ -375,7 +407,9 @@ const CreateParing: React.FC = () => {
                 loading={loading}
               />
             </div>
-            <PairingResults formValues={formValues} groups={groups} />
+            <div ref={resultsRef} className="w-full">
+              <PairingResults formValues={formValues} groups={groups} />
+            </div>
           </>
         ) : (
           <div className="flex flex-col p-6 md:p-10 border rounded shadow-lg bg-white w-full">

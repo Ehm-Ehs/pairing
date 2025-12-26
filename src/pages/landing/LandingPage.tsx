@@ -3,7 +3,12 @@ import { useState } from "react";
 import { TypeAnimation } from "react-type-animation";
 import { Link } from "react-router-dom";
 import Logo from "../../assets/logo";
-import { Card, CardContent, CardHeader, CardTitle } from "../common/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
 import {
   FaBolt,
   FaBalanceScale,
@@ -20,7 +25,7 @@ import {
   FaBars,
   FaTimes,
 } from "react-icons/fa";
-import { Button } from "../common/button";
+import { Button } from "../../components/ui/button";
 
 const LandingPage = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -366,7 +371,7 @@ const LandingPage = () => {
             <div className="mt-8 bg-[#FFC857]/10 border border-[#FFC857]/30 rounded-lg px-6 py-4">
               <p className="text-sm text-center">
                 <strong className="text-[#3A76F0]">No manual tracking.</strong>{" "}
-                PairForm automatically balances as participants join — even if
+                PairForm automatically balances as participants join, even if
                 they join late.
               </p>
             </div>
@@ -543,9 +548,7 @@ const LandingPage = () => {
           </div>
           <div className="border-t border-border pt-8">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <p className="text-sm text-muted-foreground">
-                © 2024 PairForm. Secret Santa made simple.
-              </p>
+              <p className="text-sm text-muted-foreground">© 2026 PairForm.</p>
               <p className="text-xs text-muted-foreground">
                 No spreadsheets. No manual pairing. Just balanced groups.
               </p>

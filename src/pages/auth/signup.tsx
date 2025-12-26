@@ -2,18 +2,18 @@ import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import { useState } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "../api/firebase";
+import { auth, db } from "../../services/firebase";
 import { doc, setDoc } from "firebase/firestore";
 import Logo from "../../assets/logo";
 import { Link, useNavigate } from "react-router-dom";
-import Auth from "../api/auth.module";
+import Auth from "../../services/auth.module";
 import { toast } from "react-toastify";
 import { v4 as uuidv4 } from "uuid";
 import { FaEye, FaEyeSlash, FaGoogle } from "react-icons/fa";
-import { signInWithPopup } from "firebase/auth";
-import { googleProvider } from "../api/firebase";
+import { signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
+import { googleProvider } from "../../services/firebase";
 import { getDoc } from "firebase/firestore";
-import { sendEmail } from "../api/email";
+import { sendEmail } from "../../services/email";
 // getOnboardingEmail removed as we use template params now
 
 const Signup = () => {
@@ -141,9 +141,76 @@ const Signup = () => {
       }
     } catch (error: any) {
       console.error("Error signing up:", error);
-      toast.error(error.message || "Sign up failed", {
-        position: "top-center",
-      });
+      if (error.code === "auth/email-already-in-use") {
+        try {
+          // Attempt to sign in
+          const userCredential = await signInWithEmailAndPassword(
+            auth,
+            values.email,
+            values.password
+          );
+          const user = userCredential.user;
+
+          // Check if document exists
+          const docRef = doc(db, "Users", user.uid);
+          const docSnap = await getDoc(docRef);
+
+          if (!docSnap.exists()) {
+            // Recreate document (Healing orphaned account)
+            await setDoc(docRef, {
+              userId,
+              email: user.email,
+              firstName: values.firstName,
+              lastName: values.lastName,
+            });
+
+            // Send welcome email
+            await sendEmail({
+              to: values.email,
+              subject: "Welcome back to Pairing App! 🚀", // Slight change to welcome back
+              templateParams: {
+                user_name: values.firstName,
+                site_url: window.location.origin,
+                action_url: `${window.location.origin}/home`,
+                current_year: new Date().getFullYear(),
+              },
+            });
+
+            const accessToken = await user.getIdToken();
+            if (accessToken && user) {
+              const userToStore = {
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName,
+                photoURL: user.photoURL,
+              };
+              Auth.authenticateUser({ accessToken, data: userToStore });
+              toast.success("Account recovered and logged in successfully!", {
+                position: "top-center",
+                autoClose: 3000,
+              });
+              navigate("/home");
+            }
+          } else {
+            toast.error("Account already exists. Please log in.", {
+              position: "top-center",
+            });
+          }
+        } catch (signInError: any) {
+          console.error("Error signing in during recovery:", signInError);
+          // Likely wrong password for existing account
+          toast.error(
+            "Email already in use. Please log in or reset password.",
+            {
+              position: "top-center",
+            }
+          );
+        }
+      } else {
+        toast.error(error.message || "Sign up failed", {
+          position: "top-center",
+        });
+      }
     }
   };
 

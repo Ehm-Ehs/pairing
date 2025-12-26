@@ -3,7 +3,7 @@ import Logo from "../../assets/logo";
 import { ReactNode, useState, useRef, useEffect } from "react";
 import { FaBell, FaUserCircle, FaSignOutAlt } from "react-icons/fa";
 import { signOut } from "firebase/auth";
-import { auth } from "../api/firebase";
+import { auth } from "../../services/firebase";
 
 interface HeaderProps {
   children?: ReactNode;

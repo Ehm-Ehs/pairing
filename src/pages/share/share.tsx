@@ -1,12 +1,16 @@
 import React from "react";
 import { useLocation } from "react-router-dom";
-import Header from "../nav/header";
-import { Card, CardHeader, CardTitle, CardContent } from "../common/card";
-import { Badge } from "../common/Badge";
+import Header from "../../components/layout/header";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "../../components/ui/card";
+import { Badge } from "../../components/ui/Badge";
 import { Participant } from "../../types";
 import {
   FaUsers,
-  FaCheckCircle,
   FaGift,
   FaCalendarAlt,
   FaMoneyBillWave,
@@ -40,26 +44,59 @@ const SharePage: React.FC = () => {
       ? JSON.parse(decodeURIComponent(configParam))
       : {};
 
+    // Check if it's "Just Pair" mode
+    const isSecretSanta = config.allowWishlist !== false; // Default to true if undefined, but logic usually sends explicit bool
+
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-green-50">
+      <div
+        className={`min-h-screen bg-gradient-to-br ${
+          isSecretSanta
+            ? "from-red-50 to-green-50"
+            : "from-blue-50 to-indigo-50"
+        }`}
+      >
         <Header />
         <div className="max-w-4xl mx-auto p-6 md:py-12">
           <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-red-100 rounded-full mb-6 shadow-sm">
-              <FaGift className="w-10 h-10 text-red-500" />
+            <div
+              className={`inline-flex items-center justify-center w-20 h-20 ${
+                isSecretSanta ? "bg-red-100" : "bg-blue-100"
+              } rounded-full mb-6 shadow-sm`}
+            >
+              {isSecretSanta ? (
+                <FaGift className="w-10 h-10 text-red-500" />
+              ) : (
+                <FaUsers className="w-10 h-10 text-blue-500" />
+              )}
             </div>
             <h1 className="text-4xl font-extrabold text-gray-900 mb-3 tracking-tight">
               {groupingPurpose}
             </h1>
-            <Badge className="bg-green-500 text-white border-0 text-md px-3 py-1">
-              Secret Santa Event
+            <Badge
+              className={`${
+                isSecretSanta ? "bg-green-500" : "bg-blue-500"
+              } text-white border-0 text-md px-3 py-1`}
+            >
+              {isSecretSanta ? "Secret Santa Event" : "Pairing Event"}
             </Badge>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-red-100 flex items-start gap-4">
-              <div className="bg-red-50 p-3 rounded-lg">
-                <FaUsers className="w-6 h-6 text-red-500" />
+            <div
+              className={`bg-white p-6 rounded-xl shadow-sm border ${
+                isSecretSanta ? "border-red-100" : "border-blue-100"
+              } flex items-start gap-4`}
+            >
+              <div
+                className={`${
+                  isSecretSanta ? "bg-red-50" : "bg-blue-50"
+                } p-3 rounded-lg`}
+              >
+                <FaUsers
+                  className={`w-6 h-6 ${
+                    isSecretSanta ? "text-red-500" : "text-blue-500"
+                  }`}
+                />
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">
@@ -71,7 +108,7 @@ const SharePage: React.FC = () => {
               </div>
             </div>
 
-            {config.exchangeDate && (
+            {config.exchangeDate && isSecretSanta && (
               <div className="bg-white p-6 rounded-xl shadow-sm border border-red-100 flex items-start gap-4">
                 <div className="bg-red-50 p-3 rounded-lg">
                   <FaCalendarAlt className="w-6 h-6 text-red-500" />
@@ -87,7 +124,7 @@ const SharePage: React.FC = () => {
               </div>
             )}
 
-            {config.budget && (
+            {config.budget && isSecretSanta && (
               <div className="bg-white p-6 rounded-xl shadow-sm border border-red-100 flex items-start gap-4">
                 <div className="bg-red-50 p-3 rounded-lg">
                   <FaMoneyBillWave className="w-6 h-6 text-red-500" />
@@ -104,14 +141,23 @@ const SharePage: React.FC = () => {
             )}
           </div>
 
-          <Card className="border-t-4 border-red-500 shadow-md">
+          <Card
+            className={`border-t-4 ${
+              isSecretSanta ? "border-red-500" : "border-blue-500"
+            } shadow-md`}
+          >
             <CardContent className="pt-8 pb-8 text-center">
               <p className="text-lg text-gray-600 mb-6">
-                Ready to find out who you are gifting?
+                {isSecretSanta
+                  ? "Ready to find out who you are gifting?"
+                  : "Ready to find out your pair?"}
               </p>
               <p className="text-sm text-gray-500 italic max-w-md mx-auto">
                 Contact the organizer specifically for your "Reveal Link" if you
                 haven't received it yet. This page is for event details only.
+                <br />
+                (The organizer will generate the pairings once everyone has
+                joined).
               </p>
             </CardContent>
           </Card>
@@ -149,39 +195,9 @@ const SharePage: React.FC = () => {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Total Groups</p>
-                  <p className="text-2xl font-bold">{numGroups}</p>
-                </div>
-                <div className="w-10 h-10 bg-[#3A76F0]/10 rounded-lg flex items-center justify-center">
-                  <FaUsers className="w-5 h-5 text-[#3A76F0]" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">
-                    Total Participants
-                  </p>
-                  <p className="text-2xl font-bold">{numParticipants}</p>
-                </div>
-                <div className="w-10 h-10 bg-[#60E1B1]/10 rounded-lg flex items-center justify-center">
-                  <FaCheckCircle className="w-5 h-5 text-[#60E1B1]" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Groups Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="flex flex-col sm:flex-row flex-wrap justify-center  gap-4">
           {Object.entries(parsedPairings).map(
             ([groupKey, participants], groupIndex) => {
               const group = participants as Participant[];
@@ -190,7 +206,7 @@ const SharePage: React.FC = () => {
               return (
                 <Card
                   key={groupKey}
-                  className="hover:shadow-md transition-shadow"
+                  className="hover:shadow-md transition-shadow flex-1 min-w-[300px]"
                 >
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">

@@ -1,27 +1,26 @@
 import { Routes, Route, useLocation } from "react-router-dom";
 import "./App.css";
-import Home from "./components/home/home";
-import SigninPage from "./components/auth/signin";
-import SignupPage from "./components/auth/signup";
-import UserForm from "./components/user/userForm";
+import Home from "./pages/home/home";
+import SigninPage from "./pages/auth/signin";
+import SignupPage from "./pages/auth/signup";
+import UserForm from "./pages/user/userForm";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import Error from "./components/nav/error";
-import { useState, useEffect } from "react";
-import { auth, db } from "./components/api/firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, onSnapshot, DocumentSnapshot } from "firebase/firestore";
-import ProtectedRoute from "./components/routes/privateRoutes";
-import Layout from "./components/nav/layout";
-import Result from "./components/result/Result";
-import { GroupingsPageProps } from "./types";
-import CreateParing from "./components/home/createParing";
+import Error from "./components/layout/error";
 
-import SharePage from "./components/share/share";
-import JoinSecretSanta from "./components/join/JoinSecretSanta";
-import JoinSuccess from "./components/join/JoinSuccess";
-import LandingPage from "./components/landing/LandingPage";
-import { Loading } from "./components/common/loading";
+import ProtectedRoute from "./components/routes/privateRoutes";
+import Layout from "./components/layout/layout";
+import { useAuthListener } from "./hooks/useAuthListener";
+import Result from "./pages/result/Result";
+
+import CreateParing from "./pages/home/createParing";
+
+import SharePage from "./pages/share/share";
+import JoinSecretSanta from "./pages/join/JoinSecretSanta";
+import JoinSuccess from "./pages/join/JoinSuccess";
+import LandingPage from "./pages/landing/LandingPage";
+import UserJoinSuccess from "./pages/user/UserJoinSuccess";
+import { Loading } from "./components/ui/loading";
 import {
   FaRocket,
   FaHome,
@@ -36,50 +35,7 @@ import {
 function App() {
   const location = useLocation();
   console.log("Current Path:", location.pathname);
-  const [user, setUser] = useState<GroupingsPageProps | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let unsubscribeSnapshot: () => void;
-
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        // User is signed in, listen to their document
-        const docRef = doc(db, "Users", currentUser.uid);
-        unsubscribeSnapshot = onSnapshot(
-          docRef,
-          (docSnap: DocumentSnapshot) => {
-            if (docSnap.exists()) {
-              setUser(docSnap.data() as GroupingsPageProps);
-            } else {
-              console.log("No user data found yet");
-              setUser(null);
-            }
-            setLoading(false);
-          },
-          (error: Error) => {
-            console.error("Error fetching user data:", error);
-            setUser(null);
-            setLoading(false);
-          }
-        );
-      } else {
-        // User is signed out
-        setUser(null);
-        setLoading(false);
-        if (unsubscribeSnapshot) {
-          unsubscribeSnapshot();
-        }
-      }
-    });
-
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeSnapshot) {
-        unsubscribeSnapshot();
-      }
-    };
-  }, []);
+  const { user, loading } = useAuthListener();
 
   const getLoadingContext = (pathname: string) => {
     switch (pathname) {
@@ -142,6 +98,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/form" element={<UserForm />} />
+        <Route path="/user/success" element={<UserJoinSuccess />} />
         <Route path="/share" element={<SharePage />} />
         <Route path="/event/:userId/:eventId" element={<JoinSecretSanta />} />
         <Route path="/event/success" element={<JoinSuccess />} />
