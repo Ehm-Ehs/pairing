@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "../common/button";
+import { Button } from "../../components/ui/button";
 import {
   Card,
   CardHeader,
   CardTitle,
   CardDescription,
   CardContent,
-} from "../common/card";
+} from "../../components/ui/card";
 import { FaCheck, FaCopy } from "react-icons/fa";
 
 interface PairingResultsProps {
@@ -18,6 +18,7 @@ interface PairingResultsProps {
     numParticipants: string;
     numGroups: string;
     groupingPurpose: string;
+    characteristicsLabel?: string;
   } | null;
 }
 
@@ -44,6 +45,7 @@ const PairingResults: React.FC<PairingResultsProps> = ({
       groupingPurpose: formValues.groupingPurpose,
       numGroups: formValues.numGroups,
       numParticipants: formValues.numParticipants,
+      characteristicsLabel: formValues.characteristicsLabel || "",
       pairings: encodeURIComponent(JSON.stringify(groups)),
     }).toString();
 
@@ -76,7 +78,9 @@ const PairingResults: React.FC<PairingResultsProps> = ({
       formValues.groupingPurpose
     )}&numGroups=${formValues.numGroups}&numParticipants=${
       formValues.numParticipants
-    }&pairings=${serializedPairings}&userId=${encryptedUserId}`;
+    }&characteristicsLabel=${encodeURIComponent(
+      formValues.characteristicsLabel || ""
+    )}&pairings=${serializedPairings}&userId=${encryptedUserId}`;
 
     try {
       await navigator.clipboard.writeText(formUrl);

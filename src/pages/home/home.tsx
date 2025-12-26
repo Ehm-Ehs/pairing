@@ -1,11 +1,11 @@
-import { Button } from "../common/button";
+import { Button } from "../../components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../common/card";
+} from "../../components/ui/card";
 import {
   FaPlus,
   FaExternalLinkAlt,
@@ -17,7 +17,7 @@ import {
   FaGift,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
-import { generateSecretSantaPairs } from "../api/endpoints";
+import { generateSecretSantaPairs } from "../../services/endpoints";
 import { GroupingsPageProps, Pairing } from "../../types";
 import { useNavigate } from "react-router-dom";
 

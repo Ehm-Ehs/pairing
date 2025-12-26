@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { FaGhost, FaExclamationTriangle } from "react-icons/fa";
-import { Button } from "../common/button";
+import { Button } from "../ui/button";
 import { ReactNode } from "react";
 
 interface ErrorProps {

@@ -3,13 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Formik, Form, ErrorMessage, Field } from "formik";
 import * as Yup from "yup";
 import { getDoc, doc } from "firebase/firestore";
-import { db } from "../api/firebase";
+import { db } from "../../services/firebase";
 import { Pairing, SecretSantaPairing } from "../../types";
-import { addParticipantToSecretSanta } from "../api/endpoints";
+import { addParticipantToSecretSanta } from "../../services/endpoints";
 import { toast } from "react-toastify";
 import { v4 as uuidv4 } from "uuid";
-import { Loading } from "../common/loading";
-import { FaGift } from "react-icons/fa";
+import { Loading } from "../../components/ui/loading";
+import { FaGift, FaUsers } from "react-icons/fa";
 
 interface JoinFormValues {
   name: string;
@@ -67,10 +67,14 @@ const JoinSecretSanta: React.FC = () => {
       };
 
       await addParticipantToSecretSanta(userId, event.id, newParticipant);
-      toast.success("Successfully joined Secret Santa!");
-      navigate(`/event/success`); // Redirect to success page
-      // Redirect to a success page or stay here
-      // For now, simple success state
+      // Pass event name and details to success page
+      navigate(`/event/success`, {
+        state: {
+          eventName: event.title,
+          isSecretSanta: event.config.allowWishlist,
+          // role/groupName not applicable yet, but we can pass eventName
+        },
+      });
     } catch (error) {
       console.error("Error joining:", error);
       toast.error("Failed to join event");
@@ -94,13 +98,28 @@ const JoinSecretSanta: React.FC = () => {
     );
   }
 
+  const isSecretSanta = event.config?.allowWishlist;
+
   if (event.status === "locked") {
+    // Reveal View
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-green-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md border-t-4 border-red-500">
+      <div
+        className={`min-h-screen bg-gradient-to-br ${
+          isSecretSanta
+            ? "from-red-50 to-green-50"
+            : "from-blue-50 to-indigo-50"
+        } flex items-center justify-center p-4`}
+      >
+        <div
+          className={`bg-white p-8 rounded-lg shadow-xl w-full max-w-md border-t-4 ${
+            isSecretSanta ? "border-red-500" : "border-blue-500"
+          }`}
+        >
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-gray-900">
-              Secret Santa Matches Detail
+              {isSecretSanta
+                ? "Secret Santa Matches Detail"
+                : "Your Pairing Match"}
             </h1>
             <p className="text-gray-500 mt-2">
               Enter your email to reveal your match!
@@ -161,20 +180,32 @@ const JoinSecretSanta: React.FC = () => {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="bg-red-600 text-white py-2 rounded"
+                      className={`${
+                        isSecretSanta ? "bg-red-600" : "bg-blue-600"
+                      } text-white py-2 rounded`}
                     >
                       Reveal Match
                     </button>
                   </>
                 ) : (
-                  <div className="bg-green-50 p-6 rounded-lg text-center animate-in fade-in zoom-in duration-300">
+                  <div
+                    className={`${
+                      isSecretSanta ? "bg-green-50" : "bg-blue-50"
+                    } p-6 rounded-lg text-center animate-in fade-in zoom-in duration-300`}
+                  >
                     <p className="text-lg text-gray-600 mb-2">
-                      You are the Secret Santa for:
+                      {isSecretSanta
+                        ? "You are the Secret Santa for:"
+                        : "You are paired with:"}
                     </p>
-                    <h2 className="text-3xl font-bold text-green-600 mb-4">
+                    <h2
+                      className={`text-3xl font-bold ${
+                        isSecretSanta ? "text-green-600" : "text-blue-600"
+                      } mb-4`}
+                    >
                       {status.receiver.name}
                     </h2>
-                    {status.receiver.wishlist && (
+                    {status.receiver.wishlist && isSecretSanta && (
                       <div className="bg-white p-4 rounded border border-green-200">
                         <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
                           Their Wishlist
@@ -194,15 +225,36 @@ const JoinSecretSanta: React.FC = () => {
     );
   }
 
+  // Join View
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-green-50 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md border-t-4 border-red-500">
+    <div
+      className={`min-h-screen bg-gradient-to-br ${
+        isSecretSanta ? "from-red-50 to-green-50" : "from-blue-50 to-indigo-50"
+      } flex items-center justify-center p-4`}
+    >
+      <div
+        className={`bg-white p-8 rounded-lg shadow-xl w-full max-w-md border-t-4 ${
+          isSecretSanta ? "border-red-500" : "border-blue-500"
+        }`}
+      >
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <FaGift className="w-8 h-8 text-red-500" />
+          <div
+            className={`w-16 h-16 ${
+              isSecretSanta ? "bg-red-100" : "bg-blue-100"
+            } rounded-full flex items-center justify-center mx-auto mb-4`}
+          >
+            {isSecretSanta ? (
+              <FaGift className="w-8 h-8 text-red-500" />
+            ) : (
+              <FaUsers className="w-8 h-8 text-blue-500" />
+            )}
           </div>
           <h1 className="text-2xl font-bold text-gray-900">{event.title}</h1>
-          <p className="text-gray-500 mt-1">Join the Secret Santa exchange!</p>
+          <p className="text-gray-500 mt-1">
+            {isSecretSanta
+              ? "Join the Secret Santa exchange!"
+              : "Join the pairing event!"}
+          </p>
         </div>
 
         <Formik
@@ -228,7 +280,11 @@ const JoinSecretSanta: React.FC = () => {
                   <Field
                     name="name"
                     type="text"
-                    className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-red-500 focus:outline-none ${
+                    className={`w-full p-2 border bg-white rounded-md focus:ring-2 ${
+                      isSecretSanta
+                        ? "focus:ring-red-500"
+                        : "focus:ring-blue-500"
+                    } focus:outline-none ${
                       errors.name && touched.name
                         ? "border-red-500"
                         : "border-gray-300"
@@ -250,7 +306,9 @@ const JoinSecretSanta: React.FC = () => {
                 <Field
                   name="email"
                   type="email"
-                  className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-red-500 focus:outline-none ${
+                  className={`w-full p-2 border bg-white rounded-md focus:ring-2 ${
+                    isSecretSanta ? "focus:ring-red-500" : "focus:ring-blue-500"
+                  } focus:outline-none ${
                     errors.email && touched.email
                       ? "border-red-500"
                       : "border-gray-300"
@@ -273,7 +331,7 @@ const JoinSecretSanta: React.FC = () => {
                     as="textarea"
                     name="wishlist"
                     rows={3}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:outline-none"
+                    className="w-full p-2 border bg-white border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:outline-none"
                     placeholder="Sizes, favorites, allergies, etc."
                   />
                   <ErrorMessage
@@ -287,7 +345,11 @@ const JoinSecretSanta: React.FC = () => {
               <button
                 type="submit"
                 disabled={submitting}
-                className={`mt-4 w-full py-3 px-4 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md shadow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors ${
+                className={`mt-4 w-full py-3 px-4 ${
+                  isSecretSanta
+                    ? "bg-red-600 hover:bg-red-700 focus:ring-red-500"
+                    : "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500"
+                } text-white font-medium rounded-md shadow focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${
                   submitting ? "opacity-75 cursor-wait" : ""
                 }`}
               >
