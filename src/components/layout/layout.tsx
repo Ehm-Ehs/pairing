@@ -1,14 +1,18 @@
 import Header from "./header";
-import { Outlet } from "react-router-dom";
+import { ReactNode } from "react";
+import { GroupingsPageProps } from "../../types";
 
-function Layout() {
+interface LayoutProps {
+  children: ReactNode;
+  user?: GroupingsPageProps | null;
+}
+
+function Layout({ children, user }: LayoutProps) {
   return (
     <>
       <div className="">
-        <Header user />
-        <main>
-          <Outlet />
-        </main>
+        <Header user={user} />
+        <main>{children}</main>
       </div>
     </>
   );

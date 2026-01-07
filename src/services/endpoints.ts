@@ -89,12 +89,6 @@ export async function editPairingValue(
         if (groups && groups[groupKey]) {
           const group = groups[groupKey];
 
-          // Find the participant in the group
-          // We can use keyIndex if it corresponds to the array index,
-          // but checking ID is safer if the array order might have changed (though unlikely if we just read it)
-          // Let's use the ID to be sure, or keyIndex if ID check fails/is redundant.
-          // The previous logic passed keyIndex which was found via findIndex.
-
           const participantIndex = group.findIndex((p: any) => p.id === id);
 
           if (participantIndex !== -1) {
@@ -112,20 +106,47 @@ export async function editPairingValue(
               pairings: pairings,
             });
             console.log("Pairing updated successfully!");
+
+            // Check if group is full
+            const isFull = group.every(
+              (p: any) => p.name && p.name.trim() !== ""
+            );
+
+            // Notify organizer about new participant
+            try {
+              const { createNotification } = await import("./notifications");
+              // pairing is defined in the outer scope
+              const eventId = pairing.id;
+              await createNotification(
+                userId,
+                `${newValue.name} has filled a slot in ${groupingPurpose}`,
+                "info",
+                `/result?id=${eventId}`
+              );
+            } catch (notifyError) {
+              console.error("Failed to notifiy organizer:", notifyError);
+            }
+
+            return { participants: group, isFull };
           } else {
             console.error("Participant not found in group.");
+            return null;
           }
         } else {
           console.error("Group not found.");
+          return null;
         }
       } else {
         console.error("Pairing with grouping purpose not found.");
+        return null;
       }
     } else {
       console.error("User document not found.");
+      return null;
     }
   } catch (error) {
     console.error("Error updating pairing value:", error);
+    return null;
   }
 }
 
@@ -196,6 +217,42 @@ export async function addParticipantToSecretSanta(
         pairing.participants.push(participant);
         pairings[pairingIndex] = pairing;
 
+        if (
+          pairing.config?.expectedParticipants &&
+          pairing.participants.length === pairing.config.expectedParticipants
+        ) {
+          console.log("Group full! Triggering notification...");
+          // ... existing cloud function trigger ...
+          try {
+            const { functions } = await import("./firebase");
+            const { httpsCallable } = await import("firebase/functions");
+            const notifyGroupComplete = httpsCallable(
+              functions,
+              "notifyGroupComplete"
+            );
+            await notifyGroupComplete({ eventId: eventId, ownerId: userId });
+            console.log("Notification trigger sent.");
+          } catch (err) {
+            console.error("Failed to trigger notification:", err);
+            // Don't block the actual join if notification fails
+          }
+        }
+
+        // Notify organizer about new participant
+        try {
+          const { createNotification } = await import("./notifications");
+          await createNotification(
+            userId,
+            `${participant.name || "A new user"} joined ${
+              pairing.groupingPurpose || pairing.title || "Secret Santa"
+            }`,
+            "info",
+            `/result?id=${eventId}`
+          );
+        } catch (notifyError) {
+          console.error("Failed to notify organizer:", notifyError);
+        }
+
         await updateDoc(userRef, { pairings });
         console.log("Participant added successfully");
       } else {
@@ -250,6 +307,7 @@ export async function generateSecretSantaPairs(
 
         await updateDoc(userRef, { pairings });
         console.log("Pairs generated successfully");
+        return pairing;
       } else {
         throw new Error("Event not found");
       }
@@ -277,6 +335,147 @@ export async function removeParticipantFromSecretSanta(
       if (pairingIndex !== -1) {
         const pairing = pairings[pairingIndex];
         if (pairing.participants) {
+          pairing.participants = pairing.participants.filter(
+            (p: any) => p.id !== participantId
+          );
+          pairings[pairingIndex] = pairing;
+
+          await updateDoc(userRef, { pairings });
+          console.log("Participant removed successfully");
+        }
+      } else {
+        throw new Error("Event not found");
+      }
+    }
+  } catch (error) {
+    console.error("Error removing participant:", error);
+    throw error;
+  }
+}
+
+export async function addParticipantToRandomPositioning(
+  userId: string,
+  eventId: string,
+  participant: any
+) {
+  try {
+    const userRef = doc(db, "Users", userId);
+    const docSnap = await getDoc(userRef);
+
+    if (docSnap.exists()) {
+      const userData = docSnap.data();
+      const pairings = userData.pairings || [];
+      const pairingIndex = pairings.findIndex((p: any) => p.id === eventId);
+
+      if (pairingIndex !== -1) {
+        const pairing = pairings[pairingIndex];
+        if (!pairing.participants) {
+          pairing.participants = [];
+        }
+        pairing.participants.push(participant);
+        pairings[pairingIndex] = pairing;
+
+        await updateDoc(userRef, { pairings });
+        console.log("Participant added successfully");
+
+        // Notify organizer about new participant
+        try {
+          const { createNotification } = await import("./notifications");
+          await createNotification(
+            userId,
+            `${participant.name || "A new user"} joined ${
+              pairing.groupingPurpose || pairing.title || "Random Positioning"
+            }`,
+            "info",
+            `/result?id=${eventId}`
+          );
+        } catch (notifyError) {
+          console.error("Failed to notify organizer:", notifyError);
+        }
+      } else {
+        throw new Error("Event not found");
+      }
+    } else {
+      throw new Error("Organizer not found");
+    }
+  } catch (error) {
+    console.error("Error adding participant:", error);
+    throw error;
+  }
+}
+
+export async function generateRandomPositions(userId: string, eventId: string) {
+  try {
+    const userRef = doc(db, "Users", userId);
+    const docSnap = await getDoc(userRef);
+
+    if (docSnap.exists()) {
+      const userData = docSnap.data();
+      const pairings = userData.pairings || [];
+      const pairingIndex = pairings.findIndex((p: any) => p.id === eventId);
+
+      if (pairingIndex !== -1) {
+        const pairing = pairings[pairingIndex];
+        const participants = pairing.participants || [];
+
+        if (participants.length === 0) {
+          throw new Error("No participants to generate positions for");
+        }
+
+        // Shuffle participants
+
+        // Assign distinct numbers
+        // We actually want 1 to N.
+        // Let's just shuffle the participants array order and assign index+1?
+        // No, 'participants' usually is append-only for join order log.
+        // We should just assign the 'assignedNumber' field.
+
+        // Shuffle an array of numbers 1..N
+        const numbers = Array.from(
+          { length: participants.length },
+          (_, i) => i + 1
+        ).sort(() => Math.random() - 0.5);
+
+        participants.forEach((p: any, index: number) => {
+          p.assignedNumber = numbers[index];
+        });
+
+        pairing.participants = participants;
+        pairing.status = "locked"; // Lock the event
+        pairings[pairingIndex] = pairing;
+
+        await updateDoc(userRef, { pairings });
+        console.log("Positions generated successfully");
+        return pairing;
+      } else {
+        throw new Error("Event not found");
+      }
+    }
+  } catch (error) {
+    console.error("Error generating positions:", error);
+    throw error;
+  }
+}
+
+export async function removeParticipantFromRandomPositioning(
+  userId: string,
+  eventId: string,
+  participantId: string
+) {
+  try {
+    const userRef = doc(db, "Users", userId);
+    const docSnap = await getDoc(userRef);
+
+    if (docSnap.exists()) {
+      const userData = docSnap.data();
+      const pairings = userData.pairings || [];
+      const pairingIndex = pairings.findIndex((p: any) => p.id === eventId);
+
+      if (pairingIndex !== -1) {
+        const pairing = pairings[pairingIndex];
+        if (pairing.participants) {
+          // Check if locked? Usually organizer can remove, but if locked, re-shuffle needed?
+          // For now allow remove, but warn in UI. Backend just suppresses it.
           pairing.participants = pairing.participants.filter(
             (p: any) => p.id !== participantId
           );
