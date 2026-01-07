@@ -1,13 +1,17 @@
-import { Link } from "react-router-dom";
+import Link from "next/link";
 import Logo from "../../assets/logo";
 import { ReactNode, useState, useRef, useEffect } from "react";
 import { FaBell, FaUserCircle, FaSignOutAlt } from "react-icons/fa";
+import Avatar from "../ui/avatar";
+import NotificationDropdown from "../ui/NotificationDropdown";
 import { signOut } from "firebase/auth";
 import { auth } from "../../services/firebase";
 
+import { GroupingsPageProps } from "../../types";
+
 interface HeaderProps {
   children?: ReactNode;
-  user?: any; // You can type `user` based on your user data structure
+  user?: GroupingsPageProps | null;
 }
 
 function Header({ children, user }: HeaderProps) {
@@ -40,61 +44,61 @@ function Header({ children, user }: HeaderProps) {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between px-5 sm:px-10 text-[#5324FB]">
-        <Link to="/home">
-          <div className="flex items-center gap-2 py-5">
+    <div className="bg-white border-b border-gray-100 relative z-50">
+      <div className="flex items-center justify-between px-5 sm:px-10 py-4 max-w-7xl mx-auto">
+        <Link href="/home">
+          <div className="flex items-center gap-2 cursor-pointer">
             <div className="w-10 h-10">
               <Logo />
             </div>
-            <p className="pt-3 font-semibold text-black">Pair Form</p>
+            <p className="font-semibold text-black text-xl">Pair Form</p>
           </div>
         </Link>
-
         {user ? (
-          <>
-            <p className="text-sm font-semibold text-gray-900">Your Pairings</p>
-            <div className="flex items-center gap-4">
-              <div className="focus:outline-none text-gray-600 hover:text-gray-900 transition-colors">
-                <FaBell className="w-5 h-5" />
+          <div className="flex items-center gap-6">
+            <NotificationDropdown userId={user.userId || user.uid!} />
+
+            <div className="relative" ref={dropdownRef}>
+              <div
+                className="cursor-pointer"
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+              >
+                <Avatar name={`${user.firstName} ${user.lastName}`} size="md" />
               </div>
 
-              <div className="relative" ref={dropdownRef}>
+              {isProfileOpen && (
                 <div
-                  className="focus:outline-none text-gray-600 hover:text-gray-900 transition-colors flex items-center cursor-pointer"
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
+                  className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <FaUserCircle className="w-6 h-6" />
-                </div>
-
-                {isProfileOpen && (
-                  <div
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50 animate-in fade-in zoom-in-95 duration-200"
-                    onClick={() => setIsProfileOpen(false)}
-                  >
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {user.displayName || "User"}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">
-                        {user.email}
-                      </p>
+                  <div className="bg-[#3A76F0] px-6 py-5 text-center">
+                    <div className="flex justify-center mb-3">
+                      <Avatar
+                        name={`${user.firstName} ${user.lastName}`}
+                        size="lg"
+                        className="border-4 border-white/20 shadow-sm"
+                      />
                     </div>
+                    <p className="text-white font-semibold text-lg truncate capitalize">
+                      {user.firstName} {user.lastName}
+                    </p>
+                  </div>
+
+                  <div className="p-4">
                     <div
                       onClick={handleSignOut}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors cursor-pointer"
+                      className="w-full text-center py-2.5 rounded-full bg-gray-900 text-white font-medium text-sm hover:bg-gray-800 transition-colors cursor-pointer flex items-center justify-center gap-2"
                     >
-                      <FaSignOutAlt className="w-3 h-3" />
-                      Sign out
+                      Logout
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
-          </>
+          </div>
         ) : (
           <div className="flex gap-3">
-            <Link to="/login" className="text-blue-700">
+            <Link href="/login" className="text-blue-700 font-medium">
               Login
             </Link>
           </div>

@@ -21,7 +21,7 @@ export interface SantaParticipant {
   assignedToId?: string; // ID of the person they are buying for
 }
 
-export type EventType = "role-based" | "secret-santa";
+export type EventType = "role-based" | "secret-santa" | "random-positioning";
 
 export interface BasePairing {
   id: string;
@@ -40,6 +40,22 @@ export interface RoleBasedPairing extends BasePairing {
   groups: { [key: number]: Participant[] };
 }
 
+export interface RandomParticipant {
+  id: string;
+  name: string;
+  assignedNumber?: number;
+  joinedAt: number;
+}
+
+export interface RandomPositioningPairing extends BasePairing {
+  type: "random-positioning";
+  description?: string;
+  deadline?: string;
+  hideNames: boolean;
+  participants: RandomParticipant[];
+  status: "open" | "locked";
+}
+
 export interface SecretSantaPairing extends BasePairing {
   type: "secret-santa";
   participants: SantaParticipant[];
@@ -53,10 +69,14 @@ export interface SecretSantaPairing extends BasePairing {
   status: "open" | "locked";
 }
 
-export type Pairing = RoleBasedPairing | SecretSantaPairing;
+export type Pairing =
+  | RoleBasedPairing
+  | SecretSantaPairing
+  | RandomPositioningPairing;
 
 export interface GroupingsPageProps {
-  uid: string;
+  uid?: string;
+  userId: string;
   firstName: string;
   lastName: string;
   email: string;

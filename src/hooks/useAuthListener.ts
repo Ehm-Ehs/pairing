@@ -18,7 +18,11 @@ export const useAuthListener = () => {
           docRef,
           (docSnap: DocumentSnapshot) => {
             if (docSnap.exists()) {
-              setUser(docSnap.data() as GroupingsPageProps);
+              setUser({
+                ...(docSnap.data() as GroupingsPageProps),
+                userId: docSnap.id,
+                uid: docSnap.id,
+              });
             } else {
               setUser(null);
             }

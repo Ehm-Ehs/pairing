@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import Link from "next/link";
 import { FaGhost, FaExclamationTriangle } from "react-icons/fa";
 import { Button } from "../ui/button";
 import { ReactNode } from "react";
@@ -33,7 +33,7 @@ function Error({
         <h2 className="text-2xl font-semibold text-gray-800 mb-4">{title}</h2>
         <p className="text-gray-600 mb-8">{message}</p>
         {showHomeButton && (
-          <Link to="/">
+          <Link href="/">
             <Button className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700">
               Take Me Home
             </Button>

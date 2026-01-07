@@ -20,6 +20,13 @@ service cloud.firestore {
     match /mail/{emailId} {
       allow create: if true;
     }
+
+    // Notifications: public create (for triggers), owner read/update
+    match /Notifications/{notificationId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if true; 
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
     
     // Default deny
     match /{document=**} {
