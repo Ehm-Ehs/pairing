@@ -10,6 +10,7 @@ import {
   RandomPositioningPairing,
 } from "../types";
 import { generateGroupings } from "../services/groupingAlgorithm";
+import { getFriendlyFirebaseErrorMessage } from "../utils/firebaseErrorUtils";
 
 interface Characteristic {
   name: string;
@@ -166,6 +167,7 @@ export const useCreateEvent = () => {
       await addPairing(userId, newPairing);
     } catch (error) {
       console.error("Error during submission:", error);
+      toast.error(getFriendlyFirebaseErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -202,6 +204,7 @@ export const useCreateEvent = () => {
       router.push(`/your-pairing?id=${newPairing.id}`);
     } catch (error) {
       console.error("Error creating Secret Santa:", error);
+      toast.error(getFriendlyFirebaseErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -235,6 +238,7 @@ export const useCreateEvent = () => {
       router.push(`/your-pairing?id=${newPairing.id}`);
     } catch (error) {
       console.error("Error creating Random Positioning event:", error);
+      toast.error(getFriendlyFirebaseErrorMessage(error));
     } finally {
       setLoading(false);
     }

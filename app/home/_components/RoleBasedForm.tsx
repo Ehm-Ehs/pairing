@@ -15,6 +15,7 @@ interface FormComponentProps {
   validationSchema: Yup.Schema<any>;
   onSubmit: (values: any) => void;
   loading?: boolean;
+  onCancel?: () => void;
 }
 
 const FormComponent: React.FC<FormComponentProps> = ({
@@ -22,15 +23,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
   validationSchema,
   onSubmit,
   loading = false,
+  onCancel,
 }) => {
   return (
     <>
-      <div className="mb-6 ">
-        <h2 className="text-xl font-medium text-gray-900 ">Pairing Details</h2>
-        <p className="text-lg text-gray-600">
-          Tell us about your group or pairs
-        </p>
-      </div>
       <Formik
         initialValues={initialValues}
         validationSchema={validationSchema}
@@ -229,16 +225,26 @@ const FormComponent: React.FC<FormComponentProps> = ({
               </>
             )}
 
-            <Button
-              type="submit"
-              disabled={loading}
-              isLoading={loading}
-              className={`text-white ${
-                loading ? "bg-blue-400" : "bg-blue-700 hover:bg-blue-800"
-              }`}
-            >
-              {loading ? "Submitting..." : "Submit"}
-            </Button>
+            <div className="flex gap-4 mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onCancel}
+                className="w-full"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={loading}
+                isLoading={loading}
+                className={`text-white w-full ${
+                  loading ? "bg-blue-400" : "bg-blue-700 hover:bg-blue-800"
+                }`}
+              >
+                {loading ? "Submitting..." : "Submit"}
+              </Button>
+            </div>
           </Form>
         )}
       </Formik>

@@ -14,6 +14,7 @@ const SignupForm = () => {
     setShowConfirmPassword,
     handleGoogleSignUp,
     handleSubmit,
+    isGoogleSigningUp,
   } = useSignup();
 
   return (
@@ -177,6 +178,7 @@ const SignupForm = () => {
           </div>
           <Button
             type="button"
+            isLoading={isGoogleSigningUp}
             onClick={handleGoogleSignUp}
             variant="outline"
             className="w-full flex items-center justify-center gap-2 hover:bg-gray-50 bg-white"

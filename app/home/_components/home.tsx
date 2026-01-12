@@ -10,8 +10,16 @@ interface HomeProps {
   data: GroupingsPageProps | null;
 }
 
+import { useSearchParams } from "next/navigation";
+
 export default function Home({ data }: HomeProps) {
-  const events = data?.pairings || [];
+  const searchParams = useSearchParams();
+  const filter = searchParams.get("filter");
+
+  const allEvents = data?.pairings || [];
+  const events = filter
+    ? allEvents.filter((e) => e.type === filter)
+    : allEvents;
   const organizerName = data?.firstName || "Organizer";
   const {
     handleCreateNew,
@@ -40,7 +48,7 @@ export default function Home({ data }: HomeProps) {
             </div>
             <div
               onClick={handleCreateNew}
-              className="bg-[#3A76F0] hover:bg-[#2f5fc7] p-2 rounded-lg flex items-center cursor-pointer"
+              className="bg-[#3A76F0] hover:bg-[#2f5fc7] p-2 rounded-lg flex items-center cursor-pointer text-white"
             >
               <FaPlus className="w-5 h-5 mr-2" />
               <p className="hidden sm:block text-sm font-medium">
@@ -78,8 +86,13 @@ export default function Home({ data }: HomeProps) {
                 </div>
                 <h3 className="mb-2">No events yet</h3>
                 <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                  Create your first Secret Santa or team formation event to get
-                  started
+                  {filter === "secret-santa"
+                    ? "Create your first Secret Santa event to get started"
+                    : filter === "role-based"
+                    ? "Create your first Team Formation event to get started"
+                    : filter === "random-positioning"
+                    ? "Create your first Random Positioning event to get started"
+                    : "Create your first Secret Santa or team formation event to get started"}
                 </p>
                 <Button
                   onClick={handleCreateNew}

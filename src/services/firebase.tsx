@@ -21,7 +21,15 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-export const auth = getAuth();
+// Debug: Check if config is loaded
+if (!firebaseConfig.apiKey) {
+  console.error("Firebase API Key is missing! Check your .env file.");
+}
+if (!firebaseConfig.authDomain) {
+  console.error("Firebase Auth Domain is missing! Check your .env file.");
+}
+
+export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
 export const functions = getFunctions(app);

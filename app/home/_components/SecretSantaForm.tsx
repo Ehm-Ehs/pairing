@@ -11,12 +11,16 @@ interface SecretSantaFormProps {
   };
   onSubmit: (values: any) => void;
   loading?: boolean;
+  onModeChange?: (isSecretSanta: boolean) => void;
+  onCancel?: () => void;
 }
 
 const SecretSantaForm: React.FC<SecretSantaFormProps> = ({
   initialValues,
   onSubmit,
   loading = false,
+  onModeChange,
+  onCancel,
 }) => {
   const validationSchema = Yup.object({
     title: Yup.string().required("Event title is required"),
@@ -38,19 +42,6 @@ const SecretSantaForm: React.FC<SecretSantaFormProps> = ({
 
           return (
             <Form className="flex flex-col gap-6">
-              <div className="mb-2">
-                <h2 className="text-xl font-medium text-gray-900">
-                  {isSecretSanta
-                    ? "Secret Santa Details"
-                    : "Pairing Event Details"}
-                </h2>
-                <p className="text-lg text-gray-600">
-                  {isSecretSanta
-                    ? "Customize your gift exchange"
-                    : "Setup your random pairing event"}
-                </p>
-              </div>
-
               {/* Event Type */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -62,7 +53,10 @@ const SecretSantaForm: React.FC<SecretSantaFormProps> = ({
                       type="radio"
                       name="subtype"
                       checked={values.allowWishlist === true} // Simplified check
-                      onChange={() => setFieldValue("allowWishlist", true)}
+                      onChange={() => {
+                        setFieldValue("allowWishlist", true);
+                        onModeChange?.(true);
+                      }}
                       className="w-4 h-4 text-blue-600"
                     />
                     <span>Secret Santa (With Wishlist)</span>
@@ -72,7 +66,10 @@ const SecretSantaForm: React.FC<SecretSantaFormProps> = ({
                       type="radio"
                       name="subtype"
                       checked={values.allowWishlist === false}
-                      onChange={() => setFieldValue("allowWishlist", false)}
+                      onChange={() => {
+                        setFieldValue("allowWishlist", false);
+                        onModeChange?.(false);
+                      }}
                       className="w-4 h-4 text-blue-600"
                     />
                     <span>Just Pair (No Wishlist)</span>
@@ -175,20 +172,30 @@ const SecretSantaForm: React.FC<SecretSantaFormProps> = ({
                   : "Participants join through a shared link. Once everyone has registered, you'll generate the pairings. We'll utilize our algorithm to shuffle and assign pairs randomly."}
               </div>
 
-              <Button
-                type="submit"
-                disabled={loading}
-                isLoading={loading}
-                className={`mt-2 w-full text-white ${
-                  loading ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
-                }`}
-              >
-                {loading
-                  ? "Creating Event..."
-                  : isSecretSanta
-                  ? "Create Secret Santa"
-                  : "Create Pairings"}
-              </Button>
+              <div className="flex gap-4 mt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onCancel}
+                  className="w-full"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  isLoading={loading}
+                  className={`w-full text-white ${
+                    loading ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+                  }`}
+                >
+                  {loading
+                    ? "Creating Event..."
+                    : isSecretSanta
+                    ? "Create Secret Santa"
+                    : "Create Pairings"}
+                </Button>
+              </div>
             </Form>
           );
         }}

@@ -26,6 +26,8 @@ const CreateParing: React.FC = () => {
     handleSubmitRandomPositioning,
   } = useCreateEvent();
 
+  const [isSecretSantaMode, setIsSecretSantaMode] = React.useState(true);
+
   // Render logic
   if (!eventType) {
     return (
@@ -35,18 +37,32 @@ const CreateParing: React.FC = () => {
     );
   }
 
+  const handleCancel = () => {
+    setEventType(null);
+  };
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row justify-center gap-8 md:gap-20 md:py-16 md:px-8 p-4 bg-gradient-to-br from-blue-50 to-indigo-50">
       <div className="flex flex-col justify-center items-center w-full max-w-4xl mx-auto">
-        {/* Back Button */}
-        <div className="w-full flex justify-start mb-4">
-          <Button
-            onClick={() => setEventType(null)}
-            variant="ghost"
-            className="text-sm text-gray-500 hover:text-gray-900 flex items-center gap-1 pl-0 hover:bg-transparent"
-          >
-            &larr; Back to Event Type
-          </Button>
+        <div className="mb-6 text-center">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            {eventType === "role-based"
+              ? "Pairing Details"
+              : eventType === "random-positioning"
+              ? "Random Positioning Details"
+              : isSecretSantaMode
+              ? "Secret Santa Details"
+              : "Pairing Event Details"}
+          </h2>
+          <p className="text-lg text-gray-600">
+            {eventType === "role-based"
+              ? "Tell us about your group or pairs"
+              : eventType === "random-positioning"
+              ? "Assign unique random positions (1-N) to participants."
+              : isSecretSantaMode
+              ? "Customize your gift exchange"
+              : "Setup your random pairing event"}
+          </p>
         </div>
 
         {eventType === "role-based" ? (
@@ -57,6 +73,7 @@ const CreateParing: React.FC = () => {
                 validationSchema={validationSchema}
                 onSubmit={handleFormSubmit}
                 loading={loading}
+                onCancel={handleCancel}
               />
             </div>
             <div ref={resultsRef} className="w-full">
@@ -74,6 +91,7 @@ const CreateParing: React.FC = () => {
               }}
               onSubmit={handleSubmitRandomPositioning}
               loading={loading}
+              onCancel={handleCancel}
             />
           </div>
         ) : (
@@ -86,6 +104,8 @@ const CreateParing: React.FC = () => {
               }}
               onSubmit={handleSubmitSecretSanta}
               loading={loading}
+              onModeChange={setIsSecretSantaMode}
+              onCancel={handleCancel}
             />
           </div>
         )}

@@ -17,6 +17,7 @@ export interface Notification {
   message: string;
   type: "info" | "success" | "warning" | "error";
   read: boolean;
+  readAt?: any; // Timestamp when read
   createdAt: any;
   link?: string;
 }
@@ -69,7 +70,10 @@ export const subscribeToNotifications = (
 export const markNotificationAsRead = async (notificationId: string) => {
   try {
     const notificationRef = doc(db, "Notifications", notificationId);
-    await updateDoc(notificationRef, { read: true });
+    await updateDoc(notificationRef, {
+      read: true,
+      readAt: serverTimestamp(),
+    });
   } catch (error) {
     console.error("Error marking notification as read:", error);
   }
