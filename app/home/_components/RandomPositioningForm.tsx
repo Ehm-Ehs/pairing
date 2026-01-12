@@ -12,12 +12,14 @@ interface RandomPositioningFormProps {
   };
   onSubmit: (values: any) => void;
   loading?: boolean;
+  onCancel?: () => void;
 }
 
 const RandomPositioningForm: React.FC<RandomPositioningFormProps> = ({
   initialValues,
   onSubmit,
   loading = false,
+  onCancel,
 }) => {
   const validationSchema = Yup.object({
     title: Yup.string().required("Event title is required"),
@@ -36,15 +38,6 @@ const RandomPositioningForm: React.FC<RandomPositioningFormProps> = ({
         {({ values, handleChange, handleBlur, setFieldValue }) => {
           return (
             <Form className="flex flex-col gap-6">
-              <div className="mb-2">
-                <h2 className="text-xl font-medium text-gray-900">
-                  Random Positioning Details
-                </h2>
-                <p className="text-lg text-gray-600">
-                  Assign unique random positions (1-N) to participants.
-                </p>
-              </div>
-
               {/* Event Title */}
               <div>
                 <label
@@ -155,16 +148,26 @@ const RandomPositioningForm: React.FC<RandomPositioningFormProps> = ({
                 3rd...).
               </div>
 
-              <Button
-                type="submit"
-                disabled={loading}
-                isLoading={loading}
-                className="mt-2 w-full bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                {loading
-                  ? "Creating Event..."
-                  : "Create Random Positioning Event"}
-              </Button>
+              <div className="flex gap-4 mt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onCancel}
+                  className="w-full"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  isLoading={loading}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  {loading
+                    ? "Creating Event..."
+                    : "Create Random Positioning Event"}
+                </Button>
+              </div>
             </Form>
           );
         }}

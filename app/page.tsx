@@ -231,7 +231,7 @@ const LandingPage = () => {
       <main className="flex flex-col  sm:items-center sm:justify-center sm:text-center px-4 mt-12 mb-20 md:mt-20 md:mb-32">
         <div className="inline-flex items-center px-3 py-1 rounded-full border border-blue-100 bg-blue-50 text-blue-600 text-xs font-medium mb-8">
           <span className="flex w-2 h-2 bg-blue-600 rounded-full mr-2"></span>
-          Smart automation for balanced groups
+          Fair groups. Zero chaos.
         </div>
         <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-gray-900 mb-6 max-w-4xl">
           Pairing formation, <br />

@@ -1,6 +1,7 @@
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { generateSecretSantaPairs } from "../services/endpoints";
+import { getFriendlyFirebaseErrorMessage } from "../utils/firebaseErrorUtils";
 import { GroupingsPageProps } from "../types";
 
 export const useHomeActions = () => {
@@ -53,7 +54,7 @@ export const useHomeActions = () => {
       }
     } catch (error: any) {
       console.error("Error generating pairs:", error);
-      toast.error(error.message || "Failed to generate pairs");
+      toast.error(getFriendlyFirebaseErrorMessage(error));
     }
   };
 

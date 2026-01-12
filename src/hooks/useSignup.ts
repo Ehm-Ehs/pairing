@@ -11,13 +11,17 @@ import { v4 as uuidv4 } from "uuid";
 import { auth, db, googleProvider } from "../services/firebase";
 import Auth from "../services/auth.module";
 import { sendWelcomeEmail } from "../services/email";
+import { getFriendlyFirebaseErrorMessage } from "../utils/firebaseErrorUtils";
 
 export const useSignup = () => {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isGoogleSigningUp, setIsGoogleSigningUp] = useState(false);
 
   const handleGoogleSignUp = async () => {
+    if (isGoogleSigningUp) return;
+    setIsGoogleSigningUp(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
@@ -67,9 +71,11 @@ export const useSignup = () => {
       }
     } catch (error: any) {
       console.error("Error signing up with Google:", error);
-      toast.error(`Google Sign Up failed: ${error.message}`, {
+      toast.error(getFriendlyFirebaseErrorMessage(error), {
         position: "top-center",
       });
+    } finally {
+      setIsGoogleSigningUp(false);
     }
   };
 
@@ -206,7 +212,7 @@ export const useSignup = () => {
           );
         }
       } else {
-        toast.error(error.message || "Sign up failed", {
+        toast.error(getFriendlyFirebaseErrorMessage(error), {
           position: "top-center",
         });
       }
@@ -220,5 +226,6 @@ export const useSignup = () => {
     setShowConfirmPassword,
     handleGoogleSignUp,
     handleSubmit,
+    isGoogleSigningUp,
   };
 };

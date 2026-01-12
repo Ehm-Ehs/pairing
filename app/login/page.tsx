@@ -14,6 +14,7 @@ import { FaGoogle } from "react-icons/fa";
 import { v4 as uuidv4 } from "uuid";
 import { sendWelcomeEmail } from "../../src/services/email";
 import { Button } from "../../src/components/ui/button";
+import { getFriendlyFirebaseErrorMessage } from "../../src/utils/firebaseErrorUtils";
 
 const SignIn = () => {
   const router = useRouter();
@@ -66,7 +67,7 @@ const SignIn = () => {
       }
     } catch (error: any) {
       console.error("Error logging in with Google:", error);
-      toast.error(`Google Login failed: ${error.message}`, {
+      toast.error(getFriendlyFirebaseErrorMessage(error), {
         position: "top-center",
       });
     }
@@ -123,7 +124,7 @@ const SignIn = () => {
       console.error("Error logging in:", error.message);
 
       // Show error toast message
-      toast.error(`Login failed: ${error.message}`, {
+      toast.error(getFriendlyFirebaseErrorMessage(error), {
         position: "top-center",
       });
     }
@@ -173,12 +174,20 @@ const SignIn = () => {
               ) : null}
             </div>
             <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Password
-              </label>
+              <div className="flex justify-between items-center mb-1">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Password
+                </label>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-blue-700 hover:text-blue-800"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
               <Field
                 type="password"
                 name="password"
