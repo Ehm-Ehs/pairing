@@ -2,7 +2,11 @@
 
 import { Formik, Form, Field } from "formik";
 import * as Yup from "yup";
-import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signInAnonymously,
+} from "firebase/auth";
 import { auth, googleProvider, db } from "../../src/services/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import Link from "next/link";
@@ -10,7 +14,7 @@ import { useRouter } from "next/navigation";
 import Logo from "../../src/assets/logo";
 import Auth from "../../src/services/auth.module";
 import { toast } from "react-toastify";
-import { FaGoogle } from "react-icons/fa";
+import { FaGoogle, FaUserSecret } from "react-icons/fa";
 import { v4 as uuidv4 } from "uuid";
 import { sendWelcomeEmail } from "../../src/services/email";
 import { Button } from "../../src/components/ui/button";
@@ -67,6 +71,51 @@ const SignIn = () => {
       }
     } catch (error: any) {
       console.error("Error logging in with Google:", error);
+      toast.error(getFriendlyFirebaseErrorMessage(error), {
+        position: "top-center",
+      });
+    }
+  };
+
+  const handleAnonymousSignIn = async () => {
+    try {
+      const result = await signInAnonymously(auth);
+      const user = result.user;
+
+      const docRef = doc(db, "Users", user.uid);
+      const docSnap = await getDoc(docRef);
+
+      if (!docSnap.exists()) {
+        const userId = uuidv4();
+        // Create new user if not exists
+        await setDoc(docRef, {
+          userId,
+          email: null,
+          firstName: "Guest",
+          lastName: "User",
+          isAnonymous: true,
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      const accessToken = await user.getIdToken();
+      if (accessToken && user) {
+        const userToStore = {
+          uid: user.uid,
+          email: null,
+          displayName: "Guest User",
+          photoURL: null,
+        };
+        // @ts-ignore
+        Auth.authenticateUser({ accessToken, data: userToStore });
+        toast.success("Logged in as Guest!", {
+          position: "top-center",
+          autoClose: 3000,
+        });
+        router.push("/home");
+      }
+    } catch (error: any) {
+      console.error("Error signing is as guest:", error);
       toast.error(getFriendlyFirebaseErrorMessage(error), {
         position: "top-center",
       });
@@ -221,6 +270,15 @@ const SignIn = () => {
             >
               <FaGoogle className="text-red-500" />
               Sign in with Google
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAnonymousSignIn}
+              variant="outline"
+              className="w-full flex items-center justify-center gap-2 hover:bg-gray-50 bg-white mt-1"
+            >
+              <FaUserSecret className="text-gray-700" />
+              Sign in Anonymously
             </Button>
 
             <p className="py-4 text-center">

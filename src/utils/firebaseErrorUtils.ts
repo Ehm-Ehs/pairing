@@ -31,6 +31,8 @@ export const getFriendlyFirebaseErrorMessage = (error: any): string => {
       return "Too many failed attempts. Please try again later.";
     case "auth/user-disabled":
       return "This account has been disabled. Please contact support.";
+    case "auth/operation-not-allowed":
+      return "Anonymous sign-in is not enabled in Firebase Console.";
     default:
       // Fallback: If no specific code matches, try to use the message but clean it up if it looks like a raw firebase error
       if (errorMessage && errorMessage.includes("Firebase:")) {

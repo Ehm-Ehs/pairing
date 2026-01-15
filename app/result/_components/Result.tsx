@@ -95,10 +95,12 @@ const Result = ({ data }: ResultProps) => {
               >
                 <div className="flex items-center justify-between mb-8">
                   <div>
-                    <h2 className="text-2xl font-bold">
+                    <h2 className="text-2xl font-bold font-heading">
                       {pairing.groupingPurpose}
                     </h2>
-                    <p className="text-muted-foreground mt-1">Event Overview</p>
+                    <p className="text-muted-foreground mt-1 font-heading">
+                      Event Overview
+                    </p>
                   </div>
                 </div>
 

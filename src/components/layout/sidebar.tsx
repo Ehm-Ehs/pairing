@@ -81,7 +81,7 @@ export default function Sidebar({
       animate={isCollapsed ? "collapsed" : "expanded"}
       variants={sidebarVariants}
       className={cn(
-        "h-screen sticky top-0 bg-white border-r border-gray-100 shadow-sm z-40 hidden md:flex flex-col justify-between transition-all duration-300 ease-in-out"
+        "h-screen sticky top-0 bg-white border-r border-gray-100 shadow-sm z-40 hidden md:flex flex-col justify-between transition-all duration-300 ease-in-out shrink-0"
       )}
     >
       {/* Header / Logo */}
@@ -235,7 +235,9 @@ export default function Sidebar({
             <p className="text-sm font-semibold text-gray-900 truncate capitalize">
               {user?.firstName} {user?.lastName}
             </p>
-            <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+            {user?.email && (
+              <p className="text-xs text-gray-500 truncate">{user.email}</p>
+            )}
           </motion.div>
 
           {!isCollapsed && (

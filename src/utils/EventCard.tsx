@@ -84,7 +84,7 @@ const EventCard = ({
           )}
 
         {/* Actions */}
-        <div className="flex gap-2 pt-2">
+        <div className="flex flex-wrap gap-2 pt-2">
           {event.type === "secret-santa" && event.status === "open" && (
             <Button
               variant="secondary"
@@ -107,7 +107,7 @@ const EventCard = ({
           </Button>
           <div
             onClick={() => copyJoinLink(event)}
-            className="flex items-center justify-center bg-slate-100 text-xs px-2 py-1 rounded"
+            className="flex items-center justify-center bg-slate-100 text-xs px-3 py-2 rounded-md hover:bg-slate-200 cursor-pointer h-9"
           >
             <FaLink className="w-4 h-4" />
           </div>

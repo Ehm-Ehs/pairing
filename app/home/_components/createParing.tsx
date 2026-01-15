@@ -45,7 +45,7 @@ const CreateParing: React.FC = () => {
     <div className="min-h-screen flex flex-col md:flex-row justify-center gap-8 md:gap-20 md:py-16 md:px-8 p-4 bg-gradient-to-br from-blue-50 to-indigo-50">
       <div className="flex flex-col justify-center items-center w-full max-w-4xl mx-auto">
         <div className="mb-6 text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2 font-heading">
             {eventType === "role-based"
               ? "Pairing Details"
               : eventType === "random-positioning"

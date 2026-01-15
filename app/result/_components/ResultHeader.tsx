@@ -8,7 +8,7 @@ interface ResultHeaderProps {
 const ResultHeader = ({ data, selectedIndex }: ResultHeaderProps) => {
   return (
     <div className="mb-8">
-      <h1 className="text-3xl font-bold">Pairing Results</h1>
+      <h1 className="text-3xl font-bold font-heading">Pairing Results</h1>
     </div>
   );
 };

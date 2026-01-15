@@ -84,7 +84,7 @@ export default function Home({ data }: HomeProps) {
                 <div className="w-16 h-16 bg-[#3A76F0]/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
                   <FaPlus className="w-8 h-8 text-[#3A76F0]" />
                 </div>
-                <h3 className="mb-2">No events yet</h3>
+                <h3 className="mb-2 font-heading text-xl">No events yet</h3>
                 <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                   {filter === "secret-santa"
                     ? "Create your first Secret Santa event to get started"
