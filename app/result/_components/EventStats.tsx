@@ -29,7 +29,7 @@ const EventStats = ({
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Total Groups</p>
-              <p className="text-2xl">{pairing.numGroups}</p>
+              <p className="text-2xl font-heading">{pairing.numGroups}</p>
             </div>
             <div className="w-10 h-10 bg-[#3A76F0]/10 rounded-lg flex items-center justify-center">
               <FaUsers className="w-5 h-5 text-[#3A76F0]" />
@@ -42,7 +42,7 @@ const EventStats = ({
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Filled Slots</p>
-              <p className="text-2xl">
+              <p className="text-2xl font-heading">
                 {filledSlots} / {totalSlots}
               </p>
             </div>
@@ -57,7 +57,7 @@ const EventStats = ({
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Fill Rate</p>
-              <p className="text-2xl">{fillPercentage}%</p>
+              <p className="text-2xl font-heading">{fillPercentage}%</p>
             </div>
             <div className="w-10 h-10 bg-[#FFC857]/10 rounded-lg flex items-center justify-center">
               <FaChartLine className="w-5 h-5 text-[#FFC857]" />

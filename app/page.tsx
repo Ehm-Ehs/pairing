@@ -231,9 +231,9 @@ const LandingPage = () => {
       <main className="flex flex-col  sm:items-center sm:justify-center sm:text-center px-4 mt-12 mb-20 md:mt-20 md:mb-32">
         <div className="inline-flex items-center px-3 py-1 rounded-full border border-blue-100 bg-blue-50 text-blue-600 text-xs font-medium mb-8">
           <span className="flex w-2 h-2 bg-blue-600 rounded-full mr-2"></span>
-          Fair groups. Zero chaos.
+          Smart automated balancing. Fair groups. Zero chaos.
         </div>
-        <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-gray-900 mb-6 max-w-4xl">
+        <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-gray-900 mb-6 max-w-4xl font-heading">
           Pairing formation, <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
             perfected.
@@ -385,7 +385,7 @@ const LandingPage = () => {
       <section className="bg-gray-50 py-16 md:py-24 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-4xl md:text-5xl font-medium text-gray-900 mb-6 ">
+            <h2 className="text-4xl md:text-5xl font-medium text-gray-900 mb-6 font-heading">
               Everything You Need
             </h2>
             <p className="text-xl text-muted-foreground mt-4">

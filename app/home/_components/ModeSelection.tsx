@@ -11,7 +11,9 @@ export const ModeSelection: React.FC<ModeSelectionProps> = ({ onSelect }) => {
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-900">Create New Event</h2>
+        <h2 className="text-2xl font-bold text-gray-900 font-heading">
+          Create New Event
+        </h2>
         <p className="text-gray-500 mt-2">
           Choose your event type and set up the details
         </p>
@@ -26,7 +28,9 @@ export const ModeSelection: React.FC<ModeSelectionProps> = ({ onSelect }) => {
             <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-100 transition-colors">
               <FaUsers className="w-8 h-8 text-blue-600" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">Group Pairs</h3>
+            <h3 className="text-xl font-semibold mb-2 font-heading">
+              Group Pairs
+            </h3>
             <p className="text-gray-500">
               Balanced groups with or without characteristics
             </p>
@@ -41,7 +45,7 @@ export const ModeSelection: React.FC<ModeSelectionProps> = ({ onSelect }) => {
             <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-red-100 transition-colors">
               <FaGift className="w-8 h-8 text-red-500" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">
+            <h3 className="text-xl font-semibold mb-2 font-heading">
               Single Pairings (1:1)
             </h3>
             <p className="text-gray-500">
@@ -58,7 +62,9 @@ export const ModeSelection: React.FC<ModeSelectionProps> = ({ onSelect }) => {
             <div className="w-16 h-16 bg-purple-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-purple-100 transition-colors">
               <FaRandom className="w-8 h-8 text-purple-500" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">Random Positioning</h3>
+            <h3 className="text-xl font-semibold mb-2 font-heading">
+              Random Positioning
+            </h3>
             <p className="text-gray-500">
               Assign linear positions (1st, 2nd...) to participants
             </p>
