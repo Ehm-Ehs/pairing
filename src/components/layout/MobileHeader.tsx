@@ -130,9 +130,7 @@ export default function MobileHeader({ user }: MobileHeaderProps) {
           <div className="min-w-[40px] h-10 w-10 flex-shrink-0">
             <Logo />
           </div>
-          <span className="font-bold text-xl text-gray-800 whitespace-nowrap ml-2">
-            PairForm
-          </span>
+
         </Link>
 
         <div className="flex items-center gap-3">

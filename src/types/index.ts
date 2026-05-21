@@ -81,6 +81,7 @@ export interface GroupingsPageProps {
   lastName: string;
   email: string;
   pairings: Pairing[];
+  isAnonymous?: boolean;
 }
 
 export interface HomeProps {

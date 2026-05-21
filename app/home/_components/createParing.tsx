@@ -6,11 +6,17 @@ import SecretSantaForm from "./SecretSantaForm";
 import RandomPositioningForm from "./RandomPositioningForm";
 import { useCreateEvent } from "../../../src/hooks/useCreateEvent";
 import { validationSchema } from "./createEventValidation";
+import GuestLimitBlocker from "../../../src/components/auth/GuestLimitBlocker";
+import { GroupingsPageProps } from "../../../src/types";
 
 import { Modal } from "../../../src/components/ui/modal";
 import { Button } from "../../../src/components/ui/button";
 
-const CreateParing: React.FC = () => {
+interface CreateParingProps {
+  user?: GroupingsPageProps;
+}
+
+const CreateParing: React.FC<CreateParingProps> = ({ user }) => {
   const {
     eventType,
     setEventType,
@@ -27,6 +33,15 @@ const CreateParing: React.FC = () => {
   } = useCreateEvent();
 
   const [isSecretSantaMode, setIsSecretSantaMode] = React.useState(true);
+
+  // Render blocker if anonymous guest event limit reached
+  if (user?.isAnonymous && (user?.pairings?.length || 0) >= 2) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <GuestLimitBlocker />
+      </div>
+    );
+  }
 
   // Render logic
   if (!eventType) {

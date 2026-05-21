@@ -10,6 +10,7 @@ export default {
       fontFamily: {
         sans: ["var(--font-inter)", "sans-serif"],
         heading: ["var(--font-space)", "sans-serif"],
+        serif: ["var(--font-playfair)", "serif"],
       },
     },
   },
