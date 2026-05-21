@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "react-toastify";
-import { auth } from "../services/firebase";
+import { auth, db } from "../services/firebase";
+import { doc, getDoc } from "firebase/firestore";
 import { addPairing } from "../services/endpoints";
 import {
   RoleBasedPairing,
@@ -137,6 +138,25 @@ export const useCreateEvent = () => {
     setModalState({ ...modalState, isOpen: false, pendingValues: null });
   };
 
+  const checkGuestLimit = async (userId: string): Promise<boolean> => {
+    try {
+      const userDocRef = doc(db, "Users", userId);
+      const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        if (userData.isAnonymous && (userData.pairings?.length || 0) >= 2) {
+          toast.error("Guest limit reached! Please sign up or log in to create more than 2 events.", {
+            position: "top-center"
+          });
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error("Error checking guest limit:", error);
+    }
+    return false;
+  };
+
   const handleSubmitRoleBased = async (formValues: FormValues, groups: any) => {
     const userId = auth.currentUser?.uid;
 
@@ -146,6 +166,16 @@ export const useCreateEvent = () => {
     }
 
     setLoading(true);
+
+    try {
+      const limitReached = await checkGuestLimit(userId);
+      if (limitReached) {
+        setLoading(false);
+        return;
+      }
+    } catch (err) {
+      console.error("Error during guest limit check:", err);
+    }
 
     const newPairing: RoleBasedPairing = {
       id: uuidv4(),
@@ -183,6 +213,16 @@ export const useCreateEvent = () => {
 
     setLoading(true);
 
+    try {
+      const limitReached = await checkGuestLimit(userId);
+      if (limitReached) {
+        setLoading(false);
+        return;
+      }
+    } catch (err) {
+      console.error("Error during guest limit check:", err);
+    }
+
     const newPairing: SecretSantaPairing = {
       id: uuidv4(),
       createdAt: Date.now(),
@@ -219,6 +259,16 @@ export const useCreateEvent = () => {
     }
 
     setLoading(true);
+
+    try {
+      const limitReached = await checkGuestLimit(userId);
+      if (limitReached) {
+        setLoading(false);
+        return;
+      }
+    } catch (err) {
+      console.error("Error during guest limit check:", err);
+    }
 
     const newPairing: RandomPositioningPairing = {
       id: uuidv4(),

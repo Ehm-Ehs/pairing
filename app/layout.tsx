@@ -2,12 +2,17 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Clarity from "../src/components/Clarity";
 import { Providers } from "./providers";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter, Space_Grotesk, Playfair_Display } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-space",
+});
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-playfair",
+  style: ["italic", "normal"],
 });
 
 export const metadata: Metadata = {
@@ -49,7 +54,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} ${spaceGrotesk.variable} antialiased font-sans`}
+        className={`${inter.variable} ${spaceGrotesk.variable} ${playfair.variable} antialiased font-sans`}
       >
         <Providers>
           <Clarity />

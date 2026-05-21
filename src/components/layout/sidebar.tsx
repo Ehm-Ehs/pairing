@@ -96,7 +96,6 @@ export default function Sidebar({
             transition={{ duration: 0.2 }}
             className="font-bold text-xl text-gray-800 whitespace-nowrap ml-2"
           >
-            PairForm
           </motion.span>
         </Link>
 
