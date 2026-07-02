@@ -8,9 +8,10 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-inter)", "sans-serif"],
-        heading: ["var(--font-space)", "sans-serif"],
+        sans: ["var(--font-outfit)", "sans-serif"],
+        heading: ["var(--font-outfit)", "sans-serif"],
         serif: ["var(--font-playfair)", "serif"],
+        sora: ["var(--font-sora)", "sans-serif"],
       },
     },
   },

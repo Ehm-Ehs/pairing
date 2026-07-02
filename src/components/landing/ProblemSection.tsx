@@ -1,4 +1,8 @@
-"use client";
+import {
+  CircleXFilledOrangeIcon,
+  CalendarCustomIcon,
+  CircleXFilledPinkIcon,
+} from "../../components/ui/icons";
 
 export default function ProblemSection() {
   return (
@@ -41,12 +45,7 @@ export default function ProblemSection() {
             {/* Card 1 */}
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex gap-4 items-start">
               <div className="bg-[#fff1ed] text-[#ff7e67] shadow-[0_4px_12px_rgba(255,126,103,0.18)] w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0">
-                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="9" />
-                  <polyline points="12 5 12 12 15.5 15.5" />
-                  <circle cx="18" cy="18" r="4.5" fill="#ff7e67" stroke="#fff1ed" strokeWidth={1.5} />
-                  <path d="M16.2 16.2l3.6 3.6M19.8 16.2l-3.6 3.6" stroke="white" strokeWidth={1.8} />
-                </svg>
+                <CircleXFilledOrangeIcon className="w-6 h-6" />
               </div>
               <div>
                 <h3 className="font-bold text-gray-900 text-[15px] mb-1">Hours lost to manual sorting</h3>
@@ -59,7 +58,7 @@ export default function ProblemSection() {
             {/* Card 2 */}
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex gap-4 items-start">
               <div className="bg-[#eff4ff] text-[#3b82f6] shadow-[0_4px_12px_rgba(59,130,246,0.18)] w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0">
-                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 3v18" /><path d="M9 12h12" /></svg>
+                <CalendarCustomIcon className="w-6 h-6 text-[#0F48BC]" />
               </div>
               <div>
                 <h3 className="font-bold text-gray-900 text-[15px] mb-1">Constant updates as people join</h3>
@@ -72,7 +71,7 @@ export default function ProblemSection() {
             {/* Card 3 */}
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex gap-4 items-start">
               <div className="bg-[#fcf0ff] text-[#d946ef] shadow-[0_4px_12px_rgba(217,70,239,0.18)] w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0">
-                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><circle cx="6" cy="6" r="3.5" /><circle cx="12" cy="6" r="3.5" /><circle cx="18" cy="6" r="3.5" /><circle cx="6" cy="12" r="3.5" /><circle cx="12" cy="12" r="3.5" /><circle cx="18" cy="12" r="3.5" /><circle cx="6" cy="18" r="3.5" /><circle cx="12" cy="18" r="3.5" /><circle cx="18" cy="18" r="3.5" /></svg>
+                <CircleXFilledPinkIcon className="w-6.5 h-6.5 text-[#CF0ABE]" />
               </div>
               <div>
                 <h3 className="font-bold text-gray-900 text-[15px] mb-1">Duplicate assignments and conflicts</h3>

@@ -1,19 +1,14 @@
 "use client";
-import React, { useEffect, useState, Suspense } from "react";
+import React, { Suspense } from "react";
 import Result from "./_components/Result";
-import { fetchUserData } from "../../src/services/endpoints";
-import { GroupingsPageProps } from "../../src/types";
+import NextProtectedRoute from "../../src/components/routes/NextProtectedRoute";
 
 export default function ResultPage() {
-  const [data, setData] = useState<GroupingsPageProps | null>(null);
-
-  useEffect(() => {
-    fetchUserData(setData);
-  }, []);
-
   return (
-    <Suspense fallback={<div>Loading result...</div>}>
-      <Result data={data} />
+    <Suspense fallback={<div className="p-8 text-center text-gray-500">Loading result...</div>}>
+      <NextProtectedRoute>
+        {(user) => <Result data={user} />}
+      </NextProtectedRoute>
     </Suspense>
   );
 }

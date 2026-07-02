@@ -1,5 +1,8 @@
-import { FaUsers, FaGift, FaRandom } from "react-icons/fa";
-import { Card, CardContent } from "../../../src/components/ui/card";
+import {
+  LogoCirclesIcon,
+  SinglePairingIcon,
+  CircleXFilledPinkIcon,
+} from "../../../src/components/ui/icons";
 
 interface ModeSelectionProps {
   onSelect: (
@@ -11,65 +14,79 @@ export const ModeSelection: React.FC<ModeSelectionProps> = ({ onSelect }) => {
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 font-heading">
+        <h2 className="text-3xl font-extrabold text-gray-900 font-heading tracking-tight">
           Create New Event
         </h2>
-        <p className="text-gray-500 mt-2">
+        <p className="text-gray-500 mt-2 text-sm">
           Choose your event type and set up the details
         </p>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        <Card
-          className="cursor-pointer hover:border-blue-500 hover:shadow-md transition-all group"
-          onClick={() => onSelect("role-based")}
-        >
-          <CardContent className="p-8 flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-100 transition-colors">
-              <FaUsers className="w-8 h-8 text-blue-600" />
+      <div className="bg-[#f1f3f5] rounded-[2.5rem] p-6 md:p-10 shadow-sm border border-gray-200/20">
+        <div className="grid md:grid-cols-3 gap-6">
+          {/* Group Pairs Card */}
+          <div
+            className="cursor-pointer bg-white rounded-[2rem] p-6 border border-gray-100 hover:shadow-md hover:border-gray-200 transition-all flex flex-col items-start justify-between text-left group h-full"
+            onClick={() => onSelect("role-based")}
+          >
+            <div>
+              <div className="w-12 h-12 bg-[#3A76F0] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#3A76F0]/30 text-white">
+                <LogoCirclesIcon className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-lg font-bold mb-1 font-heading text-gray-900">
+                Group Pairs
+              </h3>
+              <p className="text-gray-500 text-xs leading-relaxed mb-6">
+                Balanced team with roles
+              </p>
             </div>
-            <h3 className="text-xl font-semibold mb-2 font-heading">
-              Group Pairs
-            </h3>
-            <p className="text-gray-500">
-              Balanced groups with or without characteristics
-            </p>
-          </CardContent>
-        </Card>
+            <span className="border border-[#3A76F0] text-[#3A76F0] group-hover:bg-[#3A76F0]/5 font-bold text-xs rounded-full px-4 py-1.5 transition-colors inline-flex items-center">
+              Create Event &gt;
+            </span>
+          </div>
 
-        <Card
-          className="cursor-pointer hover:border-red-500 hover:shadow-md transition-all group"
-          onClick={() => onSelect("secret-santa")}
-        >
-          <CardContent className="p-8 flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-red-100 transition-colors">
-              <FaGift className="w-8 h-8 text-red-500" />
+          {/* Single Pairing Card */}
+          <div
+            className="cursor-pointer bg-white rounded-[2rem] p-6 border border-gray-100 hover:shadow-md hover:border-gray-200 transition-all flex flex-col items-start justify-between text-left group h-full"
+            onClick={() => onSelect("secret-santa")}
+          >
+            <div>
+              <div className="w-12 h-12 bg-[#34C759] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#34C759]/30 text-white">
+                <SinglePairingIcon className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-lg font-bold mb-1 font-heading text-gray-900">
+                Single Pairing
+              </h3>
+              <p className="text-gray-500 text-xs leading-relaxed mb-6">
+                1:1 anonymous matching
+              </p>
             </div>
-            <h3 className="text-xl font-semibold mb-2 font-heading">
-              Single Pairings (1:1)
-            </h3>
-            <p className="text-gray-500">
-              Anonymous 1:1 pairing (Secret Santa or Just Pair)
-            </p>
-          </CardContent>
-        </Card>
+            <span className="border border-[#34C759] text-[#34C759] group-hover:bg-[#34C759]/5 font-bold text-xs rounded-full px-4 py-1.5 transition-colors inline-flex items-center">
+              Create Event &gt;
+            </span>
+          </div>
 
-        <Card
-          className="cursor-pointer hover:border-purple-500 hover:shadow-md transition-all group"
-          onClick={() => onSelect("random-positioning")}
-        >
-          <CardContent className="p-8 flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-purple-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-purple-100 transition-colors">
-              <FaRandom className="w-8 h-8 text-purple-500" />
+          {/* Random Positioning Card */}
+          <div
+            className="cursor-pointer bg-white rounded-[2rem] p-6 border border-gray-100 hover:shadow-md hover:border-gray-200 transition-all flex flex-col items-start justify-between text-left group h-full"
+            onClick={() => onSelect("random-positioning")}
+          >
+            <div>
+              <div className="w-12 h-12 bg-[#CB30E0] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#CB30E0]/30 text-white">
+                <CircleXFilledPinkIcon className="w-6.5 h-6.5 text-white" />
+              </div>
+              <h3 className="text-lg font-bold mb-1 font-heading text-gray-900">
+                Random Positioning
+              </h3>
+              <p className="text-gray-500 text-xs leading-relaxed mb-6">
+                Assign linear positions (1st, 2nd...) to participants
+              </p>
             </div>
-            <h3 className="text-xl font-semibold mb-2 font-heading">
-              Random Positioning
-            </h3>
-            <p className="text-gray-500">
-              Assign linear positions (1st, 2nd...) to participants
-            </p>
-          </CardContent>
-        </Card>
+            <span className="border border-[#CB30E0] text-[#CB30E0] group-hover:bg-[#CB30E0]/5 font-bold text-xs rounded-full px-4 py-1.5 transition-colors inline-flex items-center">
+              Create Event &gt;
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );

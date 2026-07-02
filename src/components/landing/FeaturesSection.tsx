@@ -1,55 +1,55 @@
 "use client";
 
 import {
-  LuLock,
-  LuUsers,
-  LuPresentation,
-  LuLink,
-  LuSquareDashedMousePointer,
-  LuFileSpreadsheet,
-} from "react-icons/lu";
+  LockIcon,
+  SinglePairingIcon,
+  DashboardMonitorIcon,
+  LinkedRingsIcon,
+  OrganizerPairingCursorIcon,
+  DocumentFoldedIcon,
+} from "../ui/icons";
 
 export default function FeaturesSection() {
   const features = [
     {
       title: "Auto-locking slots",
       description: "Once a spot is claimed, it's locked immediately. No double assignments, no race conditions, no two people landing in the same slot.",
-      icon: <LuLock className="w-5 h-5 text-white" strokeWidth={2.2} />,
+      icon: <LockIcon className="w-[18px] h-[25px] text-white" />,
       bgColor: "bg-[#3A76F0]",
       shadowClass: "shadow-[0_8px_20px_rgba(58,118,240,0.45)]",
     },
     {
       title: "Role caps per group",
       description: "Need exactly 1 leader and 2 engineers per team? Define it once and PairForm enforces it for every group automatically.",
-      icon: <LuUsers className="w-5 h-5 text-white" strokeWidth={2.2} />,
+      icon: <SinglePairingIcon className="w-[25px] h-[25px] text-white" />,
       bgColor: "bg-[#22c55e]",
       shadowClass: "shadow-[0_8px_20px_rgba(34,197,94,0.45)]",
     },
     {
       title: "Real-time dashboard",
       description: "Watch groups fill as participants join. Spot gaps instantly and decide whether to remove, reassign, or close the event.",
-      icon: <LuPresentation className="w-5 h-5 text-white" strokeWidth={2.2} />,
+      icon: <DashboardMonitorIcon className="w-[24px] h-[23px] text-white" />,
       bgColor: "bg-[#d946ef]",
       shadowClass: "shadow-[0_8px_20px_rgba(217,70,239,0.45)]",
     },
     {
       title: "Single shareable link",
       description: "One link does everything. Share it in a message, on a slide, or as a QR code. Participants join in seconds with no account needed.",
-      icon: <LuLink className="w-5 h-5 text-white" strokeWidth={2.2} />,
+      icon: <LinkedRingsIcon className="w-[28px] h-[28px] text-white" />,
       bgColor: "bg-[#f97316]",
       shadowClass: "shadow-[0_8px_20px_rgba(249,115,22,0.45)]",
     },
     {
       title: "Organizer-controlled pairing",
       description: "For secret pairings, participants register first. The organizer then generates matches in one click when everyone's ready.",
-      icon: <LuSquareDashedMousePointer className="w-5 h-5 text-white" strokeWidth={2.2} />,
+      icon: <OrganizerPairingCursorIcon className="w-[23px] h-[23px] text-white" />,
       bgColor: "bg-[#6366f1]",
       shadowClass: "shadow-[0_8px_20px_rgba(99,102,241,0.45)]",
     },
     {
       title: "CSV export",
       description: "Download all participant data and group assignments at any time. Your data, in your hands, in a format that works everywhere.",
-      icon: <LuFileSpreadsheet className="w-5 h-5 text-white" strokeWidth={2.2} />,
+      icon: <DocumentFoldedIcon className="w-[17px] h-[25px] text-white" />,
       bgColor: "bg-[#a0522d]",
       shadowClass: "shadow-[0_8px_20px_rgba(160,82,45,0.45)]",
     },
@@ -79,10 +79,10 @@ export default function FeaturesSection() {
           <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-[#f0f5ff] text-[#1a56db] text-sm font-medium mb-6">
             Features
           </div>
-          <h2 className="text-4xl md:text-5xl lg:text-[3.5rem] font-bold text-gray-900 leading-[1.1] tracking-tight mb-4">
-            Built for <span className="font-serif italic font-normal text-gray-800">real complexity</span>
+          <h2 className="text-4xl md:text-5xl lg:text-[3.5rem] font-bold text-black leading-[1.1] tracking-tight mb-4">
+            Built for <span className="font-serif italic font-normal text-black">real complexity</span>
           </h2>
-          <p className="text-gray-500 text-[15px] md:text-[17px] leading-relaxed font-medium">
+          <p className="text-black/60 text-[15px] md:text-[17px] leading-relaxed font-medium">
             Not just a random name picker. PairForm handles the edge cases that break
             every other solution.
           </p>
@@ -100,8 +100,8 @@ export default function FeaturesSection() {
               >
                 {feature.icon}
               </div>
-              <h3 className="font-bold text-gray-900 text-lg mb-3">{feature.title}</h3>
-              <p className="text-[14px] text-gray-500 leading-relaxed font-medium">
+              <h3 className="font-bold text-black text-lg mb-3">{feature.title}</h3>
+              <p className="text-[14px] text-black/60 leading-relaxed font-medium">
                 {feature.description}
               </p>
             </div>

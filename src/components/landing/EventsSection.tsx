@@ -1,6 +1,7 @@
 "use client";
 
-import { LuLock, LuUsers, LuChartBar } from "react-icons/lu";
+import { LuChartBar } from "react-icons/lu";
+import { LockIcon, SinglePairingIcon } from "../ui/icons";
 
 export default function EventsSection() {
   return (
@@ -22,7 +23,7 @@ export default function EventsSection() {
           {/* Card 1 */}
           <div className="bg-white/10 backdrop-blur-md rounded-[2rem] p-8 md:p-10 border border-white/20 shadow-sm flex flex-col">
             <div className="w-12 h-12 bg-[#3b82f6] rounded-xl flex items-center justify-center mb-6 shadow-sm flex-shrink-0">
-              <LuLock className="w-5 h-5 text-white" strokeWidth={2.2} />
+              <LockIcon className="w-[18px] h-[25px] text-white" />
             </div>
             <h3 className="font-bold text-white text-[1.35rem] mb-3">Group Events</h3>
             <p className="text-[14px] text-white/80 leading-relaxed font-medium">
@@ -34,7 +35,7 @@ export default function EventsSection() {
           {/* Card 2 */}
           <div className="bg-white/10 backdrop-blur-md rounded-[2rem] p-8 md:p-10 border border-white/20 shadow-sm flex flex-col">
             <div className="w-12 h-12 bg-[#22c55e] rounded-xl flex items-center justify-center mb-6 shadow-sm flex-shrink-0">
-              <LuUsers className="w-5 h-5 text-white" strokeWidth={2.2} />
+              <SinglePairingIcon className="w-[25px] h-[25px] text-white" />
             </div>
             <h3 className="font-bold text-white text-[1.35rem] mb-3">Single Pairings</h3>
             <p className="text-[14px] text-white/80 leading-relaxed font-medium">

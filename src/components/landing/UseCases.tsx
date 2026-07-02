@@ -1,5 +1,7 @@
 "use client";
 
+import { DiagonalArrowIcon } from "../ui/icons";
+
 export default function UseCases() {
   return (
     <section id="use-cases" className="py-24 bg-white relative overflow-hidden">
@@ -44,9 +46,7 @@ export default function UseCases() {
                 Form balanced teams with the right skill mix. Enforce role caps so every team has developers, designers, and product people. Handle last-minute additions without reshuffling everything.
               </p>
               <div className="w-10 h-10 rounded-full bg-[#0B51D8] flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-300 cursor-pointer">
-                <svg className="w-4 h-4 text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-300" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7M17 7H10M17 7V14" />
-                </svg>
+                <DiagonalArrowIcon className="w-4 h-4 text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-300" />
               </div>
             </div>
             <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mt-8 sm:mt-12">Hackathons & Competitions</h3>
@@ -59,9 +59,7 @@ export default function UseCases() {
                 Create project groups for courses and workshops. Ensure every team has the diversity of skills your curriculum requires. Works for classes of 10 or 200.
               </p>
               <div className="w-10 h-10 rounded-full bg-[#0B51D8] flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-300 cursor-pointer">
-                <svg className="w-4 h-4 text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-300" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7M17 7H10M17 7V14" />
-                </svg>
+                <DiagonalArrowIcon className="w-4 h-4 text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-300" />
               </div>
             </div>
             <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mt-8 sm:mt-12">Educational Settings</h3>
@@ -74,9 +72,7 @@ export default function UseCases() {
                 Form cross-functional teams for training sessions, strategy workshops, and team-building activities. Automatic role balancing across departments.
               </p>
               <div className="w-10 h-10 rounded-full bg-[#0B51D8] flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-300 cursor-pointer">
-                <svg className="w-4 h-4 text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-300" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7M17 7H10M17 7V14" />
-                </svg>
+                <DiagonalArrowIcon className="w-4 h-4 text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-300" />
               </div>
             </div>
             <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mt-8 sm:mt-12">Corporate Workshops</h3>
@@ -89,9 +85,7 @@ export default function UseCases() {
                 Replace the hat-draw chaos. Everyone registers, the organizer generates pairs in one click, and matches are revealed privately. Simple, fair, fun.
               </p>
               <div className="w-10 h-10 rounded-full bg-[#0B51D8] flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-300 cursor-pointer">
-                <svg className="w-4 h-4 text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-300" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7M17 7H10M17 7V14" />
-                </svg>
+                <DiagonalArrowIcon className="w-4 h-4 text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-300" />
               </div>
             </div>
             <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mt-8 sm:mt-12">Secret Santa & Gifting</h3>

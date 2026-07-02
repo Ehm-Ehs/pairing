@@ -8,6 +8,8 @@ import {
   updateDoc,
   doc,
   serverTimestamp,
+  writeBatch,
+  getDocs,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -79,4 +81,24 @@ export const markNotificationAsRead = async (notificationId: string) => {
   }
 };
 
-export const markAllNotificationsAsRead = async (userId: string) => {};
+export const markAllNotificationsAsRead = async (userId: string) => {
+  try {
+    const q = query(
+      collection(db, "Notifications"),
+      where("userId", "==", userId),
+      where("read", "==", false)
+    );
+    const querySnapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    querySnapshot.forEach((docSnap) => {
+      batch.update(docSnap.ref, {
+        read: true,
+        readAt: serverTimestamp(),
+      });
+    });
+    await batch.commit();
+    console.log("All notifications marked as read!");
+  } catch (error) {
+    console.error("Error marking all notifications as read:", error);
+  }
+};

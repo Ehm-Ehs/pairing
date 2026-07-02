@@ -19,8 +19,21 @@
 
 /* Strictly enforce font family to prevent mobile overrides */
 html, body {
-  font-family: var(--font-inter), sans-serif;
+  font-family: var(--font-outfit), sans-serif;
+  color: rgba(0, 0, 0, 0.6);
   -webkit-text-size-adjust: 100%; /* Prevent automatic text resizing */
+}
+
+/* Custom font context for dashboard and auth text */
+.font-sora,
+.font-sora .font-sans,
+.font-sora .font-heading {
+  font-family: var(--font-sora), sans-serif !important;
+}
+
+/* Enforce bold text color to be #000000 where color is not stated */
+h1, h2, h3, h4, h5, h6, strong, b {
+  color: #000000;
 }
 
 /* Force form elements and labels to inherit font family */

@@ -2,18 +2,15 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Clarity from "../src/components/Clarity";
 import { Providers } from "./providers";
-import { Inter, Space_Grotesk, Playfair_Display } from "next/font/google";
+import { Outfit, Playfair_Display, Sora } from "next/font/google";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-space",
-});
+const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 const playfair = Playfair_Display({
   subsets: ["latin"],
   variable: "--font-playfair",
   style: ["italic", "normal"],
 });
+const sora = Sora({ subsets: ["latin"], variable: "--font-sora" });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://pair-form.com"),
@@ -54,7 +51,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} ${spaceGrotesk.variable} ${playfair.variable} antialiased font-sans`}
+        className={`${outfit.variable} ${playfair.variable} ${sora.variable} antialiased font-sans`}
       >
         <Providers>
           <Clarity />

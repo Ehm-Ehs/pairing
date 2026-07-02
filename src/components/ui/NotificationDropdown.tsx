@@ -5,11 +5,15 @@ import {
   FaInfoCircle,
   FaExclamationCircle,
 } from "react-icons/fa";
+import { FiBell } from "react-icons/fi";
+import Link from "next/link";
 import {
   subscribeToNotifications,
   markNotificationAsRead,
+  markAllNotificationsAsRead,
   Notification,
 } from "../../services/notifications";
+import { motion, AnimatePresence } from "framer-motion";
 import Avatar from "./avatar";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -24,6 +28,8 @@ interface NotificationDropdownProps {
   onClose?: () => void;
   showHeader?: boolean;
   showFooter?: boolean;
+  position?: "right" | "sidebar";
+  customTrigger?: (onClick: () => void, unreadCount: number) => React.ReactNode;
 }
 
 const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
@@ -32,6 +38,8 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   onClose,
   showHeader = true,
   showFooter,
+  position = "sidebar",
+  customTrigger,
 }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   // Open state is only relevant for dropdown/modal trigger mode.
@@ -80,7 +88,24 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
     };
   }, [userId, displayMode]);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Mark all as read when opened
+  useEffect(() => {
+    if (!isOpen || !userId) return;
+
+    // Start a 2-second timer to mark all as read
+    const timer = setTimeout(() => {
+      markAllNotificationsAsRead(userId);
+    }, 2000);
+
+    return () => {
+      clearTimeout(timer);
+      // Ensure they are marked as read immediately when closed or unmounted
+      markAllNotificationsAsRead(userId);
+    };
+  }, [isOpen, userId]);
+
+  const unreadCount = isOpen ? 0 : notifications.filter((n) => !n.read).length;
+  const unreadNotifications = notifications.filter((n) => !n.read);
 
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.read) {
@@ -148,9 +173,63 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
       )}
 
       {/* List */}
-      <div className="overflow-y-auto flex-1">
-        {notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+      <div className="overflow-y-auto flex-1 relative min-h-[220px]">
+        <AnimatePresence initial={false}>
+          {unreadNotifications.map((notification) => (
+            <motion.div
+              key={notification.id}
+              initial={{ opacity: 1, x: 0, height: "auto" }}
+              exit={{
+                opacity: 0,
+                x: -100,
+                height: 0,
+                paddingTop: 0,
+                paddingBottom: 0,
+                marginTop: 0,
+                marginBottom: 0,
+                overflow: "hidden",
+              }}
+              transition={{ type: "spring", stiffness: 300, damping: 30, duration: 0.3 }}
+              className="p-4 hover:bg-gray-50 border-b border-gray-50 transition-colors flex gap-3 cursor-pointer bg-blue-50/30"
+              onClick={() => handleNotificationClick(notification)}
+            >
+              <div className="mt-1 flex-shrink-0">
+                <Avatar
+                  name="System"
+                  size="sm"
+                  className={
+                    notification.type === "success"
+                      ? "bg-green-100 text-green-600"
+                      : "bg-blue-100 text-blue-600"
+                  }
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 leading-snug">
+                  {notification.message}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {notification.createdAt?.seconds
+                    ? new Date(
+                        notification.createdAt.seconds * 1000
+                      ).toLocaleDateString()
+                    : "Just now"}
+                </p>
+              </div>
+              {!notification.read && (
+                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
+              )}
+            </motion.div>
+          ))}
+        </AnimatePresence>
+
+        {unreadNotifications.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="flex flex-col items-center justify-center py-12 px-6 text-center absolute inset-0"
+          >
             <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mb-3">
               <FaBell className="w-6 h-6 text-blue-300" />
             </div>
@@ -160,54 +239,22 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
             <p className="text-gray-500 text-xs max-w-[200px]">
               We'll let you know when something important happens
             </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`p-4 hover:bg-gray-50 transition-colors flex gap-3 cursor-pointer ${
-                  !notification.read ? "bg-blue-50/30" : ""
-                }`}
-                onClick={() => handleNotificationClick(notification)}
-              >
-                <div className="mt-1 flex-shrink-0">
-                  <Avatar
-                    name="System"
-                    size="sm"
-                    className={
-                      notification.type === "success"
-                        ? "bg-green-100 text-green-600"
-                        : "bg-blue-100 text-blue-600"
-                    }
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 leading-snug">
-                    {notification.message}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {notification.createdAt?.seconds
-                      ? new Date(
-                          notification.createdAt.seconds * 1000
-                        ).toLocaleDateString()
-                      : "Just now"}
-                  </p>
-                </div>
-                {!notification.read && (
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
-                )}
-              </div>
-            ))}
-          </div>
+          </motion.div>
         )}
       </div>
 
       {/* Footer */}
       {shouldShowFooter && (
-        <div className="bg-gray-50 p-3 text-center border-t border-gray-100 shrink-0">
+        <div className="bg-gray-55/90 p-3 flex justify-between items-center px-4 border-t border-gray-100 shrink-0">
+          <Link
+            href="/notifications"
+            className="text-xs text-[#1449b2] font-semibold hover:underline"
+            onClick={handleClose}
+          >
+            View All
+          </Link>
           <button
-            className="text-sm text-[#8B5CF6] font-medium hover:underline"
+            className="text-xs text-gray-500 font-medium hover:underline"
             onClick={handleClose}
           >
             Close
@@ -224,24 +271,37 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   return (
     <>
       <div className="relative" ref={dropdownRef}>
-        <div
-          className="cursor-pointer text-gray-400 hover:text-gray-600 transition-colors relative"
-          onClick={toggleOpen}
-        >
-          <FaBell className="w-6 h-6" />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
-          )}
-        </div>
+        {customTrigger ? (
+          customTrigger(toggleOpen, unreadCount)
+        ) : (
+          <div
+            className="cursor-pointer text-gray-400 hover:text-gray-600 transition-colors relative"
+            onClick={toggleOpen}
+          >
+            <FiBell className="w-5 h-5 text-gray-500" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-b from-[#3A76F0] to-[#012A7D] text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Dropdown Mode using absolute positioning */}
         {isOpen && displayMode === "dropdown" && (
-          <div className="absolute left-full bottom-0 mb-0 ml-4 z-50 animate-in fade-in zoom-in-95 duration-200 origin-bottom-left">
-            <div className="absolute bottom-full left-0 mb-2 shadow-xl  z-50 animate-in fade-in zoom-in-95 duration-200 origin-bottom-left">
-              {renderContent()}
-            </div>
+          <div className={cn(
+            "absolute z-50 animate-in fade-in zoom-in-95 duration-200",
+            position === "right"
+              ? "right-0 top-full mt-3 origin-top-right shadow-xl"
+              : "left-full bottom-0 mb-0 ml-4 origin-bottom-left"
+          )}>
+            {position === "right" ? (
+              renderContent()
+            ) : (
+              <div className="absolute bottom-full left-0 mb-2 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-200 origin-bottom-left">
+                {renderContent()}
+              </div>
+            )}
           </div>
         )}
       </div>
