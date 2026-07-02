@@ -25,6 +25,7 @@ export interface FormValues {
   characteristicsLabel: string;
   characteristics: Characteristic[];
   isRandom?: boolean;
+  imageUrl?: string;
 }
 
 interface ModalState {
@@ -47,6 +48,7 @@ export const useCreateEvent = () => {
     characteristicsLabel: "",
     characteristics: [{ name: "", count: "" }],
     isRandom: false,
+    imageUrl: "",
   });
 
   const [groups, setGroups] = useState<{
@@ -189,12 +191,14 @@ export const useCreateEvent = () => {
         name: c.name.trim(),
         count: parseInt(c.count, 10),
       })),
-      characteristicsLabel: formValues.characteristicsLabel,
+      characteristicsLabel: formValues.characteristics && formValues.characteristics.length > 0 ? formValues.characteristicsLabel : "",
       groups: groups,
+      imageUrl: (formValues as any).imageUrl || "",
     };
 
     try {
       await addPairing(userId, newPairing);
+      router.push(`/your-pairing?id=${newPairing.id}`);
     } catch (error) {
       console.error("Error during submission:", error);
       toast.error(getFriendlyFirebaseErrorMessage(error));
@@ -237,6 +241,7 @@ export const useCreateEvent = () => {
         exchangeDate: "",
         expectedParticipants: parseInt(values.expectedParticipants, 10),
       },
+      imageUrl: values.imageUrl || "",
     };
 
     try {
@@ -281,6 +286,7 @@ export const useCreateEvent = () => {
       hideNames: values.hideNames,
       status: "open",
       participants: [],
+      imageUrl: values.imageUrl || "",
     };
 
     try {

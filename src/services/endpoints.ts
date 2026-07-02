@@ -83,6 +83,11 @@ export async function editPairingValue(
 
       if (pairingIndex !== -1) {
         const pairing = pairings[pairingIndex];
+
+        if (pairing.status === "locked") {
+          throw new Error("This event is closed. No further registrations are allowed.");
+        }
+
         const groups = pairing.groups;
 
         // Check if the group exists
@@ -490,6 +495,113 @@ export async function removeParticipantFromRandomPositioning(
     }
   } catch (error) {
     console.error("Error removing participant:", error);
+    throw error;
+  }
+}
+
+export async function closePairingEvent(userId: string, eventId: string) {
+  try {
+    const userRef = doc(db, "Users", userId);
+    const docSnap = await getDoc(userRef);
+
+    if (docSnap.exists()) {
+      const userData = docSnap.data();
+      const pairings = userData.pairings || [];
+      const pairingIndex = pairings.findIndex((p: any) => p.id === eventId);
+
+      if (pairingIndex !== -1) {
+        pairings[pairingIndex].status = "locked";
+        await updateDoc(userRef, { pairings });
+        console.log("Event closed successfully");
+        return pairings[pairingIndex];
+      } else {
+        throw new Error("Event not found");
+      }
+    } else {
+      throw new Error("User document not found");
+    }
+  } catch (error) {
+    console.error("Error closing event:", error);
+    throw error;
+  }
+}
+
+export async function deletePairingEvent(userId: string, eventId: string) {
+  try {
+    const userRef = doc(db, "Users", userId);
+    const docSnap = await getDoc(userRef);
+
+    if (docSnap.exists()) {
+      const userData = docSnap.data();
+      const pairings = userData.pairings || [];
+      const updatedPairings = pairings.filter((p: any) => p.id !== eventId);
+
+      await updateDoc(userRef, { pairings: updatedPairings });
+      console.log("Event deleted successfully");
+      return updatedPairings;
+    } else {
+      throw new Error("User document not found");
+    }
+  } catch (error) {
+    console.error("Error deleting event:", error);
+    throw error;
+  }
+}
+
+export async function duplicatePairingEvent(userId: string, eventId: string) {
+  try {
+    const userRef = doc(db, "Users", userId);
+    const docSnap = await getDoc(userRef);
+
+    if (docSnap.exists()) {
+      const userData = docSnap.data();
+      const pairings = userData.pairings || [];
+      const pairingToDuplicate = pairings.find((p: any) => p.id === eventId);
+
+      if (pairingToDuplicate) {
+        const newId = typeof crypto?.randomUUID === "function" 
+          ? crypto.randomUUID() 
+          : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        
+        // Reset claimed slots for role-based events
+        const clonedGroups = { ...pairingToDuplicate.groups };
+        if (pairingToDuplicate.type === "role-based") {
+          Object.keys(clonedGroups).forEach((key) => {
+            clonedGroups[key] = clonedGroups[key].map((member: any) => ({
+              ...member,
+              name: "",
+              email: "",
+            }));
+          });
+        }
+        
+        const duplicatedPairing = {
+          ...pairingToDuplicate,
+          id: newId,
+          groupingPurpose: `${pairingToDuplicate.groupingPurpose} (Copy)`,
+          title: `${pairingToDuplicate.title} (Copy)`,
+          createdAt: Date.now(),
+          status: "open",
+          participants: pairingToDuplicate.type === "secret-santa" || pairingToDuplicate.type === "random-positioning" ? [] : pairingToDuplicate.participants,
+          groups: clonedGroups,
+        };
+        
+        if (duplicatedPairing.pairs) {
+          delete duplicatedPairing.pairs;
+        }
+
+        const updatedPairings = [...pairings, duplicatedPairing];
+        await updateDoc(userRef, { pairings: updatedPairings });
+        console.log("Event duplicated successfully");
+        return duplicatedPairing;
+      } else {
+        throw new Error("Event not found");
+      }
+    } else {
+      throw new Error("User document not found");
+    }
+  } catch (error) {
+    console.error("Error duplicating event:", error);
     throw error;
   }
 }

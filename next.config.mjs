@@ -1,7 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Add other config options here if needed in the future
+  experimental: {
+    optimizePackageImports: [
+      'react-icons',
+      'lucide-react',
+      '@radix-ui/react-icons',
+      '@radix-ui/react-slot',
+      'framer-motion'
+    ]
+  }
 };
 
 export default nextConfig;
+

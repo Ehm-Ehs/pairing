@@ -1,7 +1,6 @@
 "use client";
 
-import { FaArrowRight } from "react-icons/fa";
-import { Button } from "../ui/button";
+import { ChevronRightIcon } from "../ui/icons";
 
 interface CTASectionProps {
   onGetStarted: () => void;
@@ -19,7 +18,7 @@ export default function CTASection({
 
           {/* Perspective Grid Background */}
           <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
-            <svg className="absolute inset-0 w-full h-full object-cover opacity-60" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <svg className="absolute inset-0 w-full h-full object-cover opacity-20" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <linearGradient id="ctaVectorGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#8a8a8a" />
@@ -55,20 +54,20 @@ export default function CTASection({
             <p className="text-gray-500 text-[15px] md:text-[17px] font-medium mb-10">
               Set up in under 2 minutes. No credit card. No learning curve. Just balanced groups, automatically.
             </p>
-            <div className="flex flex-row items-center justify-center gap-3 w-full max-w-lg mx-auto px-2">
-              <Button
+            <div className="flex flex-row items-center justify-center gap-3.5 w-full max-w-xl mx-auto px-2">
+              <button
                 onClick={onGetStarted}
-                className="flex-1 max-w-[200px] rounded-full bg-[#1d4ed8] text-white hover:bg-blue-800 px-3 sm:px-6 py-5 sm:py-6 text-[12px] sm:text-base font-semibold shadow-sm whitespace-nowrap flex items-center justify-center gap-1.5"
+                className="flex-1 max-w-[240px] px-6 py-4 text-[13px] sm:text-[15px] font-semibold text-white bg-gradient-to-r from-[#205BE2] via-[#1A4ED8] to-[#0A389D] rounded-full hover:from-[#1b4ec2] hover:to-[#082f85] transition-all shadow-lg shadow-[#1D4ED8]/20 flex items-center justify-center gap-2.5 whitespace-nowrap active:scale-[0.98]"
               >
-                Create your first event <FaArrowRight className="w-3.5 h-3.5 flex-shrink-0" />
-              </Button>
-              <Button
+                Create your first event
+                <ChevronRightIcon className="w-2 h-3.5 flex-shrink-0 text-white" />
+              </button>
+              <button
                 onClick={scrollToHowItWorks}
-                variant="secondary"
-                className="flex-1 max-w-[160px] rounded-full bg-gray-200/80 text-gray-800 hover:bg-gray-300 px-3 sm:px-6 py-5 sm:py-6 text-[12px] sm:text-base font-semibold whitespace-nowrap flex items-center justify-center"
+                className="flex-1 max-w-[180px] px-6 py-4 text-[13px] sm:text-[15px] font-semibold text-[#000000] bg-gradient-to-b from-[#F2F2F3] to-[#E5E6E8] border border-white/40 rounded-full hover:from-[#e9e9eb] hover:to-[#dadbdc] transition-all shadow-sm flex items-center justify-center whitespace-nowrap active:scale-[0.98]"
               >
                 See how it works
-              </Button>
+              </button>
             </div>
           </div>
         </div>

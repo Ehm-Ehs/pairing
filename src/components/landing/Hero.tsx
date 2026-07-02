@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FaArrowRight } from "react-icons/fa";
+import { ChevronRightIcon } from "../ui/icons";
 
 interface HeroProps {
   scrollToHowItWorks: () => void;
@@ -13,7 +13,7 @@ export default function Hero({ scrollToHowItWorks, onGetStarted }: HeroProps) {
     <div className="relative flex flex-col items-center justify-center text-center pt-16 pb-32 md:pt-24 md:pb-48 overflow-hidden mx-auto bg-gradient-to-b from-[#99bbff] via-[#e6efff] to-white mt-2 border border-gray-100/50">
       {/* Perspective Grid Background */}
       <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
-        <svg className="absolute inset-0 w-full h-full object-cover opacity-60" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        <svg className="absolute inset-0 w-full h-full object-cover opacity-20" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <linearGradient id="vectorGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#8a8a8a" />
@@ -58,16 +58,17 @@ export default function Hero({ scrollToHowItWorks, onGetStarted }: HeroProps) {
           team formation with role<br className="hidden md:block" /> balancing built in seconds, not hours.
         </p>
 
-        <div className="flex flex-row items-center justify-center gap-3 mb-8 w-full max-w-lg px-2">
+        <div className="flex flex-row items-center justify-center gap-3.5 mb-8 w-full max-w-xl px-2">
           <button
             onClick={onGetStarted}
-            className="flex-1 max-w-[200px] px-4 py-3 sm:px-6 sm:py-3.5 text-[12px] sm:text-sm md:text-base font-semibold text-white bg-[#1a56db] rounded-full hover:bg-blue-800 transition-all shadow-md shadow-blue-600/20 flex items-center justify-center gap-1.5 whitespace-nowrap"
+            className="flex-1 max-w-[240px] px-6 py-4 text-[13px] sm:text-[15px] font-semibold text-white bg-gradient-to-r from-[#205BE2] via-[#1A4ED8] to-[#0A389D] rounded-full hover:from-[#1b4ec2] hover:to-[#082f85] transition-all shadow-lg shadow-[#1D4ED8]/20 flex items-center justify-center gap-2.5 whitespace-nowrap active:scale-[0.98]"
           >
-            Create your first event <FaArrowRight className="w-3 h-3 flex-shrink-0" />
+            Create your first event
+            <ChevronRightIcon className="w-2 h-3.5 flex-shrink-0 text-white" />
           </button>
           <button
             onClick={scrollToHowItWorks}
-            className="flex-1 max-w-[160px] px-4 py-3 sm:px-6 sm:py-3.5 text-[12px] sm:text-sm md:text-base font-semibold text-gray-800 bg-[#E5E7EB] rounded-full hover:bg-gray-300 transition-all flex items-center justify-center whitespace-nowrap"
+            className="flex-1 max-w-[180px] px-6 py-4 text-[13px] sm:text-[15px] font-semibold text-[#000000] bg-gradient-to-b from-[#F2F2F3] to-[#E5E6E8] border border-white/40 rounded-full hover:from-[#e9e9eb] hover:to-[#dadbdc] transition-all shadow-sm flex items-center justify-center whitespace-nowrap active:scale-[0.98]"
           >
             See how it works
           </button>

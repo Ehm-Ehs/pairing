@@ -19,6 +19,8 @@ export interface SantaParticipant {
   email?: string;
   wishlist?: string;
   assignedToId?: string; // ID of the person they are buying for
+  pairIndex?: number;
+  positionLetter?: "A" | "B";
 }
 
 export type EventType = "role-based" | "secret-santa" | "random-positioning";
@@ -29,6 +31,8 @@ export interface BasePairing {
   type: EventType;
   title: string; // Was groupingPurpose. Using title as the main display name.
   groupingPurpose: string; // Kept for backward compatibility, same as title.
+  status?: "open" | "locked";
+  imageUrl?: string;
 }
 
 export interface RoleBasedPairing extends BasePairing {
@@ -43,6 +47,7 @@ export interface RoleBasedPairing extends BasePairing {
 export interface RandomParticipant {
   id: string;
   name: string;
+  email?: string;
   assignedNumber?: number;
   joinedAt: number;
 }
@@ -54,6 +59,7 @@ export interface RandomPositioningPairing extends BasePairing {
   hideNames: boolean;
   participants: RandomParticipant[];
   status: "open" | "locked";
+  expectedParticipants?: number;
 }
 
 export interface SecretSantaPairing extends BasePairing {

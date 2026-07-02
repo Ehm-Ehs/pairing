@@ -1,6 +1,8 @@
+"use client";
 import React, { useEffect, useState } from "react";
+import Logo from "../../../src/assets/logo";
 import { useParams, useRouter } from "next/navigation";
-import { Formik, Form, ErrorMessage, Field } from "formik";
+import { Formik, Form, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import { getDoc, doc } from "firebase/firestore";
 import { db } from "../../../src/services/firebase";
@@ -9,19 +11,22 @@ import { addParticipantToRandomPositioning } from "../../../src/services/endpoin
 import { toast } from "react-toastify";
 import { v4 as uuidv4 } from "uuid";
 import { Loading } from "../../../src/components/ui/loading";
-import { FaRandom } from "react-icons/fa";
+import { FaRandom, FaCalendarAlt, FaInfoCircle } from "react-icons/fa";
 import { Button } from "../../../src/components/ui/button";
 
 interface JoinFormValues {
-  name: string;
+  fullName: string;
+  email: string;
+  assignedNumber: number;
 }
+
+
 
 const JoinRandomPositioning: React.FC = () => {
   const { userId, eventId } = useParams();
   const router = useRouter();
   const [event, setEvent] = useState<RandomPositioningPairing | null>(null);
 
-  // Validate params
   const validUserId = Array.isArray(userId) ? userId[0] : userId;
   const validEventId = Array.isArray(eventId) ? eventId[0] : eventId;
   const [loading, setLoading] = useState(true);
@@ -62,9 +67,43 @@ const JoinRandomPositioning: React.FC = () => {
 
     setSubmitting(true);
     try {
+      const mode = (event as any).assignmentMode || "participants-pick";
+      const totalPositions = event.expectedParticipants || 25;
+      const takenNumbers = event.participants.map((p) => p.assignedNumber).filter(Boolean) as number[];
+
+      let finalAssignedNumber = values.assignedNumber;
+
+      if (mode === "participants-pick") {
+        if (takenNumbers.includes(values.assignedNumber)) {
+          toast.error("This position is already taken! Please select another one.");
+          setSubmitting(false);
+          return;
+        }
+      } else if (mode === "fcfs") {
+        let nextNumber = 1;
+        while (takenNumbers.includes(nextNumber)) {
+          nextNumber++;
+        }
+        finalAssignedNumber = nextNumber;
+      } else {
+        // Mode is random
+        const availableNumbers = [];
+        for (let i = 1; i <= totalPositions; i++) {
+          if (!takenNumbers.includes(i)) {
+            availableNumbers.push(i);
+          }
+        }
+        finalAssignedNumber =
+          availableNumbers.length > 0
+            ? availableNumbers[Math.floor(Math.random() * availableNumbers.length)]
+            : takenNumbers.length + 1;
+      }
+
       const newParticipant = {
         id: uuidv4(),
-        name: values.name,
+        name: values.fullName.trim(),
+        email: values.email.trim(),
+        assignedNumber: finalAssignedNumber,
         joinedAt: Date.now(),
       };
 
@@ -73,6 +112,7 @@ const JoinRandomPositioning: React.FC = () => {
         event.id,
         newParticipant
       );
+
       const queryParams = new URLSearchParams({
         eventName: event.title,
         isRandomPositioning: "true",
@@ -88,14 +128,30 @@ const JoinRandomPositioning: React.FC = () => {
     }
   };
 
+  const getFriendlyDeadline = (isoString?: string) => {
+    if (!isoString) return "No deadline set";
+    try {
+      const d = new Date(isoString);
+      return d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    } catch {
+      return isoString;
+    }
+  };
+
   if (loading) return <Loading message="Loading event details..." />;
 
   if (!event) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Event Not Found</h1>
-          <p className="text-gray-500">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
+        <div className="text-center max-w-sm">
+          <h1 className="text-2xl font-bold mb-2 text-gray-800">Event Not Found</h1>
+          <p className="text-gray-550 text-sm text-gray-500">
             The link may be invalid or the event has been deleted.
           </p>
         </div>
@@ -103,154 +159,303 @@ const JoinRandomPositioning: React.FC = () => {
     );
   }
 
-  // If locked, we might want to show results here or redirect.
-  // The request says: Participant View -> Show assignments.
-  // For now, let's treat this as the "Join/View" page.
-  // If already joined (cookie/localstorage?), show status?
-  // User request: 3. Participant Join Flow... 6. Reveal & Visibility
-  // For now, this is just the JOIN page. Result page is separate or same?
-  // Let's stick to JOIN page. If locked, maybe we show results if we can identify user?
-  // But we don't have auth for participants.
-  // So "Reveal" usually requires them to re-enter info or use a unique link.
-  // The JoinSecretSanta component handles reveal by email. Here we only have Name.
-  // Name is not unique enough for secure reveal, but maybe good enough for this app?
-  // Or we just show the full list if it's public.
-  // "Organizer sees: Full ordered list. Participant sees: Their name, Their assigned position"
-  // If I only have Name, I can ask "Enter your name to see your position".
+  const assignmentMode = (event as any).assignmentMode || "participants-pick";
+  const totalPositions = event.expectedParticipants || 25;
+  const takenNumbers = event.participants.map((p) => p.assignedNumber).filter(Boolean) as number[];
 
   if (event.status === "locked") {
     // REVEAL MODE
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md border-t-4 border-purple-500">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">
-              Positions Revealed!
-            </h1>
-            <p className="text-gray-500 mt-2">
-              Enter your name to find your position.
-            </p>
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-start items-center px-4 py-12 text-left">
+        <Logo className="h-9 w-auto mb-10" />
+
+        <div className="bg-white rounded-[2rem] border-t-4 border-t-[#8338EC] border-x border-b border-gray-200/60 shadow-sm w-full max-w-xl flex flex-col overflow-hidden">
+          <div className="bg-[#F5F6F8] p-6 md:p-8 flex flex-col items-center border-b border-gray-200/60 w-full relative">
+            <div className="w-12 h-12 bg-[#8338EC] text-white rounded-xl flex items-center justify-center shadow-md mb-4 flex-shrink-0">
+              <FaRandom className="w-5 h-5" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight text-center">
+              {event.title}
+            </h2>
+            <span className="bg-[#F3E8FF] text-[#6B21A8] text-xs font-semibold px-4 py-1.5 rounded-full mt-1.5">
+              Random Position • Revealed
+            </span>
           </div>
+
           <Formik
-            initialValues={{ name: "" }}
+            initialValues={{ email: "" }}
             validationSchema={Yup.object({
-              name: Yup.string().required("Name is required"),
+              email: Yup.string()
+                .email("Invalid email")
+                .required("Email is required"),
             })}
             onSubmit={(values, { setSubmitting, setStatus }) => {
               const participant = event.participants.find(
-                (p) => p.name.toLowerCase() === values.name.toLowerCase()
+                (p) => p.email?.toLowerCase() === values.email.toLowerCase()
               );
               if (participant && participant.assignedNumber) {
                 setStatus({ revealed: true, participant });
               } else {
-                toast.error("Name not found or no position assigned.");
+                toast.error("Email not found or no position assigned yet.");
               }
               setSubmitting(false);
             }}
           >
             {({ status, isSubmitting }) => (
-              <Form className="flex flex-col gap-4">
-                {!status?.revealed ? (
-                  <>
-                    <input
-                      name="name"
-                      type="text"
-                      placeholder="Your Name"
-                      className="w-full p-2 border rounded"
-                      onChange={() => {
-                        // Simple way to bind to formik... actually Field is better
-                      }}
-                    />
-                    <Field
-                      name="name"
-                      className="w-full p-2 border rounded"
-                      placeholder="Your Name"
-                    />
+              <Form className="flex flex-col w-full">
+                <div className="p-6 md:p-8 flex flex-col gap-6 w-full">
+                  {!status?.revealed ? (
+                    <>
+                      <p className="text-gray-555 text-sm leading-relaxed">
+                        Enter your email to find your position!
+                      </p>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-650 mb-1">
+                          Email Address
+                        </label>
+                        <input
+                          name="email"
+                          type="email"
+                          className="px-4 py-3 w-full bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm placeholder:text-gray-400 text-gray-700 font-medium"
+                          placeholder="Your registered email"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center animate-in fade-in zoom-in duration-300 w-full flex flex-col items-center p-4">
+                      <p className="text-sm font-bold text-gray-550">You are assigned position:</p>
+                      <div className="w-24 h-24 rounded-full bg-purple-50 border border-purple-100 flex items-center justify-center text-5xl font-extrabold text-[#8338EC] font-heading my-4 shadow-md">
+                        {status.participant.assignedNumber}
+                      </div>
+                      <p className="text-gray-400 text-xs font-medium">
+                        Out of {event.participants.length} total participants
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {!status?.revealed && (
+                  <div className="bg-[#F5F6F8] p-6 flex items-center justify-center border-t border-gray-200 w-full rounded-b-[2rem]">
                     <Button
                       type="submit"
                       disabled={isSubmitting}
                       isLoading={isSubmitting}
-                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                      className="bg-gradient-to-b from-[#8338EC] to-[#6f2ec9] hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-full text-xs font-bold shadow-md transition-all cursor-pointer w-full h-auto"
                     >
                       Check Position
                     </Button>
-                  </>
-                ) : (
-                  <div className="text-center animate-in fade-in zoom-in">
-                    <p className="text-gray-500">You are position:</p>
-                    <h2 className="text-6xl font-bold text-purple-600 my-4">
-                      {status.participant.assignedNumber}
-                    </h2>
-                    <p className="text-gray-400 text-sm">
-                      Out of {event.participants.length} participants
-                    </p>
                   </div>
                 )}
               </Form>
             )}
           </Formik>
-
-          {/* Optional: Show full list if not hidden? User: "Optional: full ordered list (organizer-controlled)" */}
-          {/* For now, just individual reveal as per requirement "Each participant sees: Their name, Their assigned position" */}
         </div>
       </div>
     );
   }
 
+  // JOIN VIEW
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md border-t-4 border-purple-500">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <FaRandom className="w-8 h-8 text-purple-500" />
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-start items-center px-4 py-12 text-left">
+      <div className="bg-white rounded-[2rem] border-t-4 border-t-[#8338EC] border-x border-b border-gray-200/60 shadow-sm w-full max-w-xl flex flex-col overflow-hidden">
+        <div className="bg-[#F5F6F8] p-6 md:p-8 flex flex-col items-center border-b border-gray-200/60 w-full relative">
+          <div className="w-12 h-12 bg-[#8338EC] text-white rounded-xl flex items-center justify-center shadow-md mb-4 flex-shrink-0">
+            <FaRandom className="w-5 h-5" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">{event.title}</h1>
-          <p className="text-purple-600 font-medium mt-1">
-            Join Deadline: {new Date(event.deadline!).toLocaleString()}
-          </p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight text-center">
+            {event.title}
+          </h2>
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-1.5">
+            <span className="bg-[#F3E8FF] text-[#6B21A8] text-xs font-semibold px-4 py-1.5 rounded-full">
+              Random Position
+            </span>
+            {event.deadline && (
+              <span className="bg-gray-200/60 text-gray-600 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1">
+                <FaCalendarAlt className="w-2.5 h-2.5" />
+                Until {getFriendlyDeadline(event.deadline)}
+              </span>
+            )}
+          </div>
           {event.description && (
-            <p className="text-gray-500 mt-2 text-sm">{event.description}</p>
+            <p className="text-gray-550 text-xs text-center max-w-md mt-3 leading-relaxed">
+              {event.description}
+            </p>
           )}
         </div>
 
         <Formik
-          initialValues={{ name: "" }}
+          initialValues={{ fullName: "", email: "", assignedNumber: -1 }}
           validationSchema={Yup.object({
-            name: Yup.string().required("Name is required"),
+            fullName: Yup.string().required("Full name is required"),
+            email: Yup.string()
+              .email("Invalid email address")
+              .required("Email is required"),
+            assignedNumber:
+              assignmentMode === "participants-pick"
+                ? Yup.number()
+                    .min(1, "Please choose a position number from the grid below")
+                    .required("Please choose a position number")
+                : Yup.number().notRequired(),
           })}
           onSubmit={handleSubmit}
         >
-          {({ errors, touched }) => (
-            <Form className="flex flex-col gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Your Name
-                </label>
-                <Field
-                  name="name"
-                  type="text"
-                  className={`w-full p-2 border bg-white rounded-md focus:ring-2 focus:ring-purple-500 focus:outline-none ${
-                    errors.name && touched.name
-                      ? "border-red-500"
-                      : "border-gray-300"
-                  }`}
-                  placeholder="Enter your name"
-                />
-                <ErrorMessage
-                  name="name"
-                  component="div"
-                  className="text-red-500 text-xs mt-1"
-                />
+          {({ errors, touched, handleChange, handleBlur, values, setFieldValue }) => (
+            <Form className="flex flex-col w-full">
+              <div className="p-6 md:p-8 flex flex-col gap-6 w-full">
+                {/* Assignment Mode Blue Banner */}
+                <div className="bg-[#EBF3FF] border-l-4 border-l-[#3A76F0] text-[#012A7D] text-xs rounded-r-xl rounded-l-none p-4 flex items-start gap-2.5 leading-relaxed">
+                  <FaInfoCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <span className="font-medium">
+                    {assignmentMode === "participants-pick" && (
+                      <>
+                        <span className="font-bold">Choose your spot:</span> Greyed out positions are already taken. Pick any available one and it's yours instantly.
+                      </>
+                    )}
+                    {assignmentMode === "fcfs" && (
+                      <>
+                        <span className="font-bold">First come, first served:</span> Submit your details and you'll be assigned the next available position in sequence. No selection needed!
+                      </>
+                    )}
+                    {assignmentMode === "random" && (
+                      <>
+                        <span className="font-bold">Random Assignment:</span> The system will randomly assign you to an available position when you submit. It's fair for everyone!
+                      </>
+                    )}
+                  </span>
+                </div>
+
+                {/* Details & Info Block */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-805 mb-3">
+                    Your Details
+                  </h3>
+                  <div className="bg-[#F3E8FF] border-l-4 border-l-[#8338EC] text-[#6B21A8] text-xs rounded-r-xl rounded-l-none p-4 leading-relaxed">
+                    <p className="font-bold mb-1">How it works:</p>
+                    Pick any available position number. Your selection is final once submitted, so choose carefully!
+                  </div>
+                </div>
+
+                {/* Full Name */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 mb-1.5">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="fullName"
+                    type="text"
+                    className={`px-4 py-3 w-full bg-white border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm placeholder:text-gray-400 text-gray-700 font-medium ${
+                      errors.fullName && touched.fullName ? "border-red-500" : "border-gray-200"
+                    }`}
+                    placeholder="e.g John Sam"
+                    value={values.fullName}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                  <ErrorMessage
+                    name="fullName"
+                    component="div"
+                    className="text-red-500 text-xs mt-1 font-semibold"
+                  />
+                </div>
+
+                {/* Email Address */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-605 mb-1.5">
+                    Email Address <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="email"
+                    type="email"
+                    className={`px-4 py-3 w-full bg-white border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm placeholder:text-gray-400 text-gray-700 font-medium ${
+                      errors.email && touched.email ? "border-red-500" : "border-gray-200"
+                    }`}
+                    placeholder="e.g John@example.com"
+                    value={values.email}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                  <ErrorMessage
+                    name="email"
+                    component="div"
+                    className="text-red-500 text-xs mt-1 font-semibold"
+                  />
+                  <p className="text-gray-400 text-[11px] mt-1.5 pl-1">
+                    We'll send your position assignment here
+                  </p>
+                </div>
+
+                {/* Choose Your Position Grid Selector - ONLY for Participants Pick mode */}
+                {assignmentMode === "participants-pick" && (
+                  <div className="flex flex-col gap-3">
+                    <label className="block text-sm font-semibold text-[#4B5563]">
+                      Choose Your Position <span className="text-red-500">*</span>
+                      <span className="block text-[11px] font-normal text-gray-400 mt-0.5">
+                        Select any available position. Greyed out positions are already taken.
+                      </span>
+                    </label>
+
+                    <div className="grid grid-cols-5 gap-3 max-h-[300px] overflow-y-auto pr-1">
+                      {Array.from({ length: totalPositions }).map((_, idx) => {
+                        const positionNumber = idx + 1;
+                        const isTaken = takenNumbers.includes(positionNumber);
+                        const isSelected = values.assignedNumber === positionNumber;
+
+                        return (
+                          <button
+                            key={positionNumber}
+                            type="button"
+                            disabled={isTaken}
+                            onClick={() => setFieldValue("assignedNumber", positionNumber)}
+                            className={`rounded-xl p-3 border flex flex-col items-center justify-center gap-1.5 transition-all text-center focus:outline-none h-20 ${
+                              isTaken
+                                ? "bg-gray-100 border-transparent text-gray-400 opacity-60 cursor-not-allowed"
+                                : isSelected
+                                ? "border-purple-500 bg-purple-50/10 shadow-sm ring-1 ring-purple-500"
+                                : "border-gray-200 bg-white hover:border-gray-300"
+                            }`}
+                          >
+                            <span className={`text-base font-extrabold font-heading ${
+                              isTaken ? "text-gray-400" : isSelected ? "text-purple-650 text-purple-600" : "text-gray-900"
+                            }`}>
+                              {positionNumber}
+                            </span>
+                            <span className={`text-[9px] font-bold ${
+                              isTaken ? "text-gray-400" : isSelected ? "text-purple-650 text-purple-600 font-extrabold" : "text-gray-400"
+                            }`}>
+                              {isTaken ? "Taken" : "Open"}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <ErrorMessage
+                      name="assignedNumber"
+                      component="div"
+                      className="text-red-500 text-xs mt-1 font-semibold"
+                    />
+                  </div>
+                )}
               </div>
 
-              <Button
-                type="submit"
-                disabled={submitting}
-                isLoading={submitting}
-                className="mt-4 w-full bg-purple-600 hover:bg-purple-700 text-white focus:ring-purple-500"
-              >
-                {submitting ? "Joining..." : "Join Event"}
-              </Button>
+              {/* Action Buttons */}
+              <div className="bg-[#F5F6F8] p-6 flex items-center justify-center gap-4 border-t border-gray-200 w-full rounded-b-[2rem]">
+                <button
+                  type="button"
+                  onClick={() => router.push("/")}
+                  className="bg-[#E5E7EB] hover:bg-[#D1D5DB] text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all shadow-sm flex-1 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  isLoading={submitting}
+                  className="bg-gradient-to-b from-[#8338EC] to-[#6f2ec9] hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-full text-xs transition-all shadow-md flex-1 cursor-pointer flex items-center justify-center gap-1.5 h-auto"
+                >
+                  {submitting ? "Joining..." : "Claim my position >"}
+                </Button>
+              </div>
             </Form>
           )}
         </Formik>
