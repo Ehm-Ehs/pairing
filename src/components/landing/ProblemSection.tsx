@@ -87,7 +87,7 @@ export default function ProblemSection() {
             <div className="flex flex-col gap-4">
               {/* Row 1 */}
               <div className="flex flex-row items-stretch gap-2 sm:gap-4">
-                <div className="flex-1 bg-[#fef2f2] text-[#ef4444] line-through rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center">
+                <div className="flex-1 bg-[#fef2f2] text-[#b91c1c] line-through rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center">
                   Sorting names in a spreadsheet for 2 hours
                 </div>
                 <div className="flex items-center justify-center">
@@ -102,7 +102,7 @@ export default function ProblemSection() {
 
               {/* Row 2 */}
               <div className="flex flex-row items-stretch gap-2 sm:gap-4">
-                <div className="flex-1 bg-[#fef2f2] text-[#ef4444] line-through rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center">
+                <div className="flex-1 bg-[#fef2f2] text-[#b91c1c] line-through rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center">
                   Manually emailing group assignments
                 </div>
                 <div className="flex items-center justify-center">
@@ -117,7 +117,7 @@ export default function ProblemSection() {
 
               {/* Row 3 */}
               <div className="flex flex-row items-stretch gap-2 sm:gap-4">
-                <div className="flex-1 bg-[#fef2f2] text-[#ef4444] line-through rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center">
+                <div className="flex-1 bg-[#fef2f2] text-[#b91c1c] line-through rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center">
                   Reshuffling when someone drops out
                 </div>
                 <div className="flex items-center justify-center">
@@ -132,7 +132,7 @@ export default function ProblemSection() {
 
               {/* Row 4 */}
               <div className="flex flex-row items-stretch gap-2 sm:gap-4">
-                <div className="flex-1 bg-[#fef2f2] text-[#ef4444] line-through rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center">
+                <div className="flex-1 bg-[#fef2f2] text-[#b91c1c] line-through rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center">
                   Messy Secret Santa name draw
                 </div>
                 <div className="flex items-center justify-center">

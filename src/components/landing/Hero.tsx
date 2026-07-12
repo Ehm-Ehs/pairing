@@ -44,7 +44,7 @@ export default function Hero({ scrollToHowItWorks, onGetStarted }: HeroProps) {
 
       {/* Hero Content */}
       <div className="relative z-10 flex flex-col items-center px-4">
-        <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-white border border-blue-100 text-blue-500 text-xs sm:text-sm font-medium mb-8 shadow-sm">
+        <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-white border border-blue-100 text-blue-700 text-xs sm:text-sm font-medium mb-8 shadow-sm">
           <span className="flex w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
           Smart automated balancing. Fair groups. Zero chaos.
         </div>
