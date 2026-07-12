@@ -1,8 +1,22 @@
 import React from "react";
-import FormComponent from "./RoleBasedForm";
+import dynamic from "next/dynamic";
 import { ModeSelection } from "./ModeSelection";
-import SecretSantaForm from "./SecretSantaForm";
-import RandomPositioningForm from "./RandomPositioningForm";
+
+const FormComponent = dynamic(() => import("./RoleBasedForm"), {
+  loading: () => <div className="text-gray-400 animate-pulse py-8 text-center text-xs font-semibold">Loading Form...</div>,
+  ssr: false,
+});
+
+const SecretSantaForm = dynamic(() => import("./SecretSantaForm"), {
+  loading: () => <div className="text-gray-400 animate-pulse py-8 text-center text-xs font-semibold">Loading Form...</div>,
+  ssr: false,
+});
+
+const RandomPositioningForm = dynamic(() => import("./RandomPositioningForm"), {
+  loading: () => <div className="text-gray-400 animate-pulse py-8 text-center text-xs font-semibold">Loading Form...</div>,
+  ssr: false,
+});
+
 import { useCreateEvent } from "../../../src/hooks/useCreateEvent";
 import { validationSchema } from "./createEventValidation";
 import GuestLimitBlocker from "../../../src/components/auth/GuestLimitBlocker";
@@ -99,7 +113,7 @@ const CreateParing: React.FC<CreateParingProps> = ({ user }) => {
               ? "Create Group Pairs"
               : eventType === "random-positioning"
                 ? "Random Positioning Details"
-                : "Create Single Pairing"}
+                : "Create Just Pair"}
           </h2>
           <p className="text-sm text-gray-500">
             {eventType === "role-based"

@@ -328,7 +328,7 @@ const RandomPositioningForm: React.FC<RandomPositioningFormProps> = ({
                 <button
                   type="button"
                   onClick={onCancel}
-                  className="bg-gray-150 hover:bg-gray-200 text-gray-700 font-bold px-8 py-3 rounded-full text-xs font-bold transition-all shadow-sm flex-1 cursor-pointer"
+                  className="bg-gray-150 hover:bg-gray-200 text-gray-700 font-bold px-8 py-3 rounded-full text-xs transition-all shadow-sm flex-1 cursor-pointer"
                 >
                   Cancel
                 </button>

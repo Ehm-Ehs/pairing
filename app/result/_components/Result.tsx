@@ -1,20 +1,43 @@
 import { useSearchParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { GroupingsPageProps } from "../../../src/types";
 import EventStats from "./EventStats";
-import SecretSantaList from "./SecretSantaList";
-import RoleBasedList from "./RoleBasedList";
-import RandomPositioningResult from "./RandomPositioningResult";
+
+const SecretSantaList = dynamic(() => import("./SecretSantaList"), {
+  loading: () => <div className="text-gray-400 animate-pulse py-8 text-center text-xs font-semibold">Loading Secret Santa List...</div>,
+  ssr: false,
+});
+
+const RoleBasedList = dynamic(() => import("./RoleBasedList"), {
+  loading: () => <div className="text-gray-400 animate-pulse py-8 text-center text-xs font-semibold">Loading Group Pairs List...</div>,
+  ssr: false,
+});
+
+const RandomPositioningResult = dynamic(() => import("./RandomPositioningResult"), {
+  loading: () => <div className="text-gray-400 animate-pulse py-8 text-center text-xs font-semibold">Loading Positions List...</div>,
+  ssr: false,
+});
 import { useResultActions } from "../../../src/hooks/useResultActions";
 import { closePairingEvent } from "../../../src/services/endpoints";
 import { auth } from "../../../src/services/firebase";
 import { useState } from "react";
+import { toast } from "react-toastify";
 
+
+const capitalizeWords = (str: string) => {
+  if (!str) return "";
+  return str
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
 
 interface ResultProps {
   data: GroupingsPageProps | null;
+  isPublicView?: boolean;
 }
 
-const Result = ({ data }: ResultProps) => {
+const Result = ({ data, isPublicView = false }: ResultProps) => {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [isClosing, setIsClosing] = useState(false);
@@ -24,7 +47,7 @@ const Result = ({ data }: ResultProps) => {
   const indexParam = searchParams.get("index");
   const idParam = searchParams.get("id");
 
-  let selectedIndex = indexParam ? parseInt(indexParam) : null;
+  let selectedIndex = isPublicView ? 0 : (indexParam ? parseInt(indexParam) : null);
 
   if (selectedIndex === null && idParam && data && data.pairings) {
     const foundIndex = data.pairings.findIndex((p) => p.id === idParam);
@@ -44,7 +67,20 @@ const Result = ({ data }: ResultProps) => {
     handleFormRedirect,
   } = useResultActions(data, selectedIndex);
 
-  const userId = data?.userId || data?.uid || auth.currentUser?.uid || JSON.parse(localStorage.getItem("user") || "{}").uid || "";
+  let storageUid = "";
+  try {
+    const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null;
+    if (userStr && userStr !== "null") {
+      const parsed = JSON.parse(userStr);
+      if (parsed && typeof parsed === "object") {
+        storageUid = parsed.uid || "";
+      }
+    }
+  } catch (e) {
+    console.error("Error parsing user from localStorage:", e);
+  }
+
+  const userId = data?.userId || data?.uid || auth.currentUser?.uid || storageUid || "";
 
   if (!data) {
     return (
@@ -65,17 +101,54 @@ const Result = ({ data }: ResultProps) => {
   const pairingsToRender =
     selectedIndex !== null && data.pairings ? [data.pairings[selectedIndex]] : (data.pairings || []);
 
-  const handleCloseEventClick = async (eventId: string) => {
-    if (confirm("Are you sure you want to close this event? No further registrations will be allowed.")) {
-      setIsClosing(true);
-      try {
-        await closePairingEvent(userId, eventId);
-      } catch (err: any) {
-        console.error("Failed to close event:", err);
-      } finally {
-        setIsClosing(false);
+  const handleCloseEventClick = (eventId: string) => {
+    toast(
+      ({ closeToast }) => (
+        <div className="flex flex-col gap-2.5 text-left p-1">
+          <p className="font-bold text-gray-900 text-sm font-heading">
+            Close Event?
+          </p>
+          <p className="text-xs text-gray-500 leading-relaxed font-medium">
+            Are you sure you want to close this event? No further registrations will be allowed.
+          </p>
+          <div className="flex gap-2 justify-end mt-2">
+            <button
+              type="button"
+              onClick={closeToast}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-1.5 rounded-full text-[10px] transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                closeToast();
+                setIsClosing(true);
+                try {
+                  await closePairingEvent(userId, eventId);
+                  toast.success("Event closed successfully!");
+                } catch (err: any) {
+                  console.error("Failed to close event:", err);
+                  toast.error("Failed to close event: " + err.message);
+                } finally {
+                  setIsClosing(false);
+                }
+              }}
+              className="bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold px-4 py-1.5 rounded-full text-[10px] shadow-sm transition-colors cursor-pointer"
+            >
+              Close Event
+            </button>
+          </div>
+        </div>
+      ),
+      {
+        position: "top-center",
+        autoClose: false,
+        closeOnClick: false,
+        draggable: false,
+        closeButton: false,
       }
-    }
+    );
   };
 
   const getFormattedDate = (createdAt: any) => {
@@ -222,36 +295,51 @@ const Result = ({ data }: ResultProps) => {
           return (
             <div key={index} className="flex flex-col gap-6">
               {/* Back navigation and Close event row */}
-              <div className="flex items-center justify-between">
-                <div
-                  onClick={() => router.push("/home")}
-                  className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors text-sm font-semibold cursor-pointer group"
-                >
-                  <svg width="29" height="29" viewBox="0 0 28.3333 28.3333" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M10.2978 13.0333L12.2924 15.028L11.0897 16.2308L8.28467 13.4258L7.58483 12.7245C7.45204 12.5917 7.37744 12.4115 7.37744 12.2237C7.37744 12.0359 7.45204 11.8557 7.58483 11.7229L11.0897 8.21667L12.2924 9.41942L10.3771 11.3333H17C18.1272 11.3333 19.2082 11.7811 20.0052 12.5781C20.8022 13.3752 21.25 14.4562 21.25 15.5833C21.25 16.7105 20.8022 17.7915 20.0052 18.5885C19.2082 19.3856 18.1272 19.8333 17 19.8333H14.1667V18.1333H17C17.6763 18.1333 18.3249 17.8647 18.8031 17.3865C19.2813 16.9082 19.55 16.2596 19.55 15.5833C19.55 14.907 19.2813 14.2584 18.8031 13.7802C18.3249 13.302 17.6763 13.0333 17 13.0333H10.2978ZM14.1667 28.3333C6.34242 28.3333 0 21.9909 0 14.1667C0 6.34242 6.34242 0 14.1667 0C21.9909 0 28.3333 6.34242 28.3333 14.1667C28.3333 21.9909 21.9909 28.3333 14.1667 28.3333ZM14.1667 26.6333C17.473 26.6333 20.644 25.3199 22.9819 22.9819C25.3199 20.644 26.6333 17.473 26.6333 14.1667C26.6333 10.8603 25.3199 7.68936 22.9819 5.3514C20.644 3.01345 17.473 1.7 14.1667 1.7C10.8603 1.7 7.68936 3.01345 5.3514 5.3514C3.01345 7.68936 1.7 10.8603 1.7 14.1667C1.7 17.473 3.01345 20.644 5.3514 22.9819C7.68936 25.3199 10.8603 26.6333 14.1667 26.6333Z" fill="#242424" fill-opacity="0.9" />
-                  </svg>
-                  Back to My Events
-                </div>
-
-                {pairing.status !== "locked" ? (
-                  <button
-                    onClick={() => handleCloseEventClick(pairing.id)}
-                    disabled={isClosing}
-                    className="bg-[#DC2626] hover:bg-[#B91C1C] text-white px-5 py-2.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm hover:shadow transition-all active:scale-95 cursor-pointer disabled:bg-red-400 disabled:cursor-not-allowed"
+              {!isPublicView ? (
+                <div className="flex items-center justify-between">
+                  <div
+                    onClick={() => router.push("/home")}
+                    className="flex items-center gap-2 text-gray-550 hover:text-gray-900 transition-colors text-sm font-semibold cursor-pointer group"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <line x1="15" y1="9" x2="9" y2="15"></line>
-                      <line x1="9" y1="9" x2="15" y2="15"></line>
+                    <svg width="29" height="29" viewBox="0 0 28.3333 28.3333" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path fill-rule="evenodd" clip-rule="evenodd" d="M10.2978 13.0333L12.2924 15.028L11.0897 16.2308L8.28467 13.4258L7.58483 12.7245C7.45204 12.5917 7.37744 12.4115 7.37744 12.2237C7.37744 12.0359 7.45204 11.8557 7.58483 11.7229L11.0897 8.21667L12.2924 9.41942L10.3771 11.3333H17C18.1272 11.3333 19.2082 11.7811 20.0052 12.5781C20.8022 13.3752 21.25 14.4562 21.25 15.5833C21.25 16.7105 20.8022 17.7915 20.0052 18.5885C19.2082 19.3856 18.1272 19.8333 17 19.8333H14.1667V18.1333H17C17.6763 18.1333 18.3249 17.8647 18.8031 17.3865C19.2813 16.9082 19.55 16.2596 19.55 15.5833C19.55 14.907 19.2813 14.2584 18.8031 13.7802C18.3249 13.302 17.6763 13.0333 17 13.0333H10.2978ZM14.1667 28.3333C6.34242 28.3333 0 21.9909 0 14.1667C0 6.34242 6.34242 0 14.1667 0C21.9909 0 28.3333 6.34242 28.3333 14.1667C28.3333 21.9909 21.9909 28.3333 14.1667 28.3333ZM14.1667 26.6333C17.473 26.6333 20.644 25.3199 22.9819 22.9819C25.3199 20.644 26.6333 17.473 26.6333 14.1667C26.6333 10.8603 25.3199 7.68936 22.9819 5.3514C20.644 3.01345 17.473 1.7 14.1667 1.7C10.8603 1.7 7.68936 3.01345 5.3514 5.3514C3.01345 7.68936 1.7 10.8603 1.7 14.1667C1.7 17.473 3.01345 20.644 5.3514 22.9819C7.68936 25.3199 10.8603 26.6333 14.1667 26.6333Z" fill="#242424" fill-opacity="0.9" />
                     </svg>
-                    Close Event
-                  </button>
-                ) : (
-                  <span className="bg-gray-200 text-gray-500 px-5 py-2.5 rounded-full text-xs font-bold flex items-center gap-1.5 border border-gray-300 select-none">
-                    Event Closed
-                  </span>
-                )}
-              </div>
+                    Back to My Events
+                  </div>
+
+                  {pairing.status !== "locked" ? (
+                    <button
+                      onClick={() => handleCloseEventClick(pairing.id)}
+                      disabled={isClosing}
+                      className="bg-[#DC2626] hover:bg-[#B91C1C] text-white px-5 py-2.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm hover:shadow transition-all active:scale-95 cursor-pointer disabled:bg-red-400 disabled:cursor-not-allowed"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                      </svg>
+                      Close Event
+                    </button>
+                  ) : (
+                    <span className="bg-gray-200 text-gray-500 px-5 py-2.5 rounded-full text-xs font-bold flex items-center gap-1.5 border border-gray-300 select-none">
+                      Event Closed
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div
+                    onClick={() => router.push("/")}
+                    className="flex items-center gap-2 text-gray-550 hover:text-gray-900 transition-colors text-sm font-semibold cursor-pointer group"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="19" y1="12" x2="5" y2="12"></line>
+                      <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                    Home
+                  </div>
+                </div>
+              )}
 
               {/* Blue Gradient Capsule Banner */}
               <div
@@ -269,8 +357,8 @@ const Result = ({ data }: ResultProps) => {
                 {/* Event Name & Metadata Badges */}
                 <div className="flex flex-col gap-3 relative z-10">
                   <div className="flex flex-wrap items-center gap-3">
-                    <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white" >
-                      {pairing.groupingPurpose}
+                    <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white capitalize" >
+                      {capitalizeWords(pairing.groupingPurpose)}
                     </h2>
                     <span className={`px-3 py-1 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1.5 shadow-sm border ${pairing.status !== "locked"
                       ? "bg-[#10B981]/25 text-[#34D399] border-[#10B981]/30"
@@ -282,8 +370,16 @@ const Result = ({ data }: ResultProps) => {
                     </span>
                     <span className="px-3 py-1 rounded-full text-[10px] md:text-xs font-bold bg-white/15 text-white border border-white/20">
                       {pairing.type === "role-based" ? "Group Pairs" :
-                        pairing.type === "secret-santa" ? "Secret Santa" : "Random Positioning"}
+                        pairing.type === "secret-santa"
+                          ? (pairing.config?.allowWishlist ? "Secret Santa" : "Just Pair")
+                          : ((pairing as any).assignmentMode === "fcfs" ? "First Come, First Served" :
+                             (pairing as any).assignmentMode === "random" ? "Random Assignment" : "Participants Pick")}
                     </span>
+                    {pairing.type === "random-positioning" && (
+                      <span className="px-3 py-1 rounded-full text-[10px] md:text-xs font-bold bg-white/15 text-white border border-white/20">
+                        {(pairing as any).hideNames ? "Names Hidden" : "Names Public"}
+                      </span>
+                    )}
                   </div>
 
                   {/* Metadata Row */}
@@ -324,73 +420,75 @@ const Result = ({ data }: ResultProps) => {
                 </div>
 
                 {/* Share URL Input & Action Row */}
-                <div className="flex flex-col gap-2 relative z-10 w-full">
-                  <span className="text-xs font-bold tracking-wider text-white/70">
-                    Share Event Link
-                  </span> <div className="flex flex-col md:flex-row">
-                    <div className="flex flex-col md:flex-row items-stretch w-[80%] md:items-center gap-3 bg-white/10 border border-white/20 rounded-[1.25rem] md:rounded-full p-1.5">
-                      <input
-                        type="text"
-                        readOnly
-                        value={formUrl}
-                        className="bg-transparent text-white placeholder-white/50 border-0 outline-none text-xs md:text-sm select-all w-full min-w-0 truncate px-3 py-2 flex-grow"
-                        placeholder="Event Registration Link"
-                      />
+                {!isPublicView && (
+                  <div className="flex flex-col gap-2 relative z-10 w-full">
+                    <span className="text-xs font-bold tracking-wider text-white/70">
+                      Share Event Link
+                    </span> <div className="flex flex-col md:flex-row">
+                      <div className="flex flex-col md:flex-row items-stretch w-[80%] md:items-center gap-3 bg-white/10 border border-white/20 rounded-[1.25rem] md:rounded-full p-1.5">
+                        <input
+                          type="text"
+                          readOnly
+                          value={formUrl}
+                          className="bg-transparent text-white placeholder-white/50 border-0 outline-none text-xs md:text-sm select-all w-full min-w-0 truncate px-3 py-2 flex-grow"
+                          placeholder="Event Registration Link"
+                        />
 
-                      {/* Actions inside the bar */}
-                      <div className="flex items-center gap-2 px-1 flex-shrink-0">
-                        {/* Copy Link Button */}
-                        <button
-                          onClick={handleCopyFormLink}
-                          className="bg-white/10 hover:bg-white/20 border border-white/30 text-white rounded-full px-4 py-2 flex items-center justify-center gap-1.5 text-xs font-semibold select-none cursor-pointer transition-all active:scale-95"
-                        >
-                          {copiedLinkLocal ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                              <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                          ) : (
+                        {/* Actions inside the bar */}
+                        <div className="flex items-center gap-2 px-1 flex-shrink-0">
+                          {/* Copy Link Button */}
+                          <button
+                            onClick={handleCopyFormLink}
+                            className="bg-white/10 hover:bg-white/20 border border-white/30 text-white rounded-full px-4 py-2 flex items-center justify-center gap-1.5 text-xs font-semibold select-none cursor-pointer transition-all active:scale-95"
+                          >
+                            {copiedLinkLocal ? (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                              </svg>
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                              </svg>
+                            )}
+                            {copiedLinkLocal ? "Copied!" : "Copy Link"}
+                          </button>
+                        </div> </div>
+                      <div className="flex flex-col md:flex-row  md:items-center gap-3 bg-white/10 border border-white/20 rounded-[1.25rem] md:rounded-full p-1.5">
+
+                        {/* Export CSV (Only for role based) */}
+                        {pairing.type === "role-based" && (
+                          <button
+                            onClick={handleExportCSV}
+                            className="bg-white/10 hover:bg-white/20 border border-white/30 text-white rounded-full px-4 py-2 flex items-center justify-center gap-1.5 text-xs font-semibold select-none cursor-pointer transition-all active:scale-95"
+                          >
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                              <polyline points="7 10 12 15 17 10"></polyline>
+                              <line x1="12" y1="15" x2="12" y2="3"></line>
                             </svg>
-                          )}
-                          {copiedLinkLocal ? "Copied!" : "Copy Link"}
-                        </button>
-                      </div> </div>
-                    <div className="flex flex-col md:flex-row  md:items-center gap-3 bg-white/10 border border-white/20 rounded-[1.25rem] md:rounded-full p-1.5">
+                            Export CSV
+                          </button>
+                        )}
 
-                      {/* Export CSV (Only for role based) */}
-                      {pairing.type === "role-based" && (
+                        {/* Share trigger */}
                         <button
-                          onClick={handleExportCSV}
-                          className="bg-white/10 hover:bg-white/20 border border-white/30 text-white rounded-full px-4 py-2 flex items-center justify-center gap-1.5 text-xs font-semibold select-none cursor-pointer transition-all active:scale-95"
+                          onClick={handleShareClick}
+                          className="bg-white/10 hover:bg-white/20 border border-white/30 text-white p-2.5 rounded-full flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                          title="Share link"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7 10 12 15 17 10"></polyline>
-                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                            <circle cx="18" cy="5" r="3"></circle>
+                            <circle cx="6" cy="12" r="3"></circle>
+                            <circle cx="18" cy="19" r="3"></circle>
+                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
                           </svg>
-                          Export CSV
                         </button>
-                      )}
-
-                      {/* Share trigger */}
-                      <button
-                        onClick={handleShareClick}
-                        className="bg-white/10 hover:bg-white/20 border border-white/30 text-white p-2.5 rounded-full flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                        title="Share link"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                          <circle cx="18" cy="5" r="3"></circle>
-                          <circle cx="6" cy="12" r="3"></circle>
-                          <circle cx="18" cy="19" r="3"></circle>
-                          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                        </svg>
-                      </button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Event Stats capsules */}
@@ -403,11 +501,11 @@ const Result = ({ data }: ResultProps) => {
 
               {/* Dynamic list layout */}
               {pairing.type === "random-positioning" ? (
-                <RandomPositioningResult data={pairing} />
+                <RandomPositioningResult data={pairing} isPublicView={isPublicView} />
               ) : pairing.type === "secret-santa" ? (
-                <SecretSantaList pairing={pairing} userId={userId} />
+                <SecretSantaList pairing={pairing} userId={userId} isPublicView={isPublicView} />
               ) : (
-                <RoleBasedList pairing={pairing} />
+                <RoleBasedList pairing={pairing} isPublicView={isPublicView} />
               )}
             </div>
           );

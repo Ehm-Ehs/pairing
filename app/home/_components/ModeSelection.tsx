@@ -45,7 +45,7 @@ export const ModeSelection: React.FC<ModeSelectionProps> = ({ onSelect }) => {
             </span>
           </div>
 
-          {/* Single Pairing Card */}
+          {/* Just Pair Card */}
           <div
             className="cursor-pointer bg-white rounded-[2rem] p-6 border border-gray-100 hover:shadow-md hover:border-gray-200 transition-all flex flex-col items-start justify-between text-left group h-full"
             onClick={() => onSelect("secret-santa")}
@@ -55,7 +55,7 @@ export const ModeSelection: React.FC<ModeSelectionProps> = ({ onSelect }) => {
                 <SinglePairingIcon className="w-6 h-6 text-white" />
               </div>
               <h3 className="text-lg font-bold mb-1 font-heading text-gray-900">
-                Single Pairing
+                Just Pair
               </h3>
               <p className="text-gray-500 text-xs leading-relaxed mb-6">
                 1:1 anonymous matching

@@ -80,8 +80,8 @@ export default function Hero({ scrollToHowItWorks, onGetStarted }: HeroProps) {
               <img
                 key={i}
                 className="inline-block h-6 w-6 rounded-full ring-2 ring-white object-cover"
-                src={`https://images.unsplash.com/photo-1534430480872-3498384e54e5?auto=format&fit=crop&w=100&q=80`}
-                alt=""
+                src={`/avatars/avatar${i}.png`}
+                alt={`User ${i}`}
               />
             ))}
           </div>

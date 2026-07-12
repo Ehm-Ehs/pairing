@@ -4,6 +4,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithPopup,
   signInWithEmailAndPassword,
+  linkWithCredential,
+  EmailAuthProvider,
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { toast } from "react-toastify";
@@ -92,31 +94,72 @@ export const useSignup = () => {
     const userId = uuidv4();
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        values.email,
-        values.password
-      );
-      const user = userCredential.user;
-      console.log("User signed up:", user);
+      let user: import("firebase/auth").User | undefined;
+      let isLinked = false;
+
+      if (auth.currentUser && auth.currentUser.isAnonymous) {
+        try {
+          const credential = EmailAuthProvider.credential(
+            values.email,
+            values.password
+          );
+          const userCredential = await linkWithCredential(
+            auth.currentUser,
+            credential
+          );
+          user = userCredential.user;
+          isLinked = true;
+          console.log("Anonymous user linked successfully:", user);
+        } catch (linkError: any) {
+          console.error("Error linking anonymous user, trying standard signup:", linkError);
+          throw linkError;
+        }
+      }
+
+      if (!isLinked) {
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          values.email,
+          values.password
+        );
+        user = userCredential.user;
+        console.log("User signed up:", user);
+      }
+
+      if (!user) return;
       const accessToken = await user.getIdToken();
 
       if (accessToken && user) {
         const userToStore = {
           uid: user.uid,
           email: user.email,
-          displayName: user.displayName,
+          displayName: user.displayName || `${values.firstName} ${values.lastName}`.trim(),
           photoURL: user.photoURL,
         };
         Auth.authenticateUser({ accessToken, data: userToStore });
 
-        // Include the userId in the Firestore document
-        await setDoc(doc(db, "Users", user.uid), {
-          userId, // Add the UUID here
-          email: user.email,
-          firstName: values.firstName,
-          lastName: values.lastName,
-        });
+        // Update or create the Firestore document
+        const userDocRef = doc(db, "Users", user.uid);
+        if (isLinked) {
+          await setDoc(
+            userDocRef,
+            {
+              email: user.email,
+              firstName: values.firstName,
+              lastName: values.lastName,
+              isAnonymous: false,
+            },
+            { merge: true }
+          );
+        } else {
+          await setDoc(userDocRef, {
+            userId, // Add the UUID here
+            email: user.email,
+            firstName: values.firstName,
+            lastName: values.lastName,
+            isAnonymous: false,
+          });
+        }
 
         // Send welcome email
         const emailResult = await sendWelcomeEmail(
@@ -131,7 +174,7 @@ export const useSignup = () => {
           );
         }
 
-        toast.success("Sign up successful!", {
+        toast.success(isLinked ? "Account created and data migrated successfully!" : "Sign up successful!", {
           position: "top-center",
           autoClose: 3000,
         });

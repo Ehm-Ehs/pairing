@@ -10,6 +10,14 @@ import {
 } from "../../../src/components/ui/card";
 import { FaCheck, FaCopy } from "react-icons/fa";
 
+const capitalizeWords = (str: string) => {
+  if (!str) return "";
+  return str
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
 interface PairingResultsProps {
   groups: {
     [key: number]: { id: string; number: number; role: string }[];
@@ -143,8 +151,8 @@ const PairingResults: React.FC<PairingResultsProps> = ({
       <div className="flex flex-col justify-center items-center">
         <div className="p-4 w-full">
           <div className="gap-4">
-            <h1 className="text-2xl font-semibold mb-4">
-              {formValues.groupingPurpose}
+            <h1 className="text-2xl font-semibold mb-4 capitalize">
+              {capitalizeWords(formValues.groupingPurpose)}
             </h1>
             <p className="text-lg mb-2">
               <strong>Number of Participants:</strong>{" "}
@@ -160,7 +168,7 @@ const PairingResults: React.FC<PairingResultsProps> = ({
                   <ul className="list-disc pl-5">
                     {members.map((member) => (
                       <li key={member.id}>
-                        {member.number}: {member.role}
+                        {member.number}: <span className="capitalize">{capitalizeWords(member.role)}</span>
                       </li>
                     ))}
                   </ul>

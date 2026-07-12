@@ -10,6 +10,7 @@ import { Button } from "../../src/components/ui/button";
 import { FaUsers } from "react-icons/fa";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../src/services/firebase";
+import { capitalizeWords } from "../../src/utils/stringUtils";
 
 // Function to decrypt userId (Base64 decoding example)
 const decryptData = (data: string): string => {
@@ -46,7 +47,11 @@ const ParticipantFormContent = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isClosed, setIsClosed] = useState(false);
+  const [isEventFull, setIsEventFull] = useState(false);
+  const [closedMessage, setClosedMessage] = useState("");
+  const [fullMessage, setFullMessage] = useState("");
   const [checkingStatus, setCheckingStatus] = useState(true);
+  const [showReveal, setShowReveal] = useState(false);
 
   useEffect(() => {
     const groupingPurpose = searchParams.get("groupingPurpose");
@@ -109,6 +114,8 @@ const ParticipantFormContent = () => {
           const docSnap = await getDoc(userRef);
           if (docSnap.exists()) {
             const userData = docSnap.data();
+            setClosedMessage(userData.settings?.defaults?.closedEventMessage || "");
+            setFullMessage(userData.settings?.defaults?.fullEventMessage || "");
             const userPairings = userData.pairings || [];
             const pairing = userPairings.find(
               (p: any) => p.groupingPurpose === groupingPurpose
@@ -116,6 +123,7 @@ const ParticipantFormContent = () => {
             if (pairing) {
               if (pairing.status === "locked") {
                 setIsClosed(true);
+                setIsEventFull(false);
               } else {
                 // Check if all slots are filled
                 if (pairing.groups) {
@@ -131,6 +139,7 @@ const ParticipantFormContent = () => {
                   });
                   if (totalSlots > 0 && filledSlots >= totalSlots) {
                     setIsClosed(true);
+                    setIsEventFull(true);
                   }
                 }
               }
@@ -268,9 +277,9 @@ const ParticipantFormContent = () => {
             : "No available slot found. Event may be full."
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting form:", error);
-      toast.error("An error occurred while submitting. Please try again.");
+      toast.error(error.message || "An error occurred while submitting. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -315,26 +324,187 @@ const ParticipantFormContent = () => {
     );
   }
 
-  if (isClosed) {
+  if (isClosed && !showReveal) {
+    const isFull = isEventFull;
+    const title = capitalizeWords(formData?.groupingPurpose || "Event");
+
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4">
-        <div className="bg-white p-8 md:p-12 rounded-[2.5rem] border border-gray-150/40 shadow-xl w-full max-w-lg flex flex-col items-center relative text-left">
-          <button
-            onClick={() => router.push("/")}
-            className="absolute top-6 right-6 w-8 h-8 rounded-full border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:border-gray-200 transition-colors"
-          >
-            <span className="text-lg">×</span>
-          </button>
-          <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="5" y="11" width="14" height="10" rx="2" fill="#F59E0B" />
-              <path d="M8 11V7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7V11" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round" />
-            </svg>
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-start items-center px-4 py-12 text-left font-medium text-gray-700">
+        <Logo className="h-9 w-auto mb-10" />
+
+        <div className={`bg-white rounded-[2rem] border-t-4 ${isFull ? "border-t-amber-500" : "border-t-red-500"} border-x border-b border-gray-200/60 shadow-sm w-full max-w-xl flex flex-col overflow-hidden`}>
+          <div className="bg-[#F5F6F8] p-6 md:p-8 flex flex-col items-center border-b border-gray-200/60 w-full relative">
+            <div className={`w-12 h-12 ${isFull ? "bg-amber-100 text-amber-600" : "bg-red-100 text-red-650"} rounded-xl flex items-center justify-center shadow-md mb-4 flex-shrink-0`}>
+              <span className="text-xl font-bold">{isFull ? "!" : "×"}</span>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight text-center capitalize">
+              {title}
+            </h2>
+            <span className={`text-xs font-semibold px-4 py-1.5 rounded-full mt-1.5 ${isFull ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-750"}`}>
+              {isFull ? "Event Full" : "Closed"}
+            </span>
           </div>
-          <h2 className="text-3xl font-extrabold text-gray-900 mb-3 text-center tracking-tight">Registration Closed</h2>
-          <p className="text-sm text-gray-500 text-center mb-6 leading-relaxed max-w-md">
-            This event is no longer accepting new participants.
-          </p>
+
+          <div className="p-8 md:p-10 flex flex-col items-center text-center gap-6 w-full">
+            <p className="text-sm text-gray-500 leading-relaxed max-w-md">
+              {isFull 
+                ? (fullMessage || "Sorry, this event is full. All available slots have been taken.")
+                : (closedMessage || "Sorry, this event is closed. No further registrations are allowed.")
+              }
+            </p>
+
+            <div className="flex flex-col gap-3 w-full max-w-xs mt-2">
+              <button
+                onClick={() => setShowReveal(true)}
+                className="bg-gradient-to-b from-[#3A76F0] to-[#012A7D] hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-full text-xs transition-all shadow-md cursor-pointer text-center"
+              >
+                Already registered? Reveal assignment
+              </button>
+
+              <button
+                onClick={() => router.push("/")}
+                className="bg-[#e5e7eb] hover:bg-gray-300 text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all cursor-pointer text-center"
+              >
+                Go home
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (showReveal) {
+    const title = capitalizeWords(formData?.groupingPurpose || "Event");
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-start items-center px-4 py-12 text-left font-medium text-gray-700">
+        <Logo className="h-9 w-auto mb-10" />
+
+        <div className="bg-white rounded-[2rem] border-t-4 border-t-[#012A7D] border-x border-b border-gray-200/60 shadow-sm w-full max-w-xl flex flex-col overflow-hidden">
+          <div className="bg-[#F5F6F8] p-6 md:p-8 flex flex-col items-center border-b border-gray-200/60 w-full relative">
+            <div className="w-12 h-12 bg-[#2563EB] text-white rounded-xl flex items-center justify-center shadow-md mb-4 flex-shrink-0">
+              <FaUsers className="w-6 h-6" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight text-center capitalize">
+              {title}
+            </h2>
+            <span className="bg-[#E0EBFF] text-[#012A7D] text-xs font-semibold px-4 py-1.5 rounded-full mt-1.5">
+              Retrieve Assignment
+            </span>
+          </div>
+
+          <Formik
+            initialValues={{ email: "" }}
+            validationSchema={Yup.object({
+              email: Yup.string()
+                .email("Invalid email")
+                .required("Email is required"),
+            })}
+            onSubmit={(values, { setSubmitting, setStatus }) => {
+              if (!formData) {
+                toast.error("Form data not loaded");
+                setSubmitting(false);
+                return;
+              }
+
+              let assignedGroupKey: string | null = null;
+              let assignedRole: string | null = null;
+
+              Object.entries(formData.pairings).forEach(([groupKey, group]) => {
+                const member = group.find(
+                  (m) => m.email?.toLowerCase() === values.email.toLowerCase()
+                );
+                if (member) {
+                  assignedGroupKey = groupKey;
+                  assignedRole = member.role;
+                }
+              });
+
+              if (assignedGroupKey !== null) {
+                setStatus({
+                  revealed: true,
+                  groupIndex: parseInt(assignedGroupKey) + 1,
+                  roleName: assignedRole || "Participant",
+                });
+              } else {
+                toast.error("Email not found in participant list");
+              }
+              setSubmitting(false);
+            }}
+          >
+            {({ isSubmitting, status, values, handleChange, handleBlur }) => (
+              <Form className="flex flex-col w-full">
+                <div className="p-6 md:p-8 flex flex-col gap-6 w-full">
+                  {!status?.revealed ? (
+                    <>
+                      <p className="text-gray-500 text-sm leading-relaxed">
+                        Enter your email to retrieve your assigned group details!
+                      </p>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-600 mb-1">
+                          Email Address
+                        </label>
+                        <input
+                          name="email"
+                          type="email"
+                          value={values.email}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                          className="px-4 py-3 w-full bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all text-sm placeholder:text-gray-400 text-gray-700 font-medium"
+                          placeholder="Your registered email"
+                        />
+                        <ErrorMessage name="email" component="div" className="text-red-500 text-xs mt-1 font-semibold" />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="bg-[#E0EBFF] border border-blue-100 rounded-3xl p-6 text-center animate-in fade-in zoom-in duration-300 w-full flex flex-col items-center">
+                      <p className="text-xs text-blue-800 font-bold uppercase tracking-wider mb-2">
+                        Your Assignment
+                      </p>
+                      <h3 className="text-2xl font-extrabold text-[#012A7D] font-heading tracking-tight mb-2">
+                        Group {status.groupIndex}
+                      </h3>
+                      <p className="text-xs font-semibold text-gray-505">
+                        Role: <span className="text-gray-800 font-bold">{status.roleName}</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {!status?.revealed ? (
+                  <div className="bg-[#F5F6F8] p-6 flex flex-col sm:flex-row items-center justify-center gap-3 border-t border-gray-200 w-full rounded-b-[2rem]">
+                    <button
+                      type="button"
+                      onClick={() => setShowReveal(false)}
+                      className="bg-[#e5e7eb] hover:bg-gray-300 text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all cursor-pointer w-full h-auto text-center"
+                    >
+                      Back
+                    </button>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting}
+                      isLoading={isSubmitting}
+                      className="bg-gradient-to-b from-[#2563EB] to-[#012A7D] hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-full text-xs shadow-md transition-all cursor-pointer w-full h-auto"
+                    >
+                      Retrieve Assignment
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="bg-[#F5F6F8] p-6 flex items-center justify-center border-t border-gray-200 w-full rounded-b-[2rem]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowReveal(false);
+                      }}
+                      className="bg-[#e5e7eb] hover:bg-gray-300 text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all cursor-pointer w-full h-auto text-center"
+                    >
+                      Done
+                    </button>
+                  </div>
+                )}
+              </Form>
+            )}
+          </Formik>
         </div>
       </div>
     );
@@ -349,8 +519,8 @@ const ParticipantFormContent = () => {
           <div className="w-12 h-12 bg-[#2563EB] text-white rounded-xl flex items-center justify-center shadow-md mb-4 flex-shrink-0">
             <FaUsers className="w-6 h-6" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight text-center">
-            {formData?.groupingPurpose || "Participant Registration"}
+          <h2 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight text-center capitalize">
+            {capitalizeWords(formData?.groupingPurpose || "Participant Registration")}
           </h2>
           <span className="bg-[#E0EBFF] text-[#012A7D] text-xs font-semibold px-4 py-1.5 rounded-full mt-1.5">
             {formData?.characteristicsLabel ? "Group Event • With Roles" : "Group Event • No Roles"}
@@ -424,9 +594,17 @@ const ParticipantFormContent = () => {
                         return (
                           <label
                             key={stat.roleName}
-                            className={`flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${
-                              isFull ? "bg-gray-50/50 border-gray-100 opacity-60 cursor-not-allowed" : isSelected ? "border-blue-500 bg-blue-50/10" : "border-gray-200 bg-white"
+                            className={`flex items-center justify-between p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden ${
+                              isFull
+                                ? "bg-gray-50/50 border-gray-200 opacity-60 cursor-not-allowed"
+                                : isSelected
+                                ? "border-blue-500 bg-blue-50/5"
+                                : "border-gray-200 bg-white hover:border-gray-300"
                             }`}
+                            style={{
+                              borderLeftWidth: "4px",
+                              borderLeftColor: isFull ? "#D1D5DB" : isSelected ? "#2563EB" : "#1E40AF"
+                            }}
                           >
                             <input
                               type="radio"
@@ -437,10 +615,39 @@ const ParticipantFormContent = () => {
                               onChange={() => setFieldValue("track", stat.roleName)}
                               className="sr-only"
                             />
-                            <div className="flex flex-col gap-1">
-                              <span className="font-bold text-gray-900 text-sm">{stat.roleName}</span>
+                            
+                            <div className="flex flex-col items-start gap-1">
+                              <span className="font-bold text-gray-900 text-base capitalize">
+                                {capitalizeWords(stat.roleName)}
+                              </span>
+                              <span className="bg-gray-100 text-gray-500 px-2.5 py-0.5 rounded-full text-[10px] font-semibold">
+                                {stat.slotsPerGroup} per group
+                              </span>
                             </div>
-                            <span className="text-xs font-semibold text-gray-500">{slotsLeft} slots left</span>
+                            
+                            <div className="flex items-center gap-4">
+                              {isFull ? (
+                                <span className="bg-red-50 text-red-500 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                                  Full
+                                </span>
+                              ) : (
+                                <span className="text-xs font-bold text-gray-500">
+                                  {slotsLeft} slot left
+                                </span>
+                              )}
+                              
+                              <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
+                                isFull
+                                  ? "border-gray-250 bg-gray-50"
+                                  : isSelected
+                                  ? "border-[#2563EB]"
+                                  : "border-gray-300 bg-white"
+                              }`}>
+                                {isSelected && (
+                                  <div className="w-2.5 h-2.5 rounded-full bg-[#2563EB]" />
+                                )}
+                              </div>
+                            </div>
                           </label>
                         );
                       })}

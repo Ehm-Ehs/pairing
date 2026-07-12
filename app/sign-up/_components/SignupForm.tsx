@@ -3,10 +3,19 @@ import Link from "next/link";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import { FaEye, FaEyeSlash, FaGoogle } from "react-icons/fa";
+import { useSearchParams } from "next/navigation";
 import { useSignup } from "../../../src/hooks/useSignup";
 import { Button } from "../../../src/components/ui/button";
 
 const SignupForm = () => {
+  const searchParams = useSearchParams();
+  const emailParam = searchParams.get("email") || "";
+  const nameParam = searchParams.get("name") || "";
+
+  const nameParts = nameParam.trim().split(/\s+/);
+  const firstNameParam = nameParts[0] || "";
+  const lastNameParam = nameParts.slice(1).join(" ") || "";
+
   const {
     showPassword,
     setShowPassword,
@@ -20,12 +29,13 @@ const SignupForm = () => {
   return (
     <Formik
       initialValues={{
-        email: "",
+        email: emailParam,
         password: "",
         confirmPassword: "",
-        firstName: "",
-        lastName: "",
+        firstName: firstNameParam,
+        lastName: lastNameParam,
       }}
+      enableReinitialize={true}
       validationSchema={Yup.object({
         email: Yup.string().email("Invalid email format").required("Required"),
         password: Yup.string()

@@ -5,6 +5,7 @@ import { editPairingValue } from "../../../src/services/endpoints";
 import { auth } from "../../../src/services/firebase";
 import { toast } from "react-toastify";
 import { getGravatarUrl } from "../../../src/utils/avatar";
+import { capitalizeWords } from "../../../src/utils/stringUtils";
 import {
   FaTimes,
   FaSearch,
@@ -17,9 +18,10 @@ import {
 
 interface RoleBasedListProps {
   pairing: RoleBasedPairing;
+  isPublicView?: boolean;
 }
 
-const RoleBasedList = ({ pairing }: RoleBasedListProps) => {
+const RoleBasedList = ({ pairing, isPublicView = false }: RoleBasedListProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
@@ -30,7 +32,20 @@ const RoleBasedList = ({ pairing }: RoleBasedListProps) => {
   // Selection states for bulk actions
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const userId = auth.currentUser?.uid || JSON.parse(localStorage.getItem("user") || "{}").uid || "";
+  let storageUid = "";
+  try {
+    const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null;
+    if (userStr && userStr !== "null") {
+      const parsed = JSON.parse(userStr);
+      if (parsed && typeof parsed === "object") {
+        storageUid = parsed.uid || "";
+      }
+    }
+  } catch (e) {
+    console.error("Error parsing user from localStorage:", e);
+  }
+
+  const userId = auth.currentUser?.uid || storageUid || "";
 
   // Reset pagination and selection on search/page size changes
   useEffect(() => {
@@ -158,6 +173,10 @@ const RoleBasedList = ({ pairing }: RoleBasedListProps) => {
     currentPage * pageSize
   );
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
   const startEntryIndex = totalFilteredCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endEntryIndex = Math.min(currentPage * pageSize, totalFilteredCount);
 
@@ -279,16 +298,16 @@ const RoleBasedList = ({ pairing }: RoleBasedListProps) => {
         <div className="bg-white rounded-3xl p-6 border border-gray-150/40 shadow-sm text-left">
           <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
             Characteristics Distribution
-            {pairing.characteristicsLabel && ` - ${pairing.characteristicsLabel}`}
+            {pairing.characteristicsLabel && ` - ${pairing.characteristicsLabel.toUpperCase()}`}
           </h3>
           <div className="flex flex-wrap gap-2">
             {pairing.characteristics.map((char, i) => (
               <Badge
                 key={i}
                 variant="secondary"
-                className="bg-blue-50 text-blue-600 border border-blue-100 rounded-full px-3 py-1 text-xs font-semibold"
+                className="bg-blue-50 text-blue-600 border border-blue-100 rounded-full px-3 py-1 text-xs font-semibold capitalize"
               >
-                {char.name}: {char.count}
+                {capitalizeWords(char.name)}: {char.count}
               </Badge>
             ))}
           </div>
@@ -338,8 +357,8 @@ const RoleBasedList = ({ pairing }: RoleBasedListProps) => {
                             <p className="text-xs font-bold text-gray-400 capitalize">
                               Empty Slot
                             </p>
-                            <p className="text-[10px] text-gray-300 font-medium">
-                              {participant.role || "Waiting for participant"}
+                            <p className="text-[10px] text-gray-300 font-medium capitalize">
+                              {capitalizeWords(participant.role) || "Waiting for participant"}
                             </p>
                           </div>
                         </div>
@@ -359,7 +378,7 @@ const RoleBasedList = ({ pairing }: RoleBasedListProps) => {
                         <div className="flex-grow min-w-0">
                           {participant.role && participant.role.trim() !== "" && (
                             <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full capitalize ${getRoleBadgeStyle(participant.role)}`}>
-                              {participant.role}
+                              {capitalizeWords(participant.role)}
                             </span>
                           )}
                           <h5 className="text-xs font-bold text-gray-900 mt-1 truncate capitalize font-heading">
@@ -395,126 +414,76 @@ const RoleBasedList = ({ pairing }: RoleBasedListProps) => {
       </div>
 
       {/* All Participants Section */}
-      <div className="flex flex-col gap-4 text-left border-t border-gray-100 pt-8">
-        <h3 className="text-2xl font-bold text-gray-900 font-heading">
-          All Participants
-        </h3>
+      {!isPublicView && (
+        <div className="flex flex-col gap-4 text-left border-t border-gray-100 pt-8">
+          <h3 className="text-2xl font-bold text-gray-900 font-heading">
+            All Participants
+          </h3>
 
-        <div className="bg-white rounded-[2rem] border border-gray-150/40 shadow-sm overflow-hidden flex flex-col">
-          {/* Card Header controls */}
-          <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-            <div>
-              <h4 className="text-base font-bold text-gray-900">
-                Participants List
-              </h4>
-              <p className="text-xs text-gray-400">
-                View and manage all participants
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Search Bar */}
-              <div className="relative flex items-center bg-white border border-gray-200 rounded-xl px-3.5 py-2 w-full sm:w-64 shadow-sm">
-                <FaSearch className="w-3.5 h-3.5 text-gray-400 mr-2 flex-shrink-0" />
-                <input
-                  type="text"
-                  placeholder="Search participant"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="bg-transparent border-0 outline-none text-xs w-full placeholder-gray-400 text-gray-700 font-medium"
-                />
+          <div className="bg-white rounded-[2rem] border border-gray-150/40 shadow-sm overflow-hidden flex flex-col">
+            {/* Card Header controls */}
+            <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+              <div>
+                <h4 className="text-base font-bold text-gray-900">
+                  Participants List
+                </h4>
+                <p className="text-xs text-gray-400">
+                  View and manage all participants
+                </p>
               </div>
 
-              {/* Export CSV button */}
-              <button
-                type="button"
-                onClick={handleExportParticipantsCSV}
-                className="bg-gradient-to-b from-[#3A76F0] to-[#012A7D] hover:opacity-95 text-white text-xs font-bold rounded-xl px-5 py-2.5 flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer flex-shrink-0"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-0.5">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="17 8 12 3 7 8"></polyline>
-                  <line x1="12" y1="3" x2="12" y2="15"></line>
-                </svg>
-                Export
-              </button>
-            </div>
-          </div>
-
-          {/* Bulk Action Alert Overlay */}
-          {selectedIds.size > 0 && pairing.status !== "locked" && (
-            <div className="bg-blue-50/50 border-b border-blue-100/50 px-6 py-3 flex items-center justify-between transition-all duration-200">
-              <span className="text-xs font-bold text-blue-700">
-                {selectedIds.size} participant{selectedIds.size !== 1 ? 's' : ''} selected
-              </span>
-              <button
-                type="button"
-                disabled={isDeleting !== null}
-                onClick={handleBulkClearSlots}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm hover:shadow transition-all active:scale-95 cursor-pointer disabled:bg-red-400"
-              >
-                <FaTrashAlt className="w-3 h-3" />
-                Remove Selected
-              </button>
-            </div>
-          )}
-
-          {/* Table Body */}
-          {filledParticipants.length === 0 ? (
-            <div className="py-20 flex flex-col items-center justify-center text-center px-6">
-              <div className="w-28 h-28 bg-[#F3F4F6] rounded-full flex items-center justify-center mb-6">
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#828282" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-                  <line x1="12" y1="10" x2="16" y2="10" />
-                  <line x1="12" y1="14" x2="16" y2="14" />
-                  <line x1="12" y1="18" x2="16" y2="18" />
-                  <circle cx="8.5" cy="10" r="0.75" fill="#828282" />
-                  <circle cx="8.5" cy="14" r="0.75" fill="#828282" />
-                  <circle cx="8.5" cy="18" r="0.75" fill="#828282" />
-                </svg>
+              <div className="flex items-center gap-2">
+                {/* Search Bar */}
+                <div className="relative flex items-center bg-white border border-gray-200 rounded-xl px-3.5 py-2 w-full sm:w-64 shadow-sm">
+                  <FaSearch className="w-3.5 h-3.5 text-gray-400 mr-2 flex-shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Search participant"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="bg-transparent border-0 outline-none text-xs w-full placeholder-gray-400 text-gray-700 font-medium"
+                  />
+                </div>
               </div>
-              <p className="text-sm font-medium text-gray-500">
-                No participants yet. Share the link to invite people!
-              </p>
             </div>
-          ) : filteredParticipants.length === 0 ? (
-            <div className="py-12 text-center text-xs text-gray-400 font-semibold">
-              No participants match "{searchTerm}"
-            </div>
-          ) : (
-            <div className="overflow-x-auto w-full">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100 text-[10px] uppercase font-bold text-gray-400 tracking-wider select-none">
-                    <th className="px-6 py-3.5 w-12 text-center">
-                      <input
-                        type="checkbox"
-                        checked={isAllPageSelected}
-                        onChange={handleSelectAllToggle}
-                        className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500 cursor-pointer"
-                      />
-                    </th>
-                    <th className="px-6 py-3.5">Participant</th>
-                    <th className="px-6 py-3.5">Role</th>
-                    <th className="px-6 py-3.5">Assigned Group</th>
-                    <th className="px-6 py-3.5">Date Joined</th>
-                    {pairing.status !== "locked" && <th className="px-6 py-3.5 text-center">Actions</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50 text-xs">
-                  {paginatedParticipants.map((p) => {
-                    const isChecked = selectedIds.has(p.id);
-                    return (
-                      <tr key={p.id} className={`hover:bg-gray-50/50 transition-colors ${isChecked ? 'bg-blue-50/10' : ''}`}>
-                        <td className="px-6 py-4 text-center">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => handleSelectRow(p.id)}
-                            className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500 cursor-pointer"
-                          />
-                        </td>
+
+            {/* Table Body */}
+            {filledParticipants.length === 0 ? (
+              <div className="py-20 flex flex-col items-center justify-center text-center px-6">
+                <div className="w-28 h-28 bg-[#F3F4F6] rounded-full flex items-center justify-center mb-6">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#828282" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                    <line x1="12" y1="10" x2="16" y2="10" />
+                    <line x1="12" y1="14" x2="16" y2="14" />
+                    <line x1="12" y1="18" x2="16" y2="18" />
+                    <circle cx="8.5" cy="10" r="0.75" fill="#828282" />
+                    <circle cx="8.5" cy="14" r="0.75" fill="#828282" />
+                    <circle cx="8.5" cy="18" r="0.75" fill="#828282" />
+                  </svg>
+                </div>
+                <p className="text-sm font-medium text-gray-500">
+                  No participants yet. Share the link to invite people!
+                </p>
+              </div>
+            ) : filteredParticipants.length === 0 ? (
+              <div className="py-12 text-center text-xs text-gray-400 font-semibold">
+                No participants match "{searchTerm}"
+              </div>
+            ) : (
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100 text-[10px] uppercase font-bold text-gray-400 tracking-wider select-none">
+                      <th className="px-6 py-3.5">Name</th>
+                      <th className="px-6 py-3.5">Email</th>
+                      <th className="px-6 py-3.5">Role</th>
+                      <th className="px-6 py-3.5">Group</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 text-xs">
+                    {paginatedParticipants.map((p) => (
+                      <tr key={p.id} className="hover:bg-gray-50/50 transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <img
@@ -522,100 +491,78 @@ const RoleBasedList = ({ pairing }: RoleBasedListProps) => {
                               alt="avatar"
                               className="w-7 h-7 rounded-full object-cover border border-gray-100"
                             />
-                            <div>
-                              <p className="font-bold text-gray-900 capitalize font-heading">{p.name}</p>
-                              <p className="text-[10px] text-gray-400 mt-0.5 font-mono">{p.email}</p>
-                            </div>
+                            <p className="font-bold text-gray-900 capitalize font-heading">{p.name || "Available Slot"}</p>
                           </div>
                         </td>
+                        <td className="px-6 py-4 font-mono text-gray-500">{p.email || "-"}</td>
                         <td className="px-6 py-4">
-                          {p.role && p.role.trim() !== "" ? (
-                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full capitalize ${getRoleBadgeStyle(p.role)}`}>
-                              {p.role}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400 italic">No Role</span>
-                          )}
+                          <span className="bg-blue-50 text-[#012A7D] border border-blue-100 text-[10px] font-bold px-2.5 py-1 rounded-full capitalize">
+                            {p.role}
+                          </span>
                         </td>
-                        <td className="px-6 py-4 font-bold text-gray-700">
+                        <td className="px-6 py-4 font-semibold text-gray-600">
                           Group {p.groupNum}
                         </td>
-                        <td className="px-6 py-4 font-semibold text-gray-400">
-                          {getParticipantJoinedTime(p.id, pairing.createdAt, p.number)}
-                        </td>
-                        {pairing.status !== "locked" && (
-                          <td className="px-6 py-4 text-center">
-                            <button
-                              type="button"
-                              disabled={isDeleting !== null}
-                              onClick={() => handleClearSlot(p.groupKey, p)}
-                              className="bg-red-50 hover:bg-red-100 text-[#DC2626] border border-red-100 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm active:scale-95"
-                            >
-                              Remove
-                            </button>
-                          </td>
-                        )}
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-          {/* Pagination bottom bar */}
-          {totalFilteredCount > 0 && (
-            <div className="p-5 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-left">
-              {/* Left Info */}
-              <span className="text-xs font-semibold text-gray-400">
-                Show {startEntryIndex}-{endEntryIndex} of {totalFilteredCount} entries
-              </span>
-
-              {/* Center Page Indicators */}
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed select-none cursor-pointer flex items-center gap-1.5"
-                >
-                  <FaChevronLeft className="w-2.5 h-2.5" />
-                  Previous
-                </button>
-                <span className="text-xs font-bold text-gray-500">
+            {/* Pagination Controls Footer */}
+            {totalPages > 1 && (
+              <div className="p-5 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                {/* Left Page indicator */}
+                <span className="text-xs font-bold text-gray-550 select-none">
                   Page {currentPage} of {totalPages}
                 </span>
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed select-none cursor-pointer flex items-center gap-1.5"
-                >
-                  Next
-                  <FaChevronRight className="w-2.5 h-2.5" />
-                </button>
-              </div>
 
-              {/* Right Page Size Dropdown */}
-              <div className="relative">
-                <select
-                  value={pageSize}
-                  onChange={(e) => setPageSize(parseInt(e.target.value))}
-                  className="bg-white border border-gray-200 rounded-full px-4 py-2 text-xs font-bold text-gray-600 outline-none cursor-pointer appearance-none pr-8 select-none shadow-sm hover:border-gray-300 transition-colors"
-                >
-                  <option value={8}>Show 8 entries</option>
-                  <option value={12}>Show 12 entries</option>
-                  <option value={24}>Show 24 entries</option>
-                  <option value={50}>Show 50 entries</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
-                  <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                  </svg>
+                {/* Center Navigation Buttons */}
+                <div className="flex items-center gap-1.5 select-none">
+                  <button
+                    type="button"
+                    disabled={currentPage === 1}
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed select-none cursor-pointer flex items-center gap-1.5"
+                  >
+                    <FaChevronLeft className="w-2.5 h-2.5" />
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={currentPage === totalPages}
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed select-none cursor-pointer flex items-center gap-1.5"
+                  >
+                    Next
+                    <FaChevronRight className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+
+                {/* Right Page Size Dropdown */}
+                <div className="relative">
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(parseInt(e.target.value))}
+                    className="bg-white border border-gray-200 rounded-full px-4 py-2 text-xs font-bold text-gray-600 outline-none cursor-pointer appearance-none pr-8 select-none shadow-sm hover:border-gray-300 transition-colors"
+                  >
+                    <option value={8}>Show 8 entries</option>
+                    <option value={12}>Show 12 entries</option>
+                    <option value={24}>Show 24 entries</option>
+                    <option value={50}>Show 50 entries</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+                    <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                    </svg>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
