@@ -287,10 +287,15 @@ export const useCreateEvent = () => {
       status: "open",
       participants: [],
       imageUrl: values.imageUrl || "",
+      expectedParticipants: 10,
     };
 
     try {
       await addPairing(userId, newPairing);
+      toast.success("Event created successfully!");
+      toast.info("This event has a default limit of 10 slots. Increasing slot capacity is a feature coming soon!", {
+        autoClose: 8000,
+      });
       router.push(`/your-pairing?id=${newPairing.id}`);
     } catch (error) {
       console.error("Error creating Random Positioning event:", error);

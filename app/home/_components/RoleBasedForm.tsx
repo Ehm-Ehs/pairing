@@ -70,8 +70,16 @@ const FormComponent: React.FC<FormComponentProps> = ({
         onSubmit(values);
       }}
     >
-      {({ values, handleChange, handleBlur, setFieldValue }) => (
-        <Form className="flex flex-col gap-6 w-full text-left">
+      {({ values, handleChange, handleBlur, setFieldValue }) => {
+        const numParticipants = parseInt(values.numParticipants, 10);
+        const numGroups = parseInt(values.numGroups, 10);
+        const hasValidGroups = numParticipants > 0 && numGroups > 0;
+        const maxParticipantsPerGroup = hasValidGroups ? Math.floor(numParticipants / numGroups) : 0;
+        const totalRoleCount = values.characteristics.reduce((sum, char) => sum + (parseInt(char.count, 10) || 0), 0);
+        const isAddRoleDisabled = hasValidGroups && totalRoleCount >= maxParticipantsPerGroup;
+
+        return (
+          <Form className="flex flex-col gap-6 w-full text-left">
           {/* Event Details Card */}
           <div className="bg-[#f1f3f5] rounded-3xl p-6 md:p-8 flex flex-col gap-6 border border-gray-200/20">
             <h3 className="text-xl font-bold text-gray-800 font-heading">
@@ -346,10 +354,15 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
                       <button
                         type="button"
+                        disabled={isAddRoleDisabled}
                         onClick={() =>
                           arrayHelpers.push({ name: "", count: "" })
                         }
-                        className="text-[#3A76F0] hover:text-[#2f5fc7] font-bold text-sm cursor-pointer mt-2 flex items-center gap-1.5 w-fit select-none"
+                        className={`font-bold text-sm mt-2 flex items-center gap-1.5 w-fit select-none transition-colors ${
+                          isAddRoleDisabled
+                            ? "text-gray-400 cursor-not-allowed opacity-60"
+                            : "text-[#3A76F0] hover:text-[#2f5fc7] cursor-pointer"
+                        }`}
                       >
                         <FaPlus className="w-3 h-3" />
                         Add Role
@@ -379,8 +392,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
               {!loading && <FaChevronRight className="w-3 h-3" />}
             </button>
           </div>
-        </Form>
-      )}
+          </Form>
+        );
+      }}
     </Formik>
   );
 };

@@ -18,6 +18,14 @@ import {
   FaMoneyBillWave,
 } from "react-icons/fa";
 
+const capitalizeWords = (str: string) => {
+  if (!str) return "";
+  return str
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
 const SharePageContent: React.FC = () => {
   const searchParams = useSearchParams();
 
@@ -119,8 +127,8 @@ const SharePageContent: React.FC = () => {
                   <FaUsers className="w-10 h-10 text-blue-500" />
                 )}
               </div>
-              <h1 className="text-4xl font-extrabold text-gray-900 mb-3 tracking-tight">
-                {groupingPurpose}
+              <h1 className="text-4xl font-extrabold text-gray-900 mb-3 tracking-tight capitalize">
+                {capitalizeWords(groupingPurpose || "")}
               </h1>
               <Badge
                 className={`${
@@ -224,8 +232,8 @@ const SharePageContent: React.FC = () => {
           <Header />
           <div className="max-w-7xl mx-auto p-6">
             <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                {groupingPurpose}
+              <h1 className="text-3xl font-bold text-gray-900 mb-2 capitalize">
+                {capitalizeWords(groupingPurpose || "")}
               </h1>
               <p className="text-muted-foreground">Shared Event Results</p>
             </div>
@@ -278,9 +286,9 @@ const SharePageContent: React.FC = () => {
                               )}
                               <div className="flex items-center gap-1.5 mt-1.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[#3A76F0]" />
-                                <p className="text-xs font-medium text-[#3A76F0]">
-                                  {participant.role}
-                                </p>
+                                 <p className="text-xs font-medium text-[#3A76F0] capitalize">
+                                   {capitalizeWords(participant.role)}
+                                 </p>
                               </div>
                             </div>
                           </div>
@@ -341,8 +349,8 @@ const SharePageContent: React.FC = () => {
         <div className="max-w-4xl mx-auto p-6 md:py-12">
           {/* ... keeping simplified structure for brevity of fallback which is rarely used now ... */}
           <div className="text-center mb-10">
-            <h1 className="text-4xl font-extrabold text-gray-900 mb-3">
-              {groupingPurpose}
+            <h1 className="text-4xl font-extrabold text-gray-900 mb-3 capitalize">
+              {capitalizeWords(groupingPurpose || "")}
             </h1>
             <p>Joined: {numParticipants}</p>
           </div>
@@ -364,7 +372,16 @@ const SharePageContent: React.FC = () => {
     : {};
 
   if (!numGroups || !pairings) {
-    return <div>Loading...</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            Invalid Link
+          </h1>
+          <p className="text-gray-500">The event data could not be loaded.</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -372,8 +389,8 @@ const SharePageContent: React.FC = () => {
       <Header />
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {groupingPurpose}
+          <h1 className="text-3xl font-bold text-gray-900 mb-2 capitalize">
+            {capitalizeWords(groupingPurpose || "")}
           </h1>
           <p className="text-muted-foreground">Historical Snapshot</p>
         </div>

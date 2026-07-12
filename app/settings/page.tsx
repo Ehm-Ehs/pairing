@@ -5,6 +5,7 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../src/services/firebase";
 import { toast } from "react-toastify";
 import { Button } from "../../src/components/ui/button";
+import { useRouter } from "next/navigation";
 
 const Toggle = ({
   checked,
@@ -36,6 +37,7 @@ const Toggle = ({
 
 const SettingsContent = ({ user }: { user: any }) => {
   const userId = user?.uid || user?.userId || "";
+  const router = useRouter();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -44,12 +46,16 @@ const SettingsContent = ({ user }: { user: any }) => {
     eventUpdates: true,
     eventReminders: true,
     productUpdates: false,
+    whatsappNotifications: false,
   });
   const [defaults, setDefaults] = useState({
     autoClose: true,
     emailConfirmations: true,
+    closedEventMessage: "",
+    fullEventMessage: "",
   });
   const [saving, setSaving] = useState(false);
+  const [isSignUpModalOpen, setIsSignUpModalOpen] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -62,16 +68,16 @@ const SettingsContent = ({ user }: { user: any }) => {
           setFullName(`${data.firstName || ""} ${data.lastName || ""}`.trim());
           setEmail(data.email || "");
           if (data.settings?.notifications) {
-            setNotifications({
-              ...notifications,
+            setNotifications((prev) => ({
+              ...prev,
               ...data.settings.notifications,
-            });
+            }));
           }
           if (data.settings?.defaults) {
-            setDefaults({
-              ...defaults,
+            setDefaults((prev) => ({
+              ...prev,
               ...data.settings.defaults,
-            });
+            }));
           }
         }
       } catch (err) {
@@ -81,8 +87,10 @@ const SettingsContent = ({ user }: { user: any }) => {
     loadSettings();
   }, [userId]);
 
-  const handleSave = async () => {
-    if (!userId) return;
+
+
+  const saveSettingsData = async () => {
+    if (!userId) return false;
     setSaving(true);
     try {
       const nameParts = fullName.trim().split(/\s+/);
@@ -100,12 +108,37 @@ const SettingsContent = ({ user }: { user: any }) => {
         },
       });
       toast.success("Settings updated successfully!");
+      return true;
     } catch (err: any) {
       console.error(err);
       toast.error("Failed to update settings: " + err.message);
+      return false;
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleConfirmSignUp = async () => {
+    const success = await saveSettingsData();
+    if (success) {
+      router.push(`/sign-up?email=${encodeURIComponent(email.trim())}&name=${encodeURIComponent(fullName.trim())}`);
+    }
+  };
+
+  const handleDeclineSignUp = async () => {
+    await saveSettingsData();
+  };
+
+  const handleSave = async () => {
+    const isGuest = user?.isAnonymous || false;
+    const hasEmail = email.trim() !== "";
+
+    if (isGuest && hasEmail) {
+      setIsSignUpModalOpen(true);
+      return;
+    }
+
+    await saveSettingsData();
   };
 
   const handleExportData = async () => {
@@ -246,15 +279,23 @@ const SettingsContent = ({ user }: { user: any }) => {
             <Toggle
               checked={notifications.eventAssignment}
               onChange={(val) =>
-                setNotifications({ ...notifications, eventAssignment: val })
+                setNotifications((prev) => ({ ...prev, eventAssignment: val }))
               }
               label="Event Assignment Notifications"
               description="Get notified when you're assigned to a group, pair, or position"
             />
             <Toggle
+              checked={notifications.whatsappNotifications}
+              onChange={(val) =>
+                setNotifications((prev) => ({ ...prev, whatsappNotifications: val }))
+              }
+              label="WhatsApp Notifications"
+              description="Receive notifications and event updates directly on WhatsApp"
+            />
+            <Toggle
               checked={notifications.eventUpdates}
               onChange={(val) =>
-                setNotifications({ ...notifications, eventUpdates: val })
+                setNotifications((prev) => ({ ...prev, eventUpdates: val }))
               }
               label="Event Updates"
               description="Receive updates when event details change or new participants join"
@@ -262,7 +303,7 @@ const SettingsContent = ({ user }: { user: any }) => {
             <Toggle
               checked={notifications.eventReminders}
               onChange={(val) =>
-                setNotifications({ ...notifications, eventReminders: val })
+                setNotifications((prev) => ({ ...prev, eventReminders: val }))
               }
               label="Event Reminders"
               description="Get reminded before your events start"
@@ -270,7 +311,7 @@ const SettingsContent = ({ user }: { user: any }) => {
             <Toggle
               checked={notifications.productUpdates}
               onChange={(val) =>
-                setNotifications({ ...notifications, productUpdates: val })
+                setNotifications((prev) => ({ ...prev, productUpdates: val }))
               }
               label="Product Updates"
               description="Hear about new features and improvements"
@@ -293,18 +334,45 @@ const SettingsContent = ({ user }: { user: any }) => {
           <div className="flex flex-col">
             <Toggle
               checked={defaults.autoClose}
-              onChange={(val) => setDefaults({ ...defaults, autoClose: val })}
+              onChange={(val) => setDefaults((prev) => ({ ...prev, autoClose: val }))}
               label="Auto-close Events"
               description="Automatically close events when all slots are filled"
             />
             <Toggle
               checked={defaults.emailConfirmations}
               onChange={(val) =>
-                setDefaults({ ...defaults, emailConfirmations: val })
+                setDefaults((prev) => ({ ...prev, emailConfirmations: val }))
               }
               label="Email Confirmations"
               description="Send email confirmations to participants when they join"
             />
+            
+            <div className="flex flex-col gap-4 mt-4 pt-4 border-t border-gray-100 text-left">
+              <div>
+                <label className="block text-xs font-bold text-gray-550 uppercase tracking-wider mb-1.5">
+                  Default Closed Event Message (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={defaults.closedEventMessage || ""}
+                  onChange={(e) => setDefaults((prev) => ({ ...prev, closedEventMessage: e.target.value }))}
+                  className="px-4 py-3 w-full bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all text-sm placeholder:text-gray-400 text-gray-700 font-medium"
+                  placeholder="e.g. Sorry, this event is closed. Stay tuned for our next session!"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-550 uppercase tracking-wider mb-1.5">
+                  Default Full Event Message (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={defaults.fullEventMessage || ""}
+                  onChange={(e) => setDefaults((prev) => ({ ...prev, fullEventMessage: e.target.value }))}
+                  className="px-4 py-3 w-full bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all text-sm placeholder:text-gray-400 text-gray-700 font-medium"
+                  placeholder="e.g. Sorry, this event is full. Registration is now closed!"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -357,6 +425,56 @@ const SettingsContent = ({ user }: { user: any }) => {
           </div>
         </div>
       </div>
+
+      {isSignUpModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 max-w-md w-full shadow-2xl relative flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200">
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setIsSignUpModalOpen(false)}
+              className="absolute top-6 right-6 p-1.5 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+
+            {/* Title */}
+            <h3 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight">
+              Would you like to create an account?
+            </h3>
+            <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+              Creating an account lets you save your preferences and access them across devices.
+            </p>
+
+            {/* Actions Row */}
+            <div className="flex gap-4 w-full">
+              <button
+                type="button"
+                onClick={async () => {
+                  setIsSignUpModalOpen(false);
+                  await handleDeclineSignUp();
+                }}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-full text-xs font-bold transition-all flex-1 cursor-pointer"
+              >
+                Not Now
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setIsSignUpModalOpen(false);
+                  await handleConfirmSignUp();
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full text-xs font-bold transition-all flex-1 shadow-sm cursor-pointer"
+              >
+                Create Account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

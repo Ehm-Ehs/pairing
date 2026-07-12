@@ -26,6 +26,9 @@ const JoinRandomPositioning: React.FC = () => {
   const { userId, eventId } = useParams();
   const router = useRouter();
   const [event, setEvent] = useState<RandomPositioningPairing | null>(null);
+  const [closedMessage, setClosedMessage] = useState("");
+  const [fullMessage, setFullMessage] = useState("");
+  const [showReveal, setShowReveal] = useState(false);
 
   const validUserId = Array.isArray(userId) ? userId[0] : userId;
   const validEventId = Array.isArray(eventId) ? eventId[0] : eventId;
@@ -45,6 +48,8 @@ const JoinRandomPositioning: React.FC = () => {
           );
           if (foundEvent) {
             setEvent(foundEvent as RandomPositioningPairing);
+            setClosedMessage(userData.settings?.defaults?.closedEventMessage || "");
+            setFullMessage(userData.settings?.defaults?.fullEventMessage || "");
           } else {
             toast.error("Event not found");
           }
@@ -117,12 +122,13 @@ const JoinRandomPositioning: React.FC = () => {
         eventName: event.title,
         isRandomPositioning: "true",
         nextStepsDate: event.deadline || "",
+        assignedNumber: finalAssignedNumber.toString(),
       }).toString();
 
       router.push(`/event/success?${queryParams}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error joining:", error);
-      toast.error("Failed to join event");
+      toast.error(error.message || "Failed to join event");
     } finally {
       setSubmitting(false);
     }
@@ -163,7 +169,98 @@ const JoinRandomPositioning: React.FC = () => {
   const totalPositions = event.expectedParticipants || 25;
   const takenNumbers = event.participants.map((p) => p.assignedNumber).filter(Boolean) as number[];
 
-  if (event.status === "locked") {
+  const isClosed = event.status === "locked";
+  const isFull = totalPositions > 0 && event.participants.length >= totalPositions;
+
+  if (isClosed && !showReveal) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-start items-center px-4 py-12 text-left font-medium text-gray-700">
+        <Logo className="h-9 w-auto mb-10" />
+
+        <div className="bg-white rounded-[2rem] border-t-4 border-t-red-500 border-x border-b border-gray-200/60 shadow-sm w-full max-w-xl flex flex-col overflow-hidden">
+          <div className="bg-[#F5F6F8] p-6 md:p-8 flex flex-col items-center border-b border-gray-200/60 w-full relative">
+            <div className="w-12 h-12 bg-red-100 text-red-650 rounded-xl flex items-center justify-center shadow-md mb-4 flex-shrink-0">
+              <span className="text-xl font-bold text-red-600">×</span>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight text-center capitalize">
+              {event.title}
+            </h2>
+            <span className="bg-red-50 text-red-750 text-xs font-semibold px-4 py-1.5 rounded-full mt-1.5">
+              Closed
+            </span>
+          </div>
+
+          <div className="p-8 md:p-10 flex flex-col items-center text-center gap-6 w-full">
+            <p className="text-sm text-gray-500 leading-relaxed max-w-md">
+              {closedMessage || "Sorry, this event is closed. No further registrations are allowed."}
+            </p>
+
+            <div className="flex flex-col gap-3 w-full max-w-xs mt-2">
+              <button
+                onClick={() => setShowReveal(true)}
+                className="bg-gradient-to-b from-[#3A76F0] to-[#012A7D] hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-full text-xs transition-all shadow-md cursor-pointer text-center"
+              >
+                Already registered? Reveal assignment
+              </button>
+
+              <button
+                onClick={() => router.push("/")}
+                className="bg-[#e5e7eb] hover:bg-gray-300 text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all cursor-pointer text-center"
+              >
+                Go home
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isFull) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-start items-center px-4 py-12 text-left font-medium text-gray-700">
+        <Logo className="h-9 w-auto mb-10" />
+
+        <div className="bg-white rounded-[2rem] border-t-4 border-t-amber-500 border-x border-b border-gray-200/60 shadow-sm w-full max-w-xl flex flex-col overflow-hidden">
+          <div className="bg-[#F5F6F8] p-6 md:p-8 flex flex-col items-center border-b border-gray-200/60 w-full relative">
+            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center shadow-md mb-4 flex-shrink-0">
+              <span className="text-xl font-bold text-amber-600">!</span>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight text-center capitalize">
+              {event.title}
+            </h2>
+            <span className="bg-amber-50 text-amber-700 text-xs font-semibold px-4 py-1.5 rounded-full mt-1.5">
+              Event Full
+            </span>
+          </div>
+
+          <div className="p-8 md:p-10 flex flex-col items-center text-center gap-6 w-full">
+            <p className="text-sm text-gray-500 leading-relaxed max-w-md">
+              {fullMessage || "Sorry, this event is full. All available slots have been taken."}
+            </p>
+
+            <div className="flex flex-col gap-3 w-full max-w-xs mt-2">
+              <button
+                onClick={() => setShowReveal(true)}
+                className="bg-gradient-to-b from-[#3A76F0] to-[#012A7D] hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-full text-xs transition-all shadow-md cursor-pointer text-center"
+              >
+                Already registered? Reveal assignment
+              </button>
+
+              <button
+                onClick={() => router.push("/")}
+                className="bg-[#e5e7eb] hover:bg-gray-300 text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all cursor-pointer text-center"
+              >
+                Go home
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (showReveal) {
     // REVEAL MODE
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col justify-start items-center px-4 py-12 text-left">
@@ -181,7 +278,6 @@ const JoinRandomPositioning: React.FC = () => {
               Random Position • Revealed
             </span>
           </div>
-
           <Formik
             initialValues={{ email: "" }}
             validationSchema={Yup.object({
@@ -201,29 +297,33 @@ const JoinRandomPositioning: React.FC = () => {
               setSubmitting(false);
             }}
           >
-            {({ status, isSubmitting }) => (
+            {({ status, isSubmitting, values, handleChange, handleBlur }) => (
               <Form className="flex flex-col w-full">
                 <div className="p-6 md:p-8 flex flex-col gap-6 w-full">
                   {!status?.revealed ? (
                     <>
-                      <p className="text-gray-555 text-sm leading-relaxed">
+                      <p className="text-gray-500 text-sm leading-relaxed">
                         Enter your email to find your position!
                       </p>
                       <div>
-                        <label className="block text-sm font-semibold text-gray-650 mb-1">
+                        <label className="block text-sm font-semibold text-gray-600 mb-1">
                           Email Address
                         </label>
                         <input
                           name="email"
                           type="email"
+                          value={values.email}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
                           className="px-4 py-3 w-full bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm placeholder:text-gray-400 text-gray-700 font-medium"
                           placeholder="Your registered email"
                         />
+                        <ErrorMessage name="email" component="div" className="text-red-500 text-xs mt-1 font-semibold" />
                       </div>
                     </>
                   ) : (
                     <div className="text-center animate-in fade-in zoom-in duration-300 w-full flex flex-col items-center p-4">
-                      <p className="text-sm font-bold text-gray-550">You are assigned position:</p>
+                      <p className="text-sm font-bold text-gray-500">You are assigned position:</p>
                       <div className="w-24 h-24 rounded-full bg-purple-50 border border-purple-100 flex items-center justify-center text-5xl font-extrabold text-[#8338EC] font-heading my-4 shadow-md">
                         {status.participant.assignedNumber}
                       </div>
@@ -234,16 +334,35 @@ const JoinRandomPositioning: React.FC = () => {
                   )}
                 </div>
 
-                {!status?.revealed && (
-                  <div className="bg-[#F5F6F8] p-6 flex items-center justify-center border-t border-gray-200 w-full rounded-b-[2rem]">
+                {!status?.revealed ? (
+                  <div className="bg-[#F5F6F8] p-6 flex flex-col sm:flex-row items-center justify-center gap-3 border-t border-gray-200 w-full rounded-b-[2rem]">
+                    <button
+                      type="button"
+                      onClick={() => setShowReveal(false)}
+                      className="bg-[#e5e7eb] hover:bg-gray-300 text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all cursor-pointer w-full h-auto text-center"
+                    >
+                      Back
+                    </button>
                     <Button
                       type="submit"
                       disabled={isSubmitting}
                       isLoading={isSubmitting}
-                      className="bg-gradient-to-b from-[#8338EC] to-[#6f2ec9] hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-full text-xs font-bold shadow-md transition-all cursor-pointer w-full h-auto"
+                      className="bg-gradient-to-b from-[#8338EC] to-[#6f2ec9] hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-full text-xs shadow-md transition-all cursor-pointer w-full h-auto"
                     >
                       Check Position
                     </Button>
+                  </div>
+                ) : (
+                  <div className="bg-[#F5F6F8] p-6 flex items-center justify-center border-t border-gray-200 w-full rounded-b-[2rem]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowReveal(false);
+                      }}
+                      className="bg-[#e5e7eb] hover:bg-gray-300 text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all cursor-pointer w-full h-auto text-center"
+                    >
+                      Done
+                    </button>
                   </div>
                 )}
               </Form>

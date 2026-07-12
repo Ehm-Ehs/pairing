@@ -37,7 +37,7 @@ export default function EventsSection() {
             <div className="w-12 h-12 bg-[#22c55e] rounded-xl flex items-center justify-center mb-6 shadow-sm flex-shrink-0">
               <SinglePairingIcon className="w-[25px] h-[25px] text-white" />
             </div>
-            <h3 className="font-bold text-white text-[1.35rem] mb-3">Single Pairings</h3>
+            <h3 className="font-bold text-white text-[1.35rem] mb-3">Just Pairs</h3>
             <p className="text-[14px] text-white/80 leading-relaxed font-medium">
               Perfect for Secret Santa, speed networking, and mentorship matching. Participants
               register, then the organizer generates random pairs in one click.

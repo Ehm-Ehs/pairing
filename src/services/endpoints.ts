@@ -88,6 +88,26 @@ export async function editPairingValue(
           throw new Error("This event is closed. No further registrations are allowed.");
         }
 
+        // Check if email already exists in any of the groups for this event
+        if (newValue.email && newValue.email.trim() !== "") {
+          const emailLower = newValue.email.trim().toLowerCase();
+          let isDuplicate = false;
+          
+          Object.entries(pairing.groups || {}).forEach(([gKey, groupMembers]: [string, any]) => {
+            if (Array.isArray(groupMembers)) {
+              groupMembers.forEach((member: any) => {
+                if (member.id !== id && member.email && member.email.trim().toLowerCase() === emailLower) {
+                  isDuplicate = true;
+                }
+              });
+            }
+          });
+          
+          if (isDuplicate) {
+            throw new Error("This email is already registered for this event.");
+          }
+        }
+
         const groups = pairing.groups;
 
         // Check if the group exists
@@ -216,6 +236,19 @@ export async function addParticipantToSecretSanta(
 
       if (pairingIndex !== -1) {
         const pairing = pairings[pairingIndex];
+        const participants = pairing.participants || [];
+
+        // Check if email already exists
+        if (participant.email && participant.email.trim() !== "") {
+          const emailLower = participant.email.trim().toLowerCase();
+          const isDuplicate = participants.some(
+            (p: any) => p.email && p.email.trim().toLowerCase() === emailLower
+          );
+          if (isDuplicate) {
+            throw new Error("This email is already registered for this event.");
+          }
+        }
+
         if (!pairing.participants) {
           pairing.participants = [];
         }
@@ -374,6 +407,19 @@ export async function addParticipantToRandomPositioning(
 
       if (pairingIndex !== -1) {
         const pairing = pairings[pairingIndex];
+        const participants = pairing.participants || [];
+
+        // Check if email already exists
+        if (participant.email && participant.email.trim() !== "") {
+          const emailLower = participant.email.trim().toLowerCase();
+          const isDuplicate = participants.some(
+            (p: any) => p.email && p.email.trim().toLowerCase() === emailLower
+          );
+          if (isDuplicate) {
+            throw new Error("This email is already registered for this event.");
+          }
+        }
+
         if (!pairing.participants) {
           pairing.participants = [];
         }
@@ -575,16 +621,21 @@ export async function duplicatePairingEvent(userId: string, eventId: string) {
           });
         }
         
-        const duplicatedPairing = {
+        const duplicatedPairing: any = {
           ...pairingToDuplicate,
           id: newId,
           groupingPurpose: `${pairingToDuplicate.groupingPurpose} (Copy)`,
           title: `${pairingToDuplicate.title} (Copy)`,
           createdAt: Date.now(),
           status: "open",
-          participants: pairingToDuplicate.type === "secret-santa" || pairingToDuplicate.type === "random-positioning" ? [] : pairingToDuplicate.participants,
           groups: clonedGroups,
         };
+        
+        if (pairingToDuplicate.type === "secret-santa" || pairingToDuplicate.type === "random-positioning") {
+          duplicatedPairing.participants = [];
+        } else if (pairingToDuplicate.participants !== undefined) {
+          duplicatedPairing.participants = pairingToDuplicate.participants;
+        }
         
         if (duplicatedPairing.pairs) {
           delete duplicatedPairing.pairs;

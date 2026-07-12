@@ -2,7 +2,13 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
-import Link from "next/link";
+const capitalizeWords = (str: string) => {
+  if (!str) return "";
+  return str
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
 
 const SuccessContent = () => {
   const searchParams = useSearchParams();
@@ -65,15 +71,19 @@ const SuccessContent = () => {
           <div className="w-full bg-[#f3f4f6] rounded-2xl p-5 border border-gray-100 flex flex-col gap-4">
             <div className="flex justify-between items-center text-sm border-b border-gray-200/50 pb-3">
               <span className="text-gray-500 font-medium">Event</span>
-              <span className="font-bold text-gray-900">{eventName}</span>
+              <span className="font-bold text-gray-900 capitalize">{capitalizeWords(eventName)}</span>
             </div>
             <div className="flex justify-between items-center text-sm border-b border-gray-200/50 pb-3">
               <span className="text-gray-500 font-medium">Your Role</span>
-              <span className="font-bold text-gray-900">{role}</span>
+              <span className="font-bold text-gray-900 capitalize">{capitalizeWords(role)}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm border-b border-gray-200/50 pb-3">
+              <span className="text-gray-500 font-medium">Assigned Group</span>
+              <span className="font-bold text-[#1449b2] capitalize">{capitalizeWords(groupName)}</span>
             </div>
             <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-500 font-medium">Assigned Group</span>
-              <span className="font-bold text-[#1449b2]">{groupName}</span>
+              <span className="text-gray-500 font-medium">Status</span>
+              <span className="font-bold text-[#1449b2] capitalize">{capitalizeWords(groupName)} - {capitalizeWords(role)}</span>
             </div>
           </div>
         </div>

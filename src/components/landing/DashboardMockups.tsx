@@ -36,7 +36,7 @@ export default function DashboardMockups() {
       </div>
 
       {/* Right Card Wrapper */}
-      <div className="relative w-full max-w-[580px] mx-auto lg:mx-0 lg:absolute lg:right-0 lg:-right-4 xl:-right-12 lg:top-0 z-10">
+      <div className="relative w-full max-w-[580px] mx-auto lg:mx-0 lg:absolute lg:-right-4 xl:-right-12 lg:top-0 z-10">
         {/* Right Card: Live Event Dashboard */}
         <div className="w-full bg-white rounded-[24px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.08)] border border-gray-200/60 overflow-hidden text-left flex flex-col">
           {/* Window header */}

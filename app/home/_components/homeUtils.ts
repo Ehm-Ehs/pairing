@@ -1,5 +1,6 @@
 import { Pairing } from "../../../src/types";
 import { toast } from "react-toastify";
+import { auth } from "../../../src/services/firebase";
 
 export const getEventStats = (event: Pairing) => {
   if (event.type === "secret-santa") {
@@ -32,22 +33,46 @@ export const getEventStats = (event: Pairing) => {
 };
 
 export const copyJoinLink = (event: Pairing) => {
-  let url = "";
-  if (event.type === "secret-santa") {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const uid = user.uid || "";
-    url = `${window.location.origin}/event/${uid}/${event.id}`;
-  } else if (event.type === "random-positioning") {
-    // Logic from Home.tsx that was added in previous steps
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const uid = user.uid || "";
-    url = `${window.location.origin}/event/rp/${uid}/${event.id}`;
-  } else {
-    url = `${window.location.origin}/share?groupingPurpose=${encodeURIComponent(
-      event.groupingPurpose
-    )}`;
+  let storageUid = "";
+  try {
+    const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null;
+    if (userStr && userStr !== "null") {
+      const parsed = JSON.parse(userStr);
+      if (parsed && typeof parsed === "object") {
+        storageUid = parsed.uid || "";
+      }
+    }
+  } catch (e) {
+    console.error("Error parsing user from localStorage:", e);
   }
 
-  navigator.clipboard.writeText(url);
-  toast.success("Link copied to clipboard!");
+  const uid = auth.currentUser?.uid || storageUid || "";
+  const url = `${window.location.origin}/event/results/${uid}/${event.id}`;
+
+  let copied = false;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url);
+    copied = true;
+  } else {
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = url;
+      textArea.style.top = "0";
+      textArea.style.left = "0";
+      textArea.style.position = "fixed";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      copied = document.execCommand("copy");
+      document.body.removeChild(textArea);
+    } catch (err) {
+      console.error("Fallback copy failed:", err);
+    }
+  }
+
+  if (copied) {
+    toast.success("Link copied to clipboard!");
+  } else {
+    toast.error("Failed to copy link. Please check your browser permissions.");
+  }
 };
