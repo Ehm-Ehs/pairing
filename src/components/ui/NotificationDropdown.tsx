@@ -5,7 +5,7 @@ import {
   FaInfoCircle,
   FaExclamationCircle,
 } from "react-icons/fa";
-import { FiBell } from "react-icons/fi";
+
 import Link from "next/link";
 import {
   subscribeToNotifications,
@@ -138,8 +138,8 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         displayMode === "modal"
           ? "w-96 max-w-[90vw] max-h-[80vh]"
           : displayMode === "dropdown"
-          ? "w-[90vw] sm:w-80 max-h-[400px]"
-          : ""
+            ? "w-[90vw] sm:w-80 max-h-[400px]"
+            : ""
       )}
     >
       {/* Header */}
@@ -149,26 +149,26 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           {(displayMode === "modal" ||
             displayMode === "dropdown" ||
             onClose) && (
-            <button
-              onClick={handleClose}
-              className="bg-white/20 hover:bg-white/30 text-white rounded-lg p-1.5 transition-colors"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              <button
+                onClick={handleClose}
+                className="bg-white/20 hover:bg-white/30 text-white rounded-lg p-1.5 transition-colors"
               >
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          )}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            )}
         </div>
       )}
 
@@ -211,8 +211,8 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                 <p className="text-xs text-gray-500 mt-1">
                   {notification.createdAt?.seconds
                     ? new Date(
-                        notification.createdAt.seconds * 1000
-                      ).toLocaleDateString()
+                      notification.createdAt.seconds * 1000
+                    ).toLocaleDateString()
                     : "Just now"}
                 </p>
               </div>
@@ -275,12 +275,15 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           customTrigger(toggleOpen, unreadCount)
         ) : (
           <div
-            className="cursor-pointer text-gray-400 hover:text-gray-600 transition-colors relative"
+            className="cursor-pointer hover:opacity-70 transition-opacity relative"
             onClick={toggleOpen}
           >
-            <FiBell className="w-5 h-5 text-gray-500" />
+            <svg width="17" height="24" viewBox="0 0 17 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9.60928 1.16667C9.60928 0.522334 9.08695 0 8.44262 0C7.79828 0 7.27595 0.522334 7.27595 1.16667V2.91667C7.27595 2.94902 7.27727 2.98107 7.27985 3.01276C3.96726 3.56637 1.44261 6.44553 1.44261 9.91539V14.5833C1.44261 15.1669 0.964152 16.1789 0.440552 17.1116C-0.296225 18.4241 -0.16129 20.0065 1.24534 20.5421C2.66006 21.0807 4.92308 21.5833 8.44262 21.5833C11.9621 21.5833 14.2252 21.0807 15.6399 20.5421C17.0465 20.0065 17.1815 18.4241 16.4447 17.1116C15.9211 16.1789 15.4426 15.1669 15.4426 14.5833V9.91595C15.4426 6.44609 12.918 3.56647 9.60538 3.01278C9.60796 2.98108 9.60928 2.94903 9.60928 2.91667V1.16667Z" fill="#667185" />
+              <path d="M4.8494 22.5454C4.89295 22.5833 4.94554 22.6277 5.00679 22.6767C5.18213 22.817 5.43263 22.9988 5.74922 23.1797C6.37755 23.5387 7.30656 23.9167 8.44263 23.9167C9.57871 23.9167 10.5077 23.5387 11.136 23.1797C11.4526 22.9988 11.7031 22.817 11.8785 22.6767C11.9397 22.6277 11.9923 22.5833 12.0359 22.5454C11.0158 22.6724 9.82632 22.7501 8.44263 22.7501C7.05895 22.7501 5.86947 22.6724 4.8494 22.5454Z" fill="#667185" />
+            </svg>
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-b from-[#3A76F0] to-[#012A7D] text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
+              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-gradient-to-b from-[#3A76F0] to-[#012A7D] text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}

@@ -179,8 +179,8 @@ const SecretSantaList = ({ pairing, userId, isPublicView = false }: SecretSantaL
             (other) => other.pairIndex === p.pairIndex && other.id !== p.id
           );
           assignmentName = partner 
-            ? `Paired with ${partner.name} (Pair ${p.pairIndex + 1})` 
-            : `Awaiting partner (Pair ${p.pairIndex + 1})`;
+            ? `Paired with ${partner.name} (Pair ${(p.pairIndex ?? 0) + 1})` 
+            : `Awaiting partner (Pair ${(p.pairIndex ?? 0) + 1})`;
         } else if (pairing.status === "locked" && pairing.pairs) {
           const pair = pairing.pairs.find(pair => pair.santaId === p.id);
           const receiver = pair && pairing.participants.find(r => r.id === pair.receiverId);
@@ -659,10 +659,10 @@ const SecretSantaList = ({ pairing, userId, isPublicView = false }: SecretSantaL
                           (other) => other.pairIndex === p.pairIndex && other.id !== p.id
                         );
                         if (partner) {
-                          assignmentLabel = `Paired with ${partner.name} (Pair ${p.pairIndex + 1})`;
+                          assignmentLabel = `Paired with ${partner.name} (Pair ${(p.pairIndex ?? 0) + 1})`;
                           isAssigned = true;
                         } else {
-                          assignmentLabel = `Awaiting partner (Pair ${p.pairIndex + 1})`;
+                          assignmentLabel = `Awaiting partner (Pair ${(p.pairIndex ?? 0) + 1})`;
                           isAssigned = false;
                         }
                       } else if (pairing.status === "locked" && pairing.pairs) {

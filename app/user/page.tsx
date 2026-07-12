@@ -10,18 +10,11 @@ import { Button } from "../../src/components/ui/button";
 import { FaUsers } from "react-icons/fa";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../src/services/firebase";
+import { capitalizeWords } from "../../src/utils/stringUtils";
 
 // Function to decrypt userId (Base64 decoding example)
 const decryptData = (data: string): string => {
   return atob(data); // Base64 decode
-};
-
-const capitalizeWords = (str: string) => {
-  if (!str) return "";
-  return str
-    .split(/\s+/)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 };
 
 interface PairingEntry {

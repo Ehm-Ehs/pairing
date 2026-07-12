@@ -2,14 +2,7 @@
 
 import React from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-
-const capitalizeWords = (str: string) => {
-  if (!str) return "";
-  return str
-    .split(/\s+/)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-};
+import { capitalizeWords } from "../../../src/utils/stringUtils";
 
 const JoinSuccess: React.FC = () => {
   const searchParams = useSearchParams();

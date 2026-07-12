@@ -130,8 +130,8 @@ const EmptyState = ({ filter }: { filter: FilterTab }) => (
       {filter === "unread"
         ? "You've read all your notifications. We'll let you know when something new happens."
         : filter === "read"
-        ? "You haven't read any notifications yet — new ones will appear here."
-        : "We'll alert you here when participants join or events fill up."}
+          ? "You haven't read any notifications yet — new ones will appear here."
+          : "We'll alert you here when participants join or events fill up."}
     </p>
   </div>
 );
@@ -261,7 +261,7 @@ const NotificationsContent = ({ user }: { user: any }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
       {/* Hero header */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-[#0f1c44] via-[#1449b2] to-[#1d6cdb] px-6 py-12 text-white">
+      <div className="relative overflow-hidden  px-6 py-12 ">
         {/* Background blobs */}
         <div className="absolute -top-10 -right-10 w-48 h-48 bg-white/5 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-10 w-32 h-32 bg-indigo-400/10 rounded-full blur-2xl pointer-events-none" />
@@ -270,9 +270,7 @@ const NotificationsContent = ({ user }: { user: any }) => {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center text-xl border border-white/20">
-                  🔔
-                </div>
+
                 {unreadCount > 0 && (
                   <span className="px-2.5 py-0.5 bg-rose-500 text-white text-[11px] font-bold rounded-full shadow-lg animate-bounce-subtle">
                     {unreadCount} new
@@ -282,7 +280,7 @@ const NotificationsContent = ({ user }: { user: any }) => {
               <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-1">
                 Notifications
               </h1>
-              <p className="text-blue-200 text-sm font-medium">
+              <p className="text-[#1449b2] text-sm font-medium">
                 Stay updated with your event activity
               </p>
             </div>
@@ -319,11 +317,10 @@ const NotificationsContent = ({ user }: { user: any }) => {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === tab.key
-                  ? "bg-gradient-to-r from-[#1449b2] to-[#1d6cdb] text-white shadow-md"
-                  : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
-              }`}
+              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === tab.key
+                ? "bg-gradient-to-r from-[#1449b2] to-[#1d6cdb] text-white shadow-md"
+                : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                }`}
             >
               {tab.label}
               {tab.key === "unread" && unreadCount > 0 && (

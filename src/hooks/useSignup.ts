@@ -94,7 +94,7 @@ export const useSignup = () => {
     const userId = uuidv4();
 
     try {
-      let user;
+      let user: import("firebase/auth").User | undefined;
       let isLinked = false;
 
       if (auth.currentUser && auth.currentUser.isAnonymous) {
@@ -126,6 +126,7 @@ export const useSignup = () => {
         console.log("User signed up:", user);
       }
 
+      if (!user) return;
       const accessToken = await user.getIdToken();
 
       if (accessToken && user) {

@@ -11,20 +11,8 @@ import {
 } from "../../src/components/ui/card";
 import { Badge } from "../../src/components/ui/Badge";
 import { Participant } from "../../src/types";
-import {
-  FaUsers,
-  FaGift,
-  FaCalendarAlt,
-  FaMoneyBillWave,
-} from "react-icons/fa";
-
-const capitalizeWords = (str: string) => {
-  if (!str) return "";
-  return str
-    .split(/\s+/)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-};
+import { FaUsers, FaGift, FaCalendarAlt, FaMoneyBillWave } from "react-icons/fa";
+import { capitalizeWords } from "../../src/utils/stringUtils";
 
 const SharePageContent: React.FC = () => {
   const searchParams = useSearchParams();

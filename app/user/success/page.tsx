@@ -14,10 +14,10 @@ const SuccessContent = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const groupName = searchParams.get("groupName") || "Group 7";
-  const role = searchParams.get("role") || "Developer";
-  const eventName = searchParams.get("eventName") || "Startup Weekend Hackathon";
-  const email = searchParams.get("email") || "sarah@example.com";
+  const groupName = searchParams.get("groupName") || "Group 3";
+  const role = searchParams.get("role") || "Frontend Dev";
+  const eventName = searchParams.get("eventName") || "Lagos Tech Hackathon";
+  const email = searchParams.get("email") || "amaka.o@gmail.com";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-800/80 p-4">

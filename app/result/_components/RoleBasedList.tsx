@@ -5,6 +5,7 @@ import { editPairingValue } from "../../../src/services/endpoints";
 import { auth } from "../../../src/services/firebase";
 import { toast } from "react-toastify";
 import { getGravatarUrl } from "../../../src/utils/avatar";
+import { capitalizeWords } from "../../../src/utils/stringUtils";
 import {
   FaTimes,
   FaSearch,
@@ -14,14 +15,6 @@ import {
   FaChevronRight,
   FaTrashAlt,
 } from "react-icons/fa";
-
-const capitalizeWords = (str: string) => {
-  if (!str) return "";
-  return str
-    .split(/\s+/)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-};
 
 interface RoleBasedListProps {
   pairing: RoleBasedPairing;

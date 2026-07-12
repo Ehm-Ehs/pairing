@@ -13,15 +13,15 @@ export default function DashboardMockups() {
         </div>
         <div className="space-y-3">
           {[
-            { name: "John Doe", email: "johndoe@gmail.com" },
-            { name: "John Doe", email: "johndoe@gmail.com" },
-            { name: "Janet Doe", email: "johndoe@gmail.com" },
-            { name: "John Doe", email: "johndoe@gmail.com" },
-            { name: "John Doe", email: "johndoe@gmail.com" },
+            { name: "Amaka Okonkwo", email: "amaka.o@gmail.com", avatar: "/avatars/avatar1.png" },
+            { name: "Tunde Adeyemi", email: "tunde.ade@gmail.com", avatar: "/avatars/avatar2.png" },
+            { name: "Chidinma Eze", email: "chidi.eze@outlook.com", avatar: "/avatars/avatar3.png" },
+            { name: "Emeka Nwosu", email: "e.nwosu@gmail.com", avatar: "/avatars/avatar4.png" },
+            { name: "Seun Balogun", email: "seun.b@yahoo.com", avatar: "/avatars/avatar5.png" },
           ].map((user, i) => (
             <div key={i} className="flex items-center justify-between bg-white p-3.5 rounded-2xl shadow-sm border border-gray-100">
               <div className="flex items-center gap-3">
-                <img src={`https://images.unsplash.com/photo-1534430480872-3498384e54e5?auto=format&fit=crop&w=100&q=80`} alt={user.name} className="w-10 h-10 rounded-full object-cover shadow-sm" />
+                <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full object-cover shadow-sm" />
                 <div>
                   <p className="text-sm font-bold text-gray-900 leading-tight">{user.name}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{user.email}</p>

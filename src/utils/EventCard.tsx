@@ -5,14 +5,7 @@ import { getEventStats, copyJoinLink } from "../../app/home/_components/homeUtil
 import { deletePairingEvent, duplicatePairingEvent, closePairingEvent } from "../services/endpoints";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
-
-const capitalizeWords = (str: string) => {
-  if (!str) return "";
-  return str
-    .split(/\s+/)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-};
+import { capitalizeWords } from "./stringUtils";
 
 interface EventCardProps {
   event: Pairing;

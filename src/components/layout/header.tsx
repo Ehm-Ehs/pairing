@@ -1,11 +1,11 @@
 import Link from "next/link";
 import Logo from "../../assets/logo";
 import { ReactNode, useState, useRef, useEffect } from "react";
-import { FaBell, FaUserCircle, FaSignOutAlt } from "react-icons/fa";
 import Avatar from "../ui/avatar";
 import NotificationDropdown from "../ui/NotificationDropdown";
 import { signOut } from "firebase/auth";
 import { auth } from "../../services/firebase";
+import { capitalizeWords } from "../../utils/stringUtils";
 
 import { GroupingsPageProps } from "../../types";
 
@@ -79,8 +79,8 @@ function Header({ children, user }: HeaderProps) {
                         className="border-4 border-white/20 shadow-sm"
                       />
                     </div>
-                    <p className="text-white font-semibold text-lg truncate capitalize">
-                      {user.firstName} {user.lastName}
+                    <p className="text-white font-semibold text-lg truncate">
+                      {capitalizeWords(`${user.firstName} ${user.lastName}`)}
                     </p>
                   </div>
 
