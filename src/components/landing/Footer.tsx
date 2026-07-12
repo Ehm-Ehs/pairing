@@ -32,14 +32,41 @@ export default function Footer({
           <div className="md:col-span-3 text-center md:text-left">
             <h4 className="text-white font-bold mb-6 text-lg">Product</h4>
             <ul className="space-y-4 text-[15px] text-blue-100 font-medium animate-none">
-              <li onClick={scrollToHowItWorks} className="hover:text-white transition-colors cursor-pointer">
-                How it works
+              <li>
+                <a
+                  href="#how-it-works"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollToHowItWorks();
+                  }}
+                  className="hover:text-white transition-colors cursor-pointer block"
+                >
+                  How it works
+                </a>
               </li>
-              <li onClick={scrollToFeatures} className="hover:text-white transition-colors cursor-pointer">
-                Features
+              <li>
+                <a
+                  href="#features"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollToFeatures();
+                  }}
+                  className="hover:text-white transition-colors cursor-pointer block"
+                >
+                  Features
+                </a>
               </li>
-              <li onClick={scrollToUseCases} className="hover:text-white transition-colors cursor-pointer">
-                Uses cases
+              <li>
+                <a
+                  href="#use-cases"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollToUseCases();
+                  }}
+                  className="hover:text-white transition-colors cursor-pointer block"
+                >
+                  Uses cases
+                </a>
               </li>
             </ul>
           </div>
@@ -48,9 +75,42 @@ export default function Footer({
           <div className="md:col-span-3 text-center md:text-left">
             <h4 className="text-white font-bold mb-6 text-lg">Use Cases</h4>
             <ul className="space-y-4 text-[15px] text-blue-100 font-medium">
-              <li onClick={scrollToUseCases} className="hover:text-white transition-colors cursor-pointer">Secret Santa</li>
-              <li onClick={scrollToUseCases} className="hover:text-white transition-colors cursor-pointer">Team workshops</li>
-              <li onClick={scrollToUseCases} className="hover:text-white transition-colors cursor-pointer">Group formation</li>
+              <li>
+                <a
+                  href="#use-cases"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollToUseCases();
+                  }}
+                  className="hover:text-white transition-colors cursor-pointer block"
+                >
+                  Secret Santa
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#use-cases"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollToUseCases();
+                  }}
+                  className="hover:text-white transition-colors cursor-pointer block"
+                >
+                  Team workshops
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#use-cases"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollToUseCases();
+                  }}
+                  className="hover:text-white transition-colors cursor-pointer block"
+                >
+                  Group formation
+                </a>
+              </li>
             </ul>
           </div>
 

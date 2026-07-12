@@ -1,7 +1,14 @@
-"use client";
+import type { Metadata } from "next";
+import JoinSecretSantaClient from "./JoinSecretSantaClient";
 
-import JoinSecretSanta from "../../_components/JoinSecretSanta";
+export const metadata: Metadata = {
+  title: "Join Event | PairForm",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default function JoinEventPage() {
-  return <JoinSecretSanta />;
+  return <JoinSecretSantaClient />;
 }
