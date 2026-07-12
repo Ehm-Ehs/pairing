@@ -30,24 +30,36 @@ export default function Navbar({
 
       {/* Desktop Menu */}
       <div className="hidden md:flex gap-6 lg:gap-8 items-center absolute left-1/2 transform -translate-x-1/2">
-        <button
-          onClick={scrollToHowItWorks}
+        <a
+          href="#how-it-works"
+          onClick={(e) => {
+            e.preventDefault();
+            scrollToHowItWorks();
+          }}
           className="text-[13px] font-medium text-gray-500 hover:text-gray-900 transition-colors"
         >
           How it Works
-        </button>
-        <button
-          onClick={scrollToFeatures}
+        </a>
+        <a
+          href="#features"
+          onClick={(e) => {
+            e.preventDefault();
+            scrollToFeatures();
+          }}
           className="text-[13px] font-medium text-gray-500 hover:text-gray-900 transition-colors"
         >
           Features
-        </button>
-        <button
-          onClick={scrollToUseCases}
+        </a>
+        <a
+          href="#use-cases"
+          onClick={(e) => {
+            e.preventDefault();
+            scrollToUseCases();
+          }}
           className="text-[13px] font-medium text-gray-500 hover:text-gray-900 transition-colors"
         >
           Use cases
-        </button>
+        </a>
       </div>
 
       {/* Right Buttons */}
@@ -76,6 +88,8 @@ export default function Navbar({
         </button>
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
+          aria-label="Toggle menu"
+          aria-expanded={isMenuOpen}
           className="p-2.5 bg-gray-50 border border-gray-200 text-[#1D4ED8] rounded-xl hover:bg-gray-100 transition-colors focus:outline-none flex items-center justify-center"
         >
           {isMenuOpen ? (
@@ -91,33 +105,39 @@ export default function Navbar({
       {/* Mobile Menu Dropdown */}
       {isMenuOpen && (
         <div className="absolute top-full left-0 right-0 bg-white shadow-lg rounded-b-lg border-t border-gray-100 p-4 flex flex-col gap-4 md:hidden animate-in slide-in-from-top-2">
-          <button
-            onClick={() => {
+          <a
+            href="#how-it-works"
+            onClick={(e) => {
+              e.preventDefault();
               scrollToHowItWorks();
               setIsMenuOpen(false);
             }}
             className="text-left text-sm font-medium text-gray-600"
           >
             How it Works
-          </button>
-          <button
-            onClick={() => {
+          </a>
+          <a
+            href="#features"
+            onClick={(e) => {
+              e.preventDefault();
               scrollToFeatures();
               setIsMenuOpen(false);
             }}
             className="text-left text-sm font-medium text-gray-600"
           >
             Features
-          </button>
-          <button
-            onClick={() => {
+          </a>
+          <a
+            href="#use-cases"
+            onClick={(e) => {
+              e.preventDefault();
               scrollToUseCases();
               setIsMenuOpen(false);
             }}
             className="text-left text-sm font-medium text-gray-600"
           >
             Use cases
-          </button>
+          </a>
           <Link
             href="/login"
             className="px-4 py-3 text-center text-sm font-medium text-gray-800 bg-[#E5E7EB] rounded-full transition-colors"

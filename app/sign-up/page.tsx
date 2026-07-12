@@ -1,6 +1,15 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import Logo from "../../src/assets/logo";
 import SignupForm from "./_components/SignupForm";
+
+export const metadata: Metadata = {
+  title: "Sign Up | PairForm",
+  description: "Create an account on PairForm to easily coordinate Secret Santa gift exchanges and group matching.",
+  alternates: {
+    canonical: "https://pair-form.com/sign-up",
+  },
+};
 
 const Signup = () => {
   return (

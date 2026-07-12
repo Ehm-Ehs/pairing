@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   title: "PairForm - Smart automated balancing. Fair groups. Zero chaos.",
   description:
     "Create balanced groups, organize Secret Santa events, and manage team pairings instantly. No spreadsheets, just seamless automation.",
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     title: "PairForm - Smart automated balancing. Fair groups. Zero chaos.",
     description:
