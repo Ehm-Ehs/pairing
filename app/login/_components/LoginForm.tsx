@@ -173,8 +173,9 @@ const LoginForm = () => {
 
   return (
     <div className="flex flex-col justify-center items-center px-4 w-full min-h-screen bg-[#f3f4f6] text-black py-12 font-sora">
-      <Logo className="h-9 w-auto mb-6" />
-
+      <Link href="/">
+        <Logo className="h-9 w-auto mb-6" />
+      </Link>
       <div className="w-full max-w-xl bg-white border-t-[6px] border-[#0c3886] rounded-[2.5rem] shadow-xl overflow-hidden mt-2">
         <Formik
           initialValues={{ email: "", password: "" }}

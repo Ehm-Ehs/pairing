@@ -96,7 +96,7 @@ const LandingPageClient = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 font-sans">
+    <div className="min-h-screen bg-white text-gray-900 font-sans px-1 md:px-0 overflow-x-hidden w-full">
       <Navbar
         scrollToHowItWorks={scrollToHowItWorks}
         scrollToUseCases={scrollToUseCases}

@@ -1,13 +1,7 @@
 import type { Metadata } from "next";
 import LandingPageClient from "./_components/LandingPageClient";
 
-export const metadata: Metadata = {
-  title: "PairForm - Smart automated balancing. Fair groups. Zero chaos.",
-  description: "Create balanced groups, organize Secret Santa events, and manage team pairings instantly. No spreadsheets, just seamless automation.",
-  alternates: {
-    canonical: "https://pair-form.com",
-  },
-};
+
 
 export default function LandingPage() {
   const jsonLd = {

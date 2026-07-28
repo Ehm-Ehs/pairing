@@ -22,6 +22,7 @@ import { closePairingEvent } from "../../../src/services/endpoints";
 import { auth } from "../../../src/services/firebase";
 import { useState } from "react";
 import { toast } from "react-toastify";
+import { formatGroupName } from "../../../src/utils/stringUtils";
 
 
 const capitalizeWords = (str: string) => {
@@ -49,10 +50,12 @@ const Result = ({ data, isPublicView = false }: ResultProps) => {
 
   let selectedIndex = isPublicView ? 0 : (indexParam ? parseInt(indexParam) : null);
 
-  if (selectedIndex === null && idParam && data && data.pairings) {
+  if (selectedIndex === null && idParam && data && data.pairings && data.pairings.length > 0) {
     const foundIndex = data.pairings.findIndex((p) => p.id === idParam);
     if (foundIndex !== -1) {
       selectedIndex = foundIndex;
+    } else {
+      selectedIndex = 0;
     }
   }
 
@@ -198,7 +201,7 @@ const Result = ({ data, isPublicView = false }: ResultProps) => {
             filledSlots = pairing.participants ? pairing.participants.length : 0;
           } else {
             totalSlots = parseInt(pairing.numParticipants.toString());
-            Object.values(pairing.groups).forEach((group) => {
+            Object.values(pairing.groups || {}).forEach((group) => {
               filledSlots += group.filter((p: any) => p.name).length;
             });
           }
@@ -256,11 +259,12 @@ const Result = ({ data, isPublicView = false }: ResultProps) => {
               let csvContent = "data:text/csv;charset=utf-8,";
               csvContent += "Group,Slot Number,Role,Name,Email\n";
 
-              Object.entries(pairing.groups).forEach(([groupKey, group]) => {
+              Object.entries(pairing.groups || {}).forEach(([groupKey, group]) => {
+                const groupName = formatGroupName(groupKey);
                 group.forEach((member) => {
                   const name = member.name || "Available Slot";
                   const email = member.email || "";
-                  csvContent += `"Group ${parseInt(groupKey) + 1}",${member.number},"${member.role}","${name}","${email}"\n`;
+                  csvContent += `"${groupName}",${member.number},"${member.role}","${name}","${email}"\n`;
                 });
               });
 

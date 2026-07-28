@@ -96,7 +96,7 @@ export default function Navbar({
             <FaTimes size={18} />
           ) : (
             <svg width="18" height="12" viewBox="0 0 18 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M0 2H18M0 10H18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+              <path d="M0 2H18M0 10H18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
             </svg>
           )}
         </button>

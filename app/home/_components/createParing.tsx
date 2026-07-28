@@ -1,6 +1,21 @@
 import React from "react";
 import dynamic from "next/dynamic";
 import { ModeSelection } from "./ModeSelection";
+import { useCreateEvent } from "../../../src/hooks/useCreateEvent";
+import { validationSchema } from "./createEventValidation";
+import GuestLimitBlocker from "../../../src/components/auth/GuestLimitBlocker";
+import { GroupingsPageProps } from "../../../src/types";
+import { Modal } from "../../../src/components/ui/modal";
+import { useRouter } from "next/navigation";
+import {
+  LogoCirclesIcon,
+  SinglePairingIcon,
+  CircleXFilledPinkIcon,
+} from "../../../src/components/ui/icons";
+
+interface CreateParingProps {
+  user?: GroupingsPageProps;
+}
 
 const FormComponent = dynamic(() => import("./RoleBasedForm"), {
   loading: () => <div className="text-gray-400 animate-pulse py-8 text-center text-xs font-semibold">Loading Form...</div>,
@@ -16,25 +31,6 @@ const RandomPositioningForm = dynamic(() => import("./RandomPositioningForm"), {
   loading: () => <div className="text-gray-400 animate-pulse py-8 text-center text-xs font-semibold">Loading Form...</div>,
   ssr: false,
 });
-
-import { useCreateEvent } from "../../../src/hooks/useCreateEvent";
-import { validationSchema } from "./createEventValidation";
-import GuestLimitBlocker from "../../../src/components/auth/GuestLimitBlocker";
-import { GroupingsPageProps } from "../../../src/types";
-
-import { Modal } from "../../../src/components/ui/modal";
-import { Button } from "../../../src/components/ui/button";
-import { useRouter } from "next/navigation";
-import {
-  LogoCirclesIcon,
-  SinglePairingIcon,
-  CircleXFilledPinkIcon,
-} from "../../../src/components/ui/icons";
-
-interface CreateParingProps {
-  user?: GroupingsPageProps;
-}
-
 const CreateParing: React.FC<CreateParingProps> = ({ user }) => {
   const router = useRouter();
   const {
@@ -113,7 +109,7 @@ const CreateParing: React.FC<CreateParingProps> = ({ user }) => {
               ? "Create Group Pairs"
               : eventType === "random-positioning"
                 ? "Random Positioning Details"
-                : "Create Just Pair"}
+                : "Create Single Pair"}
           </h2>
           <p className="text-sm text-gray-500">
             {eventType === "role-based"

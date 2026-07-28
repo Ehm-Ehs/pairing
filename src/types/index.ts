@@ -41,7 +41,7 @@ export interface RoleBasedPairing extends BasePairing {
   characteristicsLabel?: string;
   numGroups: number;
   numParticipants: number;
-  groups: { [key: number]: Participant[] };
+  groups?: { [key: string]: Participant[] };
 }
 
 export interface RandomParticipant {

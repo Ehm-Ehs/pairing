@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { Formik, Form, ErrorMessage, FieldArray } from "formik";
 import * as Yup from "yup";
 import { FaImage, FaTrash, FaPlus, FaChevronRight } from "react-icons/fa";
+import { compressImage } from "../../../src/utils/imageCompressor";
 
 interface FormComponentProps {
   initialValues: {
@@ -33,11 +34,13 @@ const FormComponent: React.FC<FormComponentProps> = ({
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFieldValue("imageUrl", reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      compressImage(file)
+        .then((compressedUrl) => {
+          setFieldValue("imageUrl", compressedUrl);
+        })
+        .catch((err) => {
+          console.error("Compression failed:", err);
+        });
     }
   };
 
@@ -50,11 +53,13 @@ const FormComponent: React.FC<FormComponentProps> = ({
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
       setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFieldValue("imageUrl", reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      compressImage(file)
+        .then((compressedUrl) => {
+          setFieldValue("imageUrl", compressedUrl);
+        })
+        .catch((err) => {
+          console.error("Compression failed:", err);
+        });
     }
   };
 
@@ -129,6 +134,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                   value={values.numParticipants}
                   onChange={handleChange}
                   onBlur={handleBlur}
+                  onWheel={(e) => (e.target as HTMLInputElement).blur()}
                 />
                 <ErrorMessage
                   name="numParticipants"
@@ -153,6 +159,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                   value={values.numGroups}
                   onChange={handleChange}
                   onBlur={handleBlur}
+                  onWheel={(e) => (e.target as HTMLInputElement).blur()}
                 />
                 <ErrorMessage
                   name="numGroups"
@@ -271,7 +278,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       </span>
                     </p>
                     <p className="text-xs text-gray-400 mt-1">
-                      Supports PNG, JPG, JPEG
+                      Supports PNG, JPG, JPEG (Max file size: 5MB)
                     </p>
                   </>
                 )}
@@ -333,6 +340,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               value={char.count}
                               onChange={handleChange}
                               onBlur={handleBlur}
+                              onWheel={(e) => (e.target as HTMLInputElement).blur()}
                             />
                             <ErrorMessage
                               name={`characteristics[${index}].count`}

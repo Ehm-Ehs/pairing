@@ -143,6 +143,7 @@ const SecretSantaForm: React.FC<SecretSantaFormProps> = ({
                     value={values.expectedParticipants}
                     onChange={handleChange}
                     onBlur={handleBlur}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
                   />
                   <ErrorMessage
                     name="expectedParticipants"
@@ -253,7 +254,7 @@ const SecretSantaForm: React.FC<SecretSantaFormProps> = ({
                           </span>
                         </p>
                         <p className="text-xs text-gray-400 mt-1 font-medium">
-                          Supports PNG, JPG, JPEG
+                          Supports PNG, JPG, JPEG (Max file size: 5MB)
                         </p>
                       </>
                     )}

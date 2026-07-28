@@ -21,7 +21,7 @@ export const getEventStats = (event: Pairing) => {
   // Default to Role-Based logic
   const totalSlots = parseInt(event.numParticipants.toString());
   let filledSlots = 0;
-  Object.values(event.groups).forEach((group) => {
+  Object.values(event.groups || {}).forEach((group) => {
     // Only count participants that have a name
     filledSlots += group.filter((p: any) => p.name).length;
   });

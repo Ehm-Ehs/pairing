@@ -29,23 +29,39 @@ const SharePageClient: React.FC = () => {
       setLoading(true);
       import("../../../src/services/firebase").then(({ db }) => {
         import("firebase/firestore").then(({ doc, getDoc }) => {
-          const docRef = doc(db, "Users", userId);
-          getDoc(docRef)
-            .then((docSnap) => {
-              if (docSnap.exists()) {
-                const userData = docSnap.data();
-                const pairing = userData.pairings?.find(
-                  (p: any) => p.id === eventId
-                );
-                if (pairing) {
-                  setFetchedPairing(pairing);
-                } else {
-                  setError("Event not found");
-                }
+          // 1. Try Pairings collection
+          const pairingRef = doc(db, "Pairings", eventId);
+          getDoc(pairingRef)
+            .then((pairingSnap) => {
+              if (pairingSnap.exists()) {
+                setFetchedPairing(pairingSnap.data());
+                setLoading(false);
               } else {
-                setError("User not found");
+                // 2. Legacy fallback
+                const userRef = doc(db, "Users", userId);
+                getDoc(userRef)
+                  .then((userSnap) => {
+                    if (userSnap.exists()) {
+                      const userData = userSnap.data();
+                      const pairing = userData.pairings?.find(
+                        (p: any) => p.id === eventId
+                      );
+                      if (pairing) {
+                        setFetchedPairing(pairing);
+                      } else {
+                        setError("Event not found");
+                      }
+                    } else {
+                      setError("User not found");
+                    }
+                    setLoading(false);
+                  })
+                  .catch((err) => {
+                    console.error(err);
+                    setError("Error loading event");
+                    setLoading(false);
+                  });
               }
-              setLoading(false);
             })
             .catch((err) => {
               console.error(err);

@@ -2,33 +2,30 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow users to read and write their own user document
+    // Users collection rules
     match /Users/{userId} {
-      // Allow owner to do everything
-      allow create, delete: if request.auth != null && request.auth.uid == userId;
-      
-      // Allow public read (needed for participants to fetch current state)
-      allow read: if true;
-
-      // Allow update if owner OR if only updating 'pairings' (for participants)
-      allow update: if (request.auth != null && request.auth.uid == userId) || 
-                   (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pairings']));
+      allow read, create, update: if true;
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Allow creation of emails for notifications (requires triggers extension)
-    // allowing public create because participants (unauthenticated) need to trigger emails
+    // Pairings collection rules (top-level collection for events)
+    match /Pairings/{pairingId} {
+      allow read, create, update: if true;
+      allow delete: if request.auth != null;
+    }
+
+    // Notifications collection rules
+    match /Notifications/{notificationId} {
+      allow read, create, update, delete: if true;
+    }
+
+    // Mail collection rules for email notifications
     match /mail/{emailId} {
       allow create: if true;
+      allow read, update, delete: if request.auth != null;
     }
 
-    // Notifications: public create (for triggers), owner read/update
-    match /Notifications/{notificationId} {
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
-      allow create: if true; 
-      allow update: if request.auth != null && resource.data.userId == request.auth.uid;
-    }
-    
-    // Default deny
+    // Default deny for unmapped paths
     match /{document=**} {
       allow read, write: if false;
     }

@@ -79,7 +79,7 @@ export const useHomeActions = () => {
         totalSlots += parseInt(event.numParticipants.toString());
 
         let currentEventFilled = 0;
-        Object.values(event.groups).forEach((group) => {
+        Object.values(event.groups || {}).forEach((group) => {
           // Only count participants that have a name (not placeholders)
           currentEventFilled += group.filter((p: any) => p.name).length;
         });

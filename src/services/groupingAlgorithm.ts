@@ -24,10 +24,10 @@ export const generateGroupings = (
 
   // Generate Pairings / Groups
   const groups: {
-    [key: number]: { id: string; number: number; role: string }[];
+    [key: string]: { id: string; number: number; role: string }[];
   } = {};
   for (let i = 0; i < numGroups; i++) {
-    groups[i + 1] = [];
+    groups[`group_${i + 1}`] = [];
   }
 
   if (useCharacteristics && finalCharacteristics.length > 0) {
@@ -87,7 +87,7 @@ export const generateGroupings = (
     // Convert participantsPerGroup to the format required
     Object.keys(participantsPerGroup).forEach((key) => {
       const groupNumber = parseInt(key, 10);
-      groups[groupNumber] = participantsPerGroup[groupNumber];
+      groups[`group_${groupNumber}`] = participantsPerGroup[groupNumber];
     });
   } else {
     // Random Mode: Generate Generic Slots
@@ -97,7 +97,7 @@ export const generateGroupings = (
 
     for (let i = 0; i < numGroups; i++) {
       const count = participantsPerGroup + (i < remainder ? 1 : 0);
-      groups[i + 1] = Array.from({ length: count }, (_, j) => ({
+      groups[`group_${i + 1}`] = Array.from({ length: count }, (_, j) => ({
         id: uuidv4(),
         number: j + 1,
         role: "", // Empty role for random

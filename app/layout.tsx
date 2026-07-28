@@ -14,35 +14,38 @@ const sora = Sora({ subsets: ["latin"], variable: "--font-sora" });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://pair-form.com"),
-  title: "PairForm - Smart automated balancing. Fair groups. Zero chaos.",
+  title: "PairForm - Random Group & Pair Generator",
   description:
-    "Create balanced groups, organize Secret Santa events, and manage team pairings instantly. No spreadsheets, just seamless automation.",
+    "Instantly create fair, balanced groups and pairs for teams, classes, or events. No more spreadsheets, just seamless automation.",
+  applicationName: "PairForm",
+  keywords: ["group generator", "random pair", "secret santa", "team builder", "randomizer"],
+  authors: [{ name: "PairForm Team" }],
+  creator: "PairForm",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "PairForm - Smart automated balancing. Fair groups. Zero chaos.",
+    title: "PairForm - Random Group & Pair Generator",
     description:
-      "Create balanced groups, organize Secret Santa events, and manage team pairings instantly. No spreadsheets, just seamless automation.",
+      "Instantly create fair, balanced groups and pairs for teams, classes, or events. No more spreadsheets, just seamless automation.",
     url: "https://pair-form.com",
     siteName: "PairForm",
-    images: [
-      {
-        url: "/opengraph-image.png",
-        width: 1200,
-        height: 630,
-        alt: "PairForm Preview",
-      },
-    ],
     locale: "en_US",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "PairForm - Smart automated balancing. Fair groups. Zero chaos.",
+    title: "PairForm - Random Group & Pair Generator",
     description:
-      "Create balanced groups, organize Secret Santa events, and manage team pairings instantly.",
-    images: ["/opengraph-image.png"],
+      "Instantly create fair, balanced groups and pairs for teams, classes, or events.",
+    creator: "@pairform",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  icons: {
+    icon: "/favicon.svg",
   },
 };
 
