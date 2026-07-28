@@ -42,20 +42,26 @@ const JoinSecretSanta: React.FC = () => {
       if (!validUserId || !validEventId) return;
       try {
         const userDoc = await getDoc(doc(db, "Users", validUserId));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          const foundEvent = userData.pairings.find(
+        const userData = userDoc.exists() ? userDoc.data() : {};
+        setClosedMessage(userData.settings?.defaults?.closedEventMessage || "");
+        setFullMessage(userData.settings?.defaults?.fullEventMessage || "");
+
+        // 1. Try Pairings collection
+        const pairingDoc = await getDoc(doc(db, "Pairings", validEventId));
+        if (pairingDoc.exists()) {
+          setEvent(pairingDoc.data() as SecretSantaPairing);
+        } else if (userDoc.exists()) {
+          // 2. Legacy fallback
+          const foundEvent = userData.pairings?.find(
             (p: Pairing) => p.id === validEventId && p.type === "secret-santa"
           );
           if (foundEvent) {
             setEvent(foundEvent as SecretSantaPairing);
-            setClosedMessage(userData.settings?.defaults?.closedEventMessage || "");
-            setFullMessage(userData.settings?.defaults?.fullEventMessage || "");
           } else {
             toast.error("Event not found");
           }
         } else {
-          toast.error("Organizer not found");
+          toast.error("Event not found");
         }
       } catch (error) {
         console.error("Error fetching event:", error);

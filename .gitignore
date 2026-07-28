@@ -27,3 +27,7 @@ build
 *.njsproj
 *.sln
 *.sw?
+
+# Local Planning Artifacts
+implementation_plan.md
+task.md

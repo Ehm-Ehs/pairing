@@ -10,7 +10,7 @@ import { Button } from "../../src/components/ui/button";
 import { FaUsers } from "react-icons/fa";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../src/services/firebase";
-import { capitalizeWords } from "../../src/utils/stringUtils";
+import { capitalizeWords, formatGroupName } from "../../src/utils/stringUtils";
 
 // Function to decrypt userId (Base64 decoding example)
 const decryptData = (data: string): string => {
@@ -109,6 +109,7 @@ const ParticipantFormContent = () => {
     const checkEventStatus = async () => {
       if (encryptedUserId && groupingPurpose) {
         try {
+          const { collection, query, where, getDocs } = await import("firebase/firestore");
           const decryptedUserId = decryptData(encryptedUserId);
           const userRef = doc(db, "Users", decryptedUserId);
           const docSnap = await getDoc(userRef);
@@ -116,32 +117,44 @@ const ParticipantFormContent = () => {
             const userData = docSnap.data();
             setClosedMessage(userData.settings?.defaults?.closedEventMessage || "");
             setFullMessage(userData.settings?.defaults?.fullEventMessage || "");
-            const userPairings = userData.pairings || [];
-            const pairing = userPairings.find(
+          }
+
+          // 1. Check Pairings collection
+          const q = query(
+            collection(db, "Pairings"),
+            where("ownerId", "==", decryptedUserId),
+            where("groupingPurpose", "==", groupingPurpose)
+          );
+          const qSnap = await getDocs(q);
+          let pairing: any = null;
+          if (!qSnap.empty) {
+            pairing = qSnap.docs[0].data();
+          } else if (docSnap.exists()) {
+            // 2. Legacy fallback
+            const userPairings = docSnap.data().pairings || [];
+            pairing = userPairings.find(
               (p: any) => p.groupingPurpose === groupingPurpose
             );
-            if (pairing) {
-              if (pairing.status === "locked") {
-                setIsClosed(true);
-                setIsEventFull(false);
-              } else {
-                // Check if all slots are filled
-                if (pairing.groups) {
-                  let totalSlots = 0;
-                  let filledSlots = 0;
-                  Object.values(pairing.groups).forEach((group: any) => {
-                    group.forEach((member: any) => {
-                      totalSlots += 1;
-                      if (member.name && member.name.trim() !== "") {
-                        filledSlots += 1;
-                      }
-                    });
-                  });
-                  if (totalSlots > 0 && filledSlots >= totalSlots) {
-                    setIsClosed(true);
-                    setIsEventFull(true);
+          }
+
+          if (pairing) {
+            if (pairing.status === "locked") {
+              setIsClosed(true);
+              setIsEventFull(false);
+            } else if (pairing.groups) {
+              let totalSlots = 0;
+              let filledSlots = 0;
+              Object.values(pairing.groups).forEach((group: any) => {
+                group.forEach((member: any) => {
+                  totalSlots += 1;
+                  if (member.name && member.name.trim() !== "") {
+                    filledSlots += 1;
                   }
-                }
+                });
+              });
+              if (totalSlots > 0 && filledSlots >= totalSlots) {
+                setIsClosed(true);
+                setIsEventFull(true);
               }
             }
           }
@@ -423,7 +436,7 @@ const ParticipantFormContent = () => {
               if (assignedGroupKey !== null) {
                 setStatus({
                   revealed: true,
-                  groupIndex: parseInt(assignedGroupKey) + 1,
+                  groupName: formatGroupName(assignedGroupKey),
                   roleName: assignedRole || "Participant",
                 });
               } else {
@@ -462,7 +475,7 @@ const ParticipantFormContent = () => {
                         Your Assignment
                       </p>
                       <h3 className="text-2xl font-extrabold text-[#012A7D] font-heading tracking-tight mb-2">
-                        Group {status.groupIndex}
+                        {status.groupName}
                       </h3>
                       <p className="text-xs font-semibold text-gray-505">
                         Role: <span className="text-gray-800 font-bold">{status.roleName}</span>

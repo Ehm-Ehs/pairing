@@ -1,10 +1,17 @@
-import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  deleteDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
 import { auth, db } from "./firebase";
 import Auth from "./auth.module";
 
 import { Pairing } from "../types";
-
-// Removed local FormValues interface in favor of shared Pairing type
 
 export const fetchUserData = async (
   setUserDetails: (data: any) => void
@@ -17,17 +24,44 @@ export const fetchUserData = async (
       auth.onAuthStateChanged(async (user) => {
         if (user) {
           try {
-            const docRef = doc(db, "Users", user.uid);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-              setUserDetails(docSnap.data());
-              console.log("doc", docSnap.data());
-              resolve();
-            } else {
-              console.log("No user data found in Firestore");
-              setUserDetails(null);
-              resolve();
+            const userDocRef = doc(db, "Users", user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            const userData = userDocSnap.exists() ? userDocSnap.data() : {};
+
+            // Query top-level Pairings collection for this user's events
+            const collectionPairings: Pairing[] = [];
+            try {
+              const pairingsQuery = query(
+                collection(db, "Pairings"),
+                where("ownerId", "==", user.uid)
+              );
+              const pairingsSnap = await getDocs(pairingsQuery);
+              pairingsSnap.forEach((docSnap) => {
+                collectionPairings.push(docSnap.data() as Pairing);
+              });
+            } catch (queryErr) {
+              console.warn("Could not query Pairings collection directly:", queryErr);
             }
+
+            // For backwards compatibility, merge legacy pairings from User doc
+            const legacyPairings: Pairing[] = userData.pairings || [];
+            const mergedMap = new Map<string, Pairing>();
+            legacyPairings.forEach((p) => {
+              if (p && p.id) mergedMap.set(p.id, p);
+            });
+            collectionPairings.forEach((p) => {
+              if (p && p.id) mergedMap.set(p.id, p);
+            });
+
+            const allPairings = Array.from(mergedMap.values()).sort(
+              (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+            );
+
+            setUserDetails({
+              ...userData,
+              pairings: allPairings,
+            });
+            resolve();
           } catch (error) {
             console.error("Error fetching user data:", error);
             reject(error);
@@ -49,15 +83,111 @@ export const fetchUserData = async (
 
 export async function addPairing(userId: string, pairingData: Pairing) {
   try {
-    const userRef = doc(db, "Users", userId);
-    console.log("here");
-    await updateDoc(userRef, {
-      pairings: arrayUnion(pairingData),
-    });
-    console.log("Pairing added successfully!");
+    const sanitizedPairing = JSON.parse(
+      JSON.stringify({
+        ...pairingData,
+        ownerId: userId,
+      })
+    );
+
+    // 1. Save as standalone document in top-level Pairings collection
+    const pairingRef = doc(db, "Pairings", pairingData.id);
+    await setDoc(pairingRef, sanitizedPairing);
+
+    // 2. Also sync to Users/{userId}.pairings for dual-write compatibility & realtime listeners
+    try {
+      const userRef = doc(db, "Users", userId);
+      const userDocSnap = await getDoc(userRef);
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        const existingPairings: Pairing[] = userData.pairings || [];
+        const updatedPairings = [
+          sanitizedPairing,
+          ...existingPairings.filter((p) => p.id !== pairingData.id),
+        ];
+        await setDoc(
+          userRef,
+          { pairings: JSON.parse(JSON.stringify(updatedPairings)) },
+          { merge: true }
+        );
+      }
+    } catch (userDocErr) {
+      console.warn("Could not sync pairing to User doc:", userDocErr);
+    }
+
+    console.log("Pairing document created successfully!");
   } catch (error) {
     console.error("Error adding pairing:", error);
+    throw error;
   }
+}
+
+// Helper to get pairing document regardless of whether it's in Pairings collection or legacy Users doc
+async function getPairingRefAndData(
+  userId: string,
+  eventId?: string,
+  groupingPurpose?: string
+): Promise<{
+  pairingRef: any;
+  pairing: any;
+  isCollectionDoc: boolean;
+  legacyUserDocSnap?: any;
+  legacyPairingIndex?: number;
+}> {
+  // 1. Try finding by eventId in Pairings collection
+  if (eventId) {
+    const pairingRef = doc(db, "Pairings", eventId);
+    const docSnap = await getDoc(pairingRef);
+    if (docSnap.exists()) {
+      return {
+        pairingRef,
+        pairing: docSnap.data(),
+        isCollectionDoc: true,
+      };
+    }
+  }
+
+  // 2. Try querying Pairings collection by groupingPurpose & ownerId
+  if (groupingPurpose && userId) {
+    const q = query(
+      collection(db, "Pairings"),
+      where("ownerId", "==", userId),
+      where("groupingPurpose", "==", groupingPurpose)
+    );
+    const qSnap = await getDocs(q);
+    if (!qSnap.empty) {
+      const docSnap = qSnap.docs[0];
+      return {
+        pairingRef: docSnap.ref,
+        pairing: docSnap.data(),
+        isCollectionDoc: true,
+      };
+    }
+  }
+
+  // 3. Fallback to legacy Users doc array
+  if (userId) {
+    const userRef = doc(db, "Users", userId);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      const userData = userSnap.data();
+      const legacyPairings = userData.pairings || [];
+      const index = legacyPairings.findIndex((p: any) =>
+        eventId ? p.id === eventId : p.groupingPurpose === groupingPurpose
+      );
+      if (index !== -1) {
+        return {
+          pairingRef: userRef,
+          pairing: legacyPairings[index],
+          isCollectionDoc: false,
+          legacyUserDocSnap: userSnap,
+          legacyPairingIndex: index,
+        };
+      }
+    }
+  }
+
+  throw new Error("Event not found");
 }
 
 export async function editPairingValue(
@@ -69,156 +199,79 @@ export async function editPairingValue(
   newValue: { name: string; track: string; email: string }
 ) {
   try {
-    const userRef = doc(db, "Users", userId);
-    const docSnap = await getDoc(userRef);
+    const { pairingRef, pairing, isCollectionDoc, legacyUserDocSnap, legacyPairingIndex } =
+      await getPairingRefAndData(userId, undefined, groupingPurpose);
 
-    if (docSnap.exists()) {
-      const userData = docSnap.data();
-      const pairings = userData.pairings || [];
+    if (pairing.status === "locked") {
+      throw new Error("This event is closed. No further registrations are allowed.");
+    }
 
-      // Find the pairing with the matching groupingPurpose
-      const pairingIndex = pairings.findIndex(
-        (p: any) => p.groupingPurpose === groupingPurpose
-      );
+    // Check if email already exists in any of the groups for this event
+    if (newValue.email && newValue.email.trim() !== "") {
+      const emailLower = newValue.email.trim().toLowerCase();
+      let isDuplicate = false;
 
-      if (pairingIndex !== -1) {
-        const pairing = pairings[pairingIndex];
-
-        if (pairing.status === "locked") {
-          throw new Error("This event is closed. No further registrations are allowed.");
-        }
-
-        // Check if email already exists in any of the groups for this event
-        if (newValue.email && newValue.email.trim() !== "") {
-          const emailLower = newValue.email.trim().toLowerCase();
-          let isDuplicate = false;
-          
-          Object.entries(pairing.groups || {}).forEach(([gKey, groupMembers]: [string, any]) => {
-            if (Array.isArray(groupMembers)) {
-              groupMembers.forEach((member: any) => {
-                if (member.id !== id && member.email && member.email.trim().toLowerCase() === emailLower) {
-                  isDuplicate = true;
-                }
-              });
+      Object.entries(pairing.groups || {}).forEach(([_gKey, groupMembers]: [string, any]) => {
+        if (Array.isArray(groupMembers)) {
+          groupMembers.forEach((member: any) => {
+            if (member.id !== id && member.email && member.email.trim().toLowerCase() === emailLower) {
+              isDuplicate = true;
             }
           });
-          
-          if (isDuplicate) {
-            throw new Error("This email is already registered for this event.");
-          }
         }
+      });
 
-        const groups = pairing.groups;
-
-        // Check if the group exists
-        if (groups && groups[groupKey]) {
-          const group = groups[groupKey];
-
-          const participantIndex = group.findIndex((p: any) => p.id === id);
-
-          if (participantIndex !== -1) {
-            // Update the participant
-            group[participantIndex] = {
-              ...group[participantIndex],
-              ...newValue,
-            };
-
-            // Update the pairings array in the local copy
-            pairings[pairingIndex] = pairing;
-
-            // Write back to Firestore
-            await updateDoc(userRef, {
-              pairings: pairings,
-            });
-            console.log("Pairing updated successfully!");
-
-            // Check if group is full
-            const isFull = group.every(
-              (p: any) => p.name && p.name.trim() !== ""
-            );
-
-            // Notify organizer about new participant
-            try {
-              const { createNotification } = await import("./notifications");
-              // pairing is defined in the outer scope
-              const eventId = pairing.id;
-              await createNotification(
-                userId,
-                `${newValue.name} has filled a slot in ${groupingPurpose}`,
-                "info",
-                `/result?id=${eventId}`
-              );
-            } catch (notifyError) {
-              console.error("Failed to notifiy organizer:", notifyError);
-            }
-
-            return { participants: group, isFull };
-          } else {
-            console.error("Participant not found in group.");
-            return null;
-          }
-        } else {
-          console.error("Group not found.");
-          return null;
-        }
-      } else {
-        console.error("Pairing with grouping purpose not found.");
-        return null;
+      if (isDuplicate) {
+        throw new Error("This email is already registered for this event.");
       }
-    } else {
-      console.error("User document not found.");
-      return null;
     }
+
+    const groups = pairing.groups;
+    if (groups && groups[groupKey]) {
+      const group = groups[groupKey];
+      const participantIndex = group.findIndex((p: any) => p.id === id);
+
+      if (participantIndex !== -1) {
+        group[participantIndex] = {
+          ...group[participantIndex],
+          ...newValue,
+        };
+
+        if (isCollectionDoc) {
+          const sanitized = JSON.parse(JSON.stringify(pairing));
+          await setDoc(pairingRef, sanitized, { merge: true });
+        } else {
+          const userData = legacyUserDocSnap.data();
+          const pairings = userData.pairings || [];
+          pairings[legacyPairingIndex!] = pairing;
+          await setDoc(pairingRef, { pairings: JSON.parse(JSON.stringify(pairings)) }, { merge: true });
+        }
+
+        console.log("Pairing updated successfully!");
+
+        const isFull = group.every((p: any) => p.name && p.name.trim() !== "");
+
+        try {
+          const { createNotification } = await import("./notifications");
+          await createNotification(
+            userId,
+            `${newValue.name} has filled a slot in ${groupingPurpose}`,
+            "info",
+            `/result?id=${pairing.id}`
+          );
+        } catch (notifyError) {
+          console.error("Failed to notify organizer:", notifyError);
+        }
+
+        return { participants: group, isFull };
+      }
+    }
+    return null;
   } catch (error) {
     console.error("Error updating pairing value:", error);
     return null;
   }
 }
-
-// export async function editPairingValue(
-//   userId: string,
-//   groupingPurpose: string,
-//   groupKey: string,
-//   keyIndex: number,
-//   id: string,
-//   newValue: { name: string; track: string; email: string }
-// ) {
-//   try {
-//     const userRef = doc(db, "Users", userId);
-//     const docSnap = await getDoc(userRef);
-//     if (!docSnap.exists()) {
-//       console.log("No user data found.");
-//       return;
-//     }
-
-//     const data = docSnap.data();
-//     if (!data || !data.pairings || !data.pairings[groupingPurpose] || !data.pairings[groupingPurpose][groupKey] || !Array.isArray(data.pairings[groupingPurpose][groupKey])) {
-//       console.log("Pairings data not found.");
-//       return;
-//     }
-
-//     const currentGroups = data.pairings[groupingPurpose][groupKey];
-//     const groupIndex = currentGroups.findIndex((group: { id: string }) => group.id === id);
-
-//     if (groupIndex === -1) {
-//       console.log("Group with specified ID not found.");
-//       return;
-//     }
-
-//     const updatedGroups = currentGroups.filter((group: { id: string }) => group.id !== id);
-//     updatedGroups.splice(groupIndex, 0, { ...newValue, id });
-// const par=`pairings.${groupingPurpose}.${groupKey}`
-// console.log({par})
-//     await updateDoc(userRef, {
-//       [`pairings.${groupingPurpose}.${groupKey}`]: updatedGroups,
-//     });
-
-//     console.log("Pairing updated successfully!");
-//   } catch (error) {
-//     console.error("Error updating pairing value:", error);
-//   }
-// }
-// ... existing file content
 
 export async function addParticipantToSecretSanta(
   userId: string,
@@ -226,79 +279,61 @@ export async function addParticipantToSecretSanta(
   participant: any
 ) {
   try {
-    const userRef = doc(db, "Users", userId);
-    const docSnap = await getDoc(userRef);
+    const { pairingRef, pairing, isCollectionDoc, legacyUserDocSnap, legacyPairingIndex } =
+      await getPairingRefAndData(userId, eventId);
 
-    if (docSnap.exists()) {
-      const userData = docSnap.data();
-      const pairings = userData.pairings || [];
-      const pairingIndex = pairings.findIndex((p: any) => p.id === eventId);
+    const participants = pairing.participants || [];
 
-      if (pairingIndex !== -1) {
-        const pairing = pairings[pairingIndex];
-        const participants = pairing.participants || [];
-
-        // Check if email already exists
-        if (participant.email && participant.email.trim() !== "") {
-          const emailLower = participant.email.trim().toLowerCase();
-          const isDuplicate = participants.some(
-            (p: any) => p.email && p.email.trim().toLowerCase() === emailLower
-          );
-          if (isDuplicate) {
-            throw new Error("This email is already registered for this event.");
-          }
-        }
-
-        if (!pairing.participants) {
-          pairing.participants = [];
-        }
-        pairing.participants.push(participant);
-        pairings[pairingIndex] = pairing;
-
-        if (
-          pairing.config?.expectedParticipants &&
-          pairing.participants.length === pairing.config.expectedParticipants
-        ) {
-          console.log("Group full! Triggering notification...");
-          // ... existing cloud function trigger ...
-          try {
-            const { functions } = await import("./firebase");
-            const { httpsCallable } = await import("firebase/functions");
-            const notifyGroupComplete = httpsCallable(
-              functions,
-              "notifyGroupComplete"
-            );
-            await notifyGroupComplete({ eventId: eventId, ownerId: userId });
-            console.log("Notification trigger sent.");
-          } catch (err) {
-            console.error("Failed to trigger notification:", err);
-            // Don't block the actual join if notification fails
-          }
-        }
-
-        // Notify organizer about new participant
-        try {
-          const { createNotification } = await import("./notifications");
-          await createNotification(
-            userId,
-            `${participant.name || "A new user"} joined ${
-              pairing.groupingPurpose || pairing.title || "Secret Santa"
-            }`,
-            "info",
-            `/result?id=${eventId}`
-          );
-        } catch (notifyError) {
-          console.error("Failed to notify organizer:", notifyError);
-        }
-
-        await updateDoc(userRef, { pairings });
-        console.log("Participant added successfully");
-      } else {
-        throw new Error("Event not found");
+    if (participant.email && participant.email.trim() !== "") {
+      const emailLower = participant.email.trim().toLowerCase();
+      const isDuplicate = participants.some(
+        (p: any) => p.email && p.email.trim().toLowerCase() === emailLower
+      );
+      if (isDuplicate) {
+        throw new Error("This email is already registered for this event.");
       }
-    } else {
-      throw new Error("Organizer not found");
     }
+
+    pairing.participants = [...participants, participant];
+
+    if (
+      pairing.config?.expectedParticipants &&
+      pairing.participants.length === pairing.config.expectedParticipants
+    ) {
+      try {
+        const { functions } = await import("./firebase");
+        const { httpsCallable } = await import("firebase/functions");
+        const notifyGroupComplete = httpsCallable(functions, "notifyGroupComplete");
+        await notifyGroupComplete({ eventId, ownerId: userId });
+      } catch (err) {
+        console.error("Failed to trigger notification:", err);
+      }
+    }
+
+    try {
+      const { createNotification } = await import("./notifications");
+      await createNotification(
+        userId,
+        `${participant.name || "A new user"} joined ${
+          pairing.groupingPurpose || pairing.title || "Secret Santa"
+        }`,
+        "info",
+        `/result?id=${eventId}`
+      );
+    } catch (notifyError) {
+      console.error("Failed to notify organizer:", notifyError);
+    }
+
+    if (isCollectionDoc) {
+      await setDoc(pairingRef, JSON.parse(JSON.stringify(pairing)), { merge: true });
+    } else {
+      const userData = legacyUserDocSnap.data();
+      const pairings = userData.pairings || [];
+      pairings[legacyPairingIndex!] = pairing;
+      await setDoc(pairingRef, { pairings: JSON.parse(JSON.stringify(pairings)) }, { merge: true });
+    }
+
+    console.log("Participant added successfully");
   } catch (error) {
     console.error("Error adding participant:", error);
     throw error;
@@ -310,46 +345,40 @@ export async function generateSecretSantaPairs(
   eventId: string
 ) {
   try {
-    const userRef = doc(db, "Users", userId);
-    const docSnap = await getDoc(userRef);
+    const { pairingRef, pairing, isCollectionDoc, legacyUserDocSnap, legacyPairingIndex } =
+      await getPairingRefAndData(userId, eventId);
 
-    if (docSnap.exists()) {
-      const userData = docSnap.data();
-      const pairings = userData.pairings || [];
-      const pairingIndex = pairings.findIndex((p: any) => p.id === eventId);
-
-      if (pairingIndex !== -1) {
-        const pairing = pairings[pairingIndex];
-        const participants = pairing.participants || [];
-
-        if (participants.length < 2) {
-          throw new Error("Not enough participants to generate pairs");
-        }
-
-        // Shuffle participants
-        const shuffled = [...participants].sort(() => Math.random() - 0.5);
-        const pairs = [];
-
-        for (let i = 0; i < shuffled.length; i++) {
-          const santa = shuffled[i];
-          const receiver = shuffled[(i + 1) % shuffled.length];
-          pairs.push({
-            santaId: santa.id,
-            receiverId: receiver.id,
-          });
-        }
-
-        pairing.pairs = pairs;
-        pairing.status = "locked"; // Lock the event
-        pairings[pairingIndex] = pairing;
-
-        await updateDoc(userRef, { pairings });
-        console.log("Pairs generated successfully");
-        return pairing;
-      } else {
-        throw new Error("Event not found");
-      }
+    const participants = pairing.participants || [];
+    if (participants.length < 2) {
+      throw new Error("Not enough participants to generate pairs");
     }
+
+    const shuffled = [...participants].sort(() => Math.random() - 0.5);
+    const pairs = [];
+
+    for (let i = 0; i < shuffled.length; i++) {
+      const santa = shuffled[i];
+      const receiver = shuffled[(i + 1) % shuffled.length];
+      pairs.push({
+        santaId: santa.id,
+        receiverId: receiver.id,
+      });
+    }
+
+    pairing.pairs = pairs;
+    pairing.status = "locked";
+
+    if (isCollectionDoc) {
+      await setDoc(pairingRef, JSON.parse(JSON.stringify(pairing)), { merge: true });
+    } else {
+      const userData = legacyUserDocSnap.data();
+      const pairings = userData.pairings || [];
+      pairings[legacyPairingIndex!] = pairing;
+      await setDoc(pairingRef, { pairings: JSON.parse(JSON.stringify(pairings)) }, { merge: true });
+    }
+
+    console.log("Pairs generated successfully");
+    return pairing;
   } catch (error) {
     console.error("Error generating pairs:", error);
     throw error;
@@ -362,28 +391,23 @@ export async function removeParticipantFromSecretSanta(
   participantId: string
 ) {
   try {
-    const userRef = doc(db, "Users", userId);
-    const docSnap = await getDoc(userRef);
+    const { pairingRef, pairing, isCollectionDoc, legacyUserDocSnap, legacyPairingIndex } =
+      await getPairingRefAndData(userId, eventId);
 
-    if (docSnap.exists()) {
-      const userData = docSnap.data();
-      const pairings = userData.pairings || [];
-      const pairingIndex = pairings.findIndex((p: any) => p.id === eventId);
+    if (pairing.participants) {
+      pairing.participants = pairing.participants.filter(
+        (p: any) => p.id !== participantId
+      );
 
-      if (pairingIndex !== -1) {
-        const pairing = pairings[pairingIndex];
-        if (pairing.participants) {
-          pairing.participants = pairing.participants.filter(
-            (p: any) => p.id !== participantId
-          );
-          pairings[pairingIndex] = pairing;
-
-          await updateDoc(userRef, { pairings });
-          console.log("Participant removed successfully");
-        }
+      if (isCollectionDoc) {
+        await setDoc(pairingRef, JSON.parse(JSON.stringify(pairing)), { merge: true });
       } else {
-        throw new Error("Event not found");
+        const userData = legacyUserDocSnap.data();
+        const pairings = userData.pairings || [];
+        pairings[legacyPairingIndex!] = pairing;
+        await setDoc(pairingRef, { pairings: JSON.parse(JSON.stringify(pairings)) }, { merge: true });
       }
+      console.log("Participant removed successfully");
     }
   } catch (error) {
     console.error("Error removing participant:", error);
@@ -397,58 +421,47 @@ export async function addParticipantToRandomPositioning(
   participant: any
 ) {
   try {
-    const userRef = doc(db, "Users", userId);
-    const docSnap = await getDoc(userRef);
+    const { pairingRef, pairing, isCollectionDoc, legacyUserDocSnap, legacyPairingIndex } =
+      await getPairingRefAndData(userId, eventId);
 
-    if (docSnap.exists()) {
-      const userData = docSnap.data();
-      const pairings = userData.pairings || [];
-      const pairingIndex = pairings.findIndex((p: any) => p.id === eventId);
+    const participants = pairing.participants || [];
 
-      if (pairingIndex !== -1) {
-        const pairing = pairings[pairingIndex];
-        const participants = pairing.participants || [];
-
-        // Check if email already exists
-        if (participant.email && participant.email.trim() !== "") {
-          const emailLower = participant.email.trim().toLowerCase();
-          const isDuplicate = participants.some(
-            (p: any) => p.email && p.email.trim().toLowerCase() === emailLower
-          );
-          if (isDuplicate) {
-            throw new Error("This email is already registered for this event.");
-          }
-        }
-
-        if (!pairing.participants) {
-          pairing.participants = [];
-        }
-        pairing.participants.push(participant);
-        pairings[pairingIndex] = pairing;
-
-        await updateDoc(userRef, { pairings });
-        console.log("Participant added successfully");
-
-        // Notify organizer about new participant
-        try {
-          const { createNotification } = await import("./notifications");
-          await createNotification(
-            userId,
-            `${participant.name || "A new user"} joined ${
-              pairing.groupingPurpose || pairing.title || "Random Positioning"
-            }`,
-            "info",
-            `/result?id=${eventId}`
-          );
-        } catch (notifyError) {
-          console.error("Failed to notify organizer:", notifyError);
-        }
-      } else {
-        throw new Error("Event not found");
+    if (participant.email && participant.email.trim() !== "") {
+      const emailLower = participant.email.trim().toLowerCase();
+      const isDuplicate = participants.some(
+        (p: any) => p.email && p.email.trim().toLowerCase() === emailLower
+      );
+      if (isDuplicate) {
+        throw new Error("This email is already registered for this event.");
       }
-    } else {
-      throw new Error("Organizer not found");
     }
+
+    pairing.participants = [...participants, participant];
+
+    try {
+      const { createNotification } = await import("./notifications");
+      await createNotification(
+        userId,
+        `${participant.name || "A new user"} joined ${
+          pairing.groupingPurpose || pairing.title || "Random Positioning"
+        }`,
+        "info",
+        `/result?id=${eventId}`
+      );
+    } catch (notifyError) {
+      console.error("Failed to notify organizer:", notifyError);
+    }
+
+    if (isCollectionDoc) {
+      await setDoc(pairingRef, JSON.parse(JSON.stringify(pairing)), { merge: true });
+    } else {
+      const userData = legacyUserDocSnap.data();
+      const pairings = userData.pairings || [];
+      pairings[legacyPairingIndex!] = pairing;
+      await setDoc(pairingRef, { pairings: JSON.parse(JSON.stringify(pairings)) }, { merge: true });
+    }
+
+    console.log("Participant added successfully");
   } catch (error) {
     console.error("Error adding participant:", error);
     throw error;
@@ -457,51 +470,37 @@ export async function addParticipantToRandomPositioning(
 
 export async function generateRandomPositions(userId: string, eventId: string) {
   try {
-    const userRef = doc(db, "Users", userId);
-    const docSnap = await getDoc(userRef);
+    const { pairingRef, pairing, isCollectionDoc, legacyUserDocSnap, legacyPairingIndex } =
+      await getPairingRefAndData(userId, eventId);
 
-    if (docSnap.exists()) {
-      const userData = docSnap.data();
-      const pairings = userData.pairings || [];
-      const pairingIndex = pairings.findIndex((p: any) => p.id === eventId);
-
-      if (pairingIndex !== -1) {
-        const pairing = pairings[pairingIndex];
-        const participants = pairing.participants || [];
-
-        if (participants.length === 0) {
-          throw new Error("No participants to generate positions for");
-        }
-
-        // Shuffle participants
-
-        // Assign distinct numbers
-        // We actually want 1 to N.
-        // Let's just shuffle the participants array order and assign index+1?
-        // No, 'participants' usually is append-only for join order log.
-        // We should just assign the 'assignedNumber' field.
-
-        // Shuffle an array of numbers 1..N
-        const numbers = Array.from(
-          { length: participants.length },
-          (_, i) => i + 1
-        ).sort(() => Math.random() - 0.5);
-
-        participants.forEach((p: any, index: number) => {
-          p.assignedNumber = numbers[index];
-        });
-
-        pairing.participants = participants;
-        pairing.status = "locked"; // Lock the event
-        pairings[pairingIndex] = pairing;
-
-        await updateDoc(userRef, { pairings });
-        console.log("Positions generated successfully");
-        return pairing;
-      } else {
-        throw new Error("Event not found");
-      }
+    const participants = pairing.participants || [];
+    if (participants.length === 0) {
+      throw new Error("No participants to generate positions for");
     }
+
+    const numbers = Array.from(
+      { length: participants.length },
+      (_, i) => i + 1
+    ).sort(() => Math.random() - 0.5);
+
+    participants.forEach((p: any, index: number) => {
+      p.assignedNumber = numbers[index];
+    });
+
+    pairing.participants = participants;
+    pairing.status = "locked";
+
+    if (isCollectionDoc) {
+      await setDoc(pairingRef, JSON.parse(JSON.stringify(pairing)), { merge: true });
+    } else {
+      const userData = legacyUserDocSnap.data();
+      const pairings = userData.pairings || [];
+      pairings[legacyPairingIndex!] = pairing;
+      await setDoc(pairingRef, { pairings: JSON.parse(JSON.stringify(pairings)) }, { merge: true });
+    }
+
+    console.log("Positions generated successfully");
+    return pairing;
   } catch (error) {
     console.error("Error generating positions:", error);
     throw error;
@@ -514,30 +513,23 @@ export async function removeParticipantFromRandomPositioning(
   participantId: string
 ) {
   try {
-    const userRef = doc(db, "Users", userId);
-    const docSnap = await getDoc(userRef);
+    const { pairingRef, pairing, isCollectionDoc, legacyUserDocSnap, legacyPairingIndex } =
+      await getPairingRefAndData(userId, eventId);
 
-    if (docSnap.exists()) {
-      const userData = docSnap.data();
-      const pairings = userData.pairings || [];
-      const pairingIndex = pairings.findIndex((p: any) => p.id === eventId);
+    if (pairing.participants) {
+      pairing.participants = pairing.participants.filter(
+        (p: any) => p.id !== participantId
+      );
 
-      if (pairingIndex !== -1) {
-        const pairing = pairings[pairingIndex];
-        if (pairing.participants) {
-          // Check if locked? Usually organizer can remove, but if locked, re-shuffle needed?
-          // For now allow remove, but warn in UI. Backend just suppresses it.
-          pairing.participants = pairing.participants.filter(
-            (p: any) => p.id !== participantId
-          );
-          pairings[pairingIndex] = pairing;
-
-          await updateDoc(userRef, { pairings });
-          console.log("Participant removed successfully");
-        }
+      if (isCollectionDoc) {
+        await setDoc(pairingRef, JSON.parse(JSON.stringify(pairing)), { merge: true });
       } else {
-        throw new Error("Event not found");
+        const userData = legacyUserDocSnap.data();
+        const pairings = userData.pairings || [];
+        pairings[legacyPairingIndex!] = pairing;
+        await setDoc(pairingRef, { pairings: JSON.parse(JSON.stringify(pairings)) }, { merge: true });
       }
+      console.log("Participant removed successfully");
     }
   } catch (error) {
     console.error("Error removing participant:", error);
@@ -547,25 +539,22 @@ export async function removeParticipantFromRandomPositioning(
 
 export async function closePairingEvent(userId: string, eventId: string) {
   try {
-    const userRef = doc(db, "Users", userId);
-    const docSnap = await getDoc(userRef);
+    const { pairingRef, pairing, isCollectionDoc, legacyUserDocSnap, legacyPairingIndex } =
+      await getPairingRefAndData(userId, eventId);
 
-    if (docSnap.exists()) {
-      const userData = docSnap.data();
-      const pairings = userData.pairings || [];
-      const pairingIndex = pairings.findIndex((p: any) => p.id === eventId);
+    pairing.status = "locked";
 
-      if (pairingIndex !== -1) {
-        pairings[pairingIndex].status = "locked";
-        await updateDoc(userRef, { pairings });
-        console.log("Event closed successfully");
-        return pairings[pairingIndex];
-      } else {
-        throw new Error("Event not found");
-      }
+    if (isCollectionDoc) {
+      await setDoc(pairingRef, { status: "locked" }, { merge: true });
     } else {
-      throw new Error("User document not found");
+      const userData = legacyUserDocSnap.data();
+      const pairings = userData.pairings || [];
+      pairings[legacyPairingIndex!] = pairing;
+      await setDoc(pairingRef, { pairings: JSON.parse(JSON.stringify(pairings)) }, { merge: true });
     }
+
+    console.log("Event closed successfully");
+    return pairing;
   } catch (error) {
     console.error("Error closing event:", error);
     throw error;
@@ -574,19 +563,24 @@ export async function closePairingEvent(userId: string, eventId: string) {
 
 export async function deletePairingEvent(userId: string, eventId: string) {
   try {
-    const userRef = doc(db, "Users", userId);
-    const docSnap = await getDoc(userRef);
-
+    // Check Pairings collection
+    const pairingRef = doc(db, "Pairings", eventId);
+    const docSnap = await getDoc(pairingRef);
     if (docSnap.exists()) {
-      const userData = docSnap.data();
-      const pairings = userData.pairings || [];
-      const updatedPairings = pairings.filter((p: any) => p.id !== eventId);
+      await deleteDoc(pairingRef);
+      console.log("Event deleted from Pairings collection successfully");
+    }
 
-      await updateDoc(userRef, { pairings: updatedPairings });
-      console.log("Event deleted successfully");
-      return updatedPairings;
-    } else {
-      throw new Error("User document not found");
+    // Also remove from legacy user document if present
+    if (userId) {
+      const userRef = doc(db, "Users", userId);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        const pairings = userData.pairings || [];
+        const updatedPairings = pairings.filter((p: any) => p.id !== eventId);
+        await setDoc(userRef, { pairings: JSON.parse(JSON.stringify(updatedPairings)) }, { merge: true });
+      }
     }
   } catch (error) {
     console.error("Error deleting event:", error);
@@ -596,61 +590,50 @@ export async function deletePairingEvent(userId: string, eventId: string) {
 
 export async function duplicatePairingEvent(userId: string, eventId: string) {
   try {
-    const userRef = doc(db, "Users", userId);
-    const docSnap = await getDoc(userRef);
+    const { pairing } = await getPairingRefAndData(userId, eventId);
 
-    if (docSnap.exists()) {
-      const userData = docSnap.data();
-      const pairings = userData.pairings || [];
-      const pairingToDuplicate = pairings.find((p: any) => p.id === eventId);
+    const newId =
+      typeof crypto?.randomUUID === "function"
+        ? crypto.randomUUID()
+        : Math.random().toString(36).substring(2, 15) +
+          Math.random().toString(36).substring(2, 15);
 
-      if (pairingToDuplicate) {
-        const newId = typeof crypto?.randomUUID === "function" 
-          ? crypto.randomUUID() 
-          : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-        
-        // Reset claimed slots for role-based events
-        const clonedGroups = { ...pairingToDuplicate.groups };
-        if (pairingToDuplicate.type === "role-based") {
-          Object.keys(clonedGroups).forEach((key) => {
-            clonedGroups[key] = clonedGroups[key].map((member: any) => ({
-              ...member,
-              name: "",
-              email: "",
-            }));
-          });
-        }
-        
-        const duplicatedPairing: any = {
-          ...pairingToDuplicate,
-          id: newId,
-          groupingPurpose: `${pairingToDuplicate.groupingPurpose} (Copy)`,
-          title: `${pairingToDuplicate.title} (Copy)`,
-          createdAt: Date.now(),
-          status: "open",
-          groups: clonedGroups,
-        };
-        
-        if (pairingToDuplicate.type === "secret-santa" || pairingToDuplicate.type === "random-positioning") {
-          duplicatedPairing.participants = [];
-        } else if (pairingToDuplicate.participants !== undefined) {
-          duplicatedPairing.participants = pairingToDuplicate.participants;
-        }
-        
-        if (duplicatedPairing.pairs) {
-          delete duplicatedPairing.pairs;
-        }
-
-        const updatedPairings = [...pairings, duplicatedPairing];
-        await updateDoc(userRef, { pairings: updatedPairings });
-        console.log("Event duplicated successfully");
-        return duplicatedPairing;
-      } else {
-        throw new Error("Event not found");
-      }
-    } else {
-      throw new Error("User document not found");
+    const clonedGroups = { ...pairing.groups };
+    if (pairing.type === "role-based") {
+      Object.keys(clonedGroups).forEach((key) => {
+        clonedGroups[key] = (clonedGroups[key] || []).map((member: any) => ({
+          ...member,
+          name: "",
+          email: "",
+        }));
+      });
     }
+
+    const duplicatedPairing: any = {
+      ...pairing,
+      id: newId,
+      ownerId: userId,
+      groupingPurpose: `${pairing.groupingPurpose || pairing.title} (Copy)`,
+      title: `${pairing.title || pairing.groupingPurpose} (Copy)`,
+      createdAt: Date.now(),
+      status: "open",
+      groups: clonedGroups,
+    };
+
+    if (
+      pairing.type === "secret-santa" ||
+      pairing.type === "random-positioning"
+    ) {
+      duplicatedPairing.participants = [];
+    }
+
+    if (duplicatedPairing.pairs) {
+      delete duplicatedPairing.pairs;
+    }
+
+    await addPairing(userId, duplicatedPairing);
+    console.log("Event duplicated successfully into Pairings collection!");
+    return duplicatedPairing;
   } catch (error) {
     console.error("Error duplicating event:", error);
     throw error;
