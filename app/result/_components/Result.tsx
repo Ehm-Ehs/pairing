@@ -18,11 +18,12 @@ const RandomPositioningResult = dynamic(() => import("./RandomPositioningResult"
   ssr: false,
 });
 import { useResultActions } from "../../../src/hooks/useResultActions";
-import { closePairingEvent } from "../../../src/services/endpoints";
+import { closePairingEvent, updatePairingVisibility } from "../../../src/services/endpoints";
 import { auth } from "../../../src/services/firebase";
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { formatGroupName } from "../../../src/utils/stringUtils";
+import { FaWhatsapp, FaLock, FaGlobe } from "react-icons/fa";
 
 
 const capitalizeWords = (str: string) => {
@@ -42,6 +43,7 @@ const Result = ({ data, isPublicView = false }: ResultProps) => {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [isClosing, setIsClosing] = useState(false);
+  const [isTogglingVisibility, setIsTogglingVisibility] = useState(false);
   const [copiedLinkLocal, setCopiedLinkLocal] = useState(false);
 
   // Get index or ID from query params
@@ -68,6 +70,7 @@ const Result = ({ data, isPublicView = false }: ResultProps) => {
     isLoadingForm,
     handleShare,
     handleFormRedirect,
+    handleWhatsAppShare,
   } = useResultActions(data, selectedIndex);
 
   let storageUid = "";
@@ -311,24 +314,61 @@ const Result = ({ data, isPublicView = false }: ResultProps) => {
                     Back to My Events
                   </div>
 
-                  {pairing.status !== "locked" ? (
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handleCloseEventClick(pairing.id)}
-                      disabled={isClosing}
-                      className="bg-[#DC2626] hover:bg-[#B91C1C] text-white px-5 py-2.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm hover:shadow transition-all active:scale-95 cursor-pointer disabled:bg-red-400 disabled:cursor-not-allowed"
+                      onClick={async () => {
+                        const nextVis = pairing.visibilityMode === "restricted" ? "public" : "restricted";
+                        setIsTogglingVisibility(true);
+                        try {
+                          await updatePairingVisibility(userId, pairing.id, nextVis);
+                          toast.success(`Visibility set to ${nextVis === "restricted" ? "Restricted (Blurred)" : "Public (Show All)"}`);
+                          if (typeof window !== "undefined") window.location.reload();
+                        } catch (e) {
+                          toast.error("Failed to toggle visibility");
+                        } finally {
+                          setIsTogglingVisibility(false);
+                        }
+                      }}
+                      disabled={isTogglingVisibility}
+                      className={`px-4 py-2.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer disabled:opacity-50 ${
+                        pairing.visibilityMode === "restricted"
+                          ? "bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300"
+                          : "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                      }`}
+                      title="Toggle whether participants see all groups or only their own"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="15" y1="9" x2="9" y2="15"></line>
-                        <line x1="9" y1="9" x2="15" y2="15"></line>
-                      </svg>
-                      Close Event
+                      {pairing.visibilityMode === "restricted" ? (
+                        <>
+                          <FaLock className="w-3 h-3 text-amber-700" />
+                          <span>Visibility: Restricted</span>
+                        </>
+                      ) : (
+                        <>
+                          <FaGlobe className="w-3 h-3 text-blue-600" />
+                          <span>Visibility: Public</span>
+                        </>
+                      )}
                     </button>
-                  ) : (
-                    <span className="bg-gray-200 text-gray-500 px-5 py-2.5 rounded-full text-xs font-bold flex items-center gap-1.5 border border-gray-300 select-none">
-                      Event Closed
-                    </span>
-                  )}
+
+                    {pairing.status !== "locked" ? (
+                      <button
+                        onClick={() => handleCloseEventClick(pairing.id)}
+                        disabled={isClosing}
+                        className="bg-[#DC2626] hover:bg-[#B91C1C] text-white px-5 py-2.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm hover:shadow transition-all active:scale-95 cursor-pointer disabled:bg-red-400 disabled:cursor-not-allowed"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <line x1="15" y1="9" x2="9" y2="15"></line>
+                          <line x1="9" y1="9" x2="15" y2="15"></line>
+                        </svg>
+                        Close Event
+                      </button>
+                    ) : (
+                      <span className="bg-gray-200 text-gray-500 px-5 py-2.5 rounded-full text-xs font-bold flex items-center gap-1.5 border border-gray-300 select-none">
+                        Event Closed
+                      </span>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-between">
@@ -474,6 +514,7 @@ const Result = ({ data, isPublicView = false }: ResultProps) => {
                             Export CSV
                           </button>
                         )}
+
 
                         {/* Share trigger */}
                         <button

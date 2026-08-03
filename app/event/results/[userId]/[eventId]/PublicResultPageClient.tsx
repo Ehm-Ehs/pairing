@@ -25,8 +25,16 @@ export default function PublicResultPageClient() {
         const pairingDoc = await getDoc(doc(db, "Pairings", validEventId));
         if (pairingDoc.exists()) {
           const foundEvent = pairingDoc.data() as Pairing;
-          const userDoc = await getDoc(doc(db, "Users", validUserId));
-          const userData = userDoc.exists() ? userDoc.data() : {};
+          let userData: any = {};
+          try {
+            const userDocSnap = await getDoc(doc(db, "Users", validUserId));
+            if (userDocSnap.exists()) {
+              userData = userDocSnap.data();
+            }
+          } catch (userErr) {
+            console.warn("Could not fetch user details, using fallback:", userErr);
+          }
+
           setData({
             userId: validUserId,
             firstName: userData.firstName || "",
@@ -36,25 +44,29 @@ export default function PublicResultPageClient() {
           });
         } else {
           // 2. Legacy fallback
-          const userDoc = await getDoc(doc(db, "Users", validUserId));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            const foundEvent = userData.pairings?.find(
-              (p: Pairing) => p.id === validEventId
-            );
-            if (foundEvent) {
-              setData({
-                userId: validUserId,
-                firstName: userData.firstName || "",
-                lastName: userData.lastName || "",
-                email: userData.email || "",
-                pairings: [foundEvent],
-              });
+          try {
+            const userDoc = await getDoc(doc(db, "Users", validUserId));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              const foundEvent = userData.pairings?.find(
+                (p: Pairing) => p.id === validEventId
+              );
+              if (foundEvent) {
+                setData({
+                  userId: validUserId,
+                  firstName: userData.firstName || "",
+                  lastName: userData.lastName || "",
+                  email: userData.email || "",
+                  pairings: [foundEvent],
+                });
+              } else {
+                toast.error("Event not found");
+              }
             } else {
-              toast.error("Event not found");
+              toast.error("Organizer not found");
             }
-          } else {
-            toast.error("Organizer not found");
+          } catch (legacyErr) {
+            console.error("Legacy fetch error:", legacyErr);
           }
         }
       } catch (error) {

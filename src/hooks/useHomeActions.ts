@@ -22,33 +22,31 @@ export const useHomeActions = () => {
       const pairing = await generateSecretSantaPairs(user.uid, eventId);
       toast.success("Pairs generated successfully!");
 
-      // Send emails to all participants
+      // Send notifications to all participants via selected notification channel
       if (pairing && pairing.pairs) {
-        import("../services/email").then(({ sendEmail }) => {
-          import("../services/emailTemplates").then(({ getPairingEmail }) => {
-            pairing.pairs.forEach((pair: any) => {
-              const santa = pairing.participants.find(
-                (p: any) => p.id === pair.santaId
-              );
-              const receiver = pairing.participants.find(
-                (p: any) => p.id === pair.receiverId
-              );
+        Promise.all([
+          import("../services/notificationDispatcher"),
+          import("../services/emailTemplates"),
+        ]).then(([{ dispatchNotification }, { getPairingEmail }]) => {
+          const title = pairing.title || "Secret Santa Event";
+          const channel = pairing.notificationChannel || "both";
 
-              if (santa && santa.email && receiver) {
-                const emailContent = getPairingEmail(
-                  pairing.title || "Secret Santa Event",
-                  santa.name,
-                  receiver.name,
-                  true // isSecretSanta
-                );
+          pairing.pairs.forEach((pair: any) => {
+            const santa = pairing.participants.find((p: any) => p.id === pair.santaId);
+            const receiver = pairing.participants.find((p: any) => p.id === pair.receiverId);
+            if (santa && receiver) {
+              const textMsg = `🎅 *Secret Santa Assignment: ${title}*\n\nHi ${santa.name}! Your Secret Santa pair has been drawn.\n\n🎁 *You are buying a gift for: ${receiver.name}*\n\nKeep it a secret and have fun!`;
+              const emailTemplate = getPairingEmail(title, santa.name, receiver.name, true);
 
-                sendEmail({
-                  to: santa.email,
-                  subject: emailContent.subject,
-                  html: emailContent.html,
-                });
-              }
-            });
+              dispatchNotification({
+                recipient: { name: santa.name, email: santa.email, phone: santa.phone || santa.email },
+                eventTitle: title,
+                subject: emailTemplate.subject,
+                textMessage: textMsg,
+                htmlMessage: emailTemplate.html,
+                channel: channel,
+              });
+            }
           });
         });
       }

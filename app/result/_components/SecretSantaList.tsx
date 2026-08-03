@@ -67,23 +67,53 @@ const SecretSantaList = ({ pairing, userId, isPublicView = false }: Props) => {
 
             {participantsList.length === 0 ? <EmptyState message="No participants yet." /> : filteredParticipants.length === 0 ? <div className="py-12 text-center text-xs text-gray-400">No matches</div> : (
               <ParticipantTable headers={headers} enableBulkSelection={true} isAllPageSelected={isAllPageSelected(paginatedItems)} onSelectAllToggle={() => handleSelectAllToggle(paginatedItems)}>
-                {paginatedItems.map((p, idx) => (
-                  <tr key={p.id} className={selectedIds.has(p.id) ? 'bg-blue-50/10' : 'hover:bg-gray-50/50'}>
-                    <td className="px-6 py-4 text-center"><input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => handleSelectRow(p.id)} className="cursor-pointer" /></td>
-                    <td className="px-6 py-4 flex gap-3 items-center">
-                      <img src={getGravatarUrl(p.email, p.name)} className="w-7 h-7 rounded-full" alt="avatar" />
-                      <div><p className="font-bold text-gray-900">{p.name}</p>{p.email && <p className="text-[10px] text-gray-400">{p.email}</p>}</div>
-                    </td>
-                    {pairing.config?.allowWishlist !== false && <td className="px-6 py-4">{p.wishlist || "None"}</td>}
-                    <td className="px-6 py-4"><span className="text-[10px] font-bold px-2.5 py-1 rounded-full border bg-gray-50">{p.pairIndex !== undefined ? `Pair ${(p.pairIndex)+1}` : "Not Assigned"}</span></td>
-                    <td className="px-6 py-4 text-gray-400 font-semibold">{getParticipantJoinedTime(p.id, pairing.createdAt, idx)}</td>
-                    {pairing.status !== "locked" && (
-                      <td className="px-6 py-4 text-center">
-                        <button onClick={() => handleClearSlot(p.id, p.name)} disabled={!!isDeleting} className="text-[#DC2626] bg-red-50 border px-3.5 py-1.5 rounded-full text-xs font-bold">Remove</button>
+                {paginatedItems.map((p, idx) => {
+                  const assignedPair = pairing.pairs?.find((pair: any) => pair.santaId === p.id);
+                  const receiver = assignedPair ? pairing.participants?.find((rec: any) => rec.id === assignedPair.receiverId) : null;
+                  const receiverName = receiver?.name || (p.assignedToId ? pairing.participants?.find((rec: any) => rec.id === p.assignedToId)?.name : null);
+
+                  const partnerLetter = p.positionLetter === "A" ? "B" : "A";
+                  const partner = p.pairIndex !== undefined
+                    ? pairing.participants?.find((pt: any) => pt.pairIndex === p.pairIndex && pt.positionLetter === partnerLetter && pt.id !== p.id)
+                    : null;
+                  const pairNum = p.pairIndex !== undefined ? p.pairIndex + 1 : null;
+
+                  return (
+                    <tr key={p.id} className={selectedIds.has(p.id) ? 'bg-blue-50/10' : 'hover:bg-gray-50/50'}>
+                      <td className="px-6 py-4 text-center"><input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => handleSelectRow(p.id)} className="cursor-pointer" /></td>
+                      <td className="px-6 py-4 flex gap-3 items-center">
+                        <img src={getGravatarUrl(p.email, p.name)} className="w-7 h-7 rounded-full" alt="avatar" />
+                        <div><p className="font-bold text-gray-900">{p.name}</p>{p.email && <p className="text-[10px] text-gray-400">{p.email}</p>}</div>
                       </td>
-                    )}
-                  </tr>
-                ))}
+                      {pairing.config?.allowWishlist !== false && <td className="px-6 py-4">{p.wishlist || "None"}</td>}
+                      <td className="px-6 py-4">
+                        {receiverName ? (
+                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full border bg-emerald-50 text-[#047857] border-emerald-200 inline-flex items-center gap-1">
+                            🎁 Buying for: {receiverName}
+                          </span>
+                        ) : partner ? (
+                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full border bg-blue-50 text-blue-700 border-blue-200 inline-flex items-center gap-1">
+                            👥 Paired with: {partner.name} (Pair {pairNum})
+                          </span>
+                        ) : pairNum ? (
+                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full border bg-amber-50 text-amber-700 border-amber-200 inline-flex items-center gap-1">
+                            Pair {pairNum} - Person {p.positionLetter || "A"} (Awaiting partner)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full border bg-gray-50 text-gray-400 border-gray-200">
+                            Not Assigned
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-gray-400 font-semibold">{getParticipantJoinedTime(p.id, pairing.createdAt, idx)}</td>
+                      {pairing.status !== "locked" && (
+                        <td className="px-6 py-4 text-center">
+                          <button onClick={() => handleClearSlot(p.id, p.name)} disabled={!!isDeleting} className="text-[#DC2626] bg-red-50 border px-3.5 py-1.5 rounded-full text-xs font-bold">Remove</button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
               </ParticipantTable>
             )}
             <PaginationBar totalCount={totalCount} startEntryIndex={startEntryIndex} endEntryIndex={endEntryIndex} currentPage={currentPage} totalPages={totalPages} pageSize={pageSize} onPageChange={setCurrentPage} onPageSizeChange={setPageSize} />

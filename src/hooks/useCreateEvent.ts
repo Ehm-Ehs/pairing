@@ -284,6 +284,7 @@ export const useCreateEvent = () => {
       description: values.description,
       deadline: values.deadline,
       hideNames: values.hideNames,
+      assignmentMode: values.assignmentMode || "participants-pick",
       status: "open",
       participants: [],
       imageUrl: values.imageUrl || "",

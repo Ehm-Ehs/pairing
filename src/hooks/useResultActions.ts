@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { GroupingsPageProps } from "../types";
+import { shareToWhatsApp } from "../utils/whatsappUtils";
 
 // Function to encrypt userId (Base64 encoding example)
 const encryptData = (data: string): string => {
@@ -60,7 +61,7 @@ export const useResultActions = (
       shareableUrl = `${window.location.origin}/event/rp/${userId}/${pairing.id}`;
     } else {
       // Use dynamic link for role-based events to ensure up-to-date results
-      shareableUrl = `${window.location.origin}/share?userId=${userId}&eventId=${pairing.id}`;
+      shareableUrl = `${window.location.origin}/event/results/${userId}/${pairing.id}`;
     }
 
     if (isShortened) {
@@ -85,28 +86,7 @@ export const useResultActions = (
     const actualIndex = selectedIndex !== null ? selectedIndex : pairingIndex;
     const pairing = data.pairings[actualIndex];
 
-    let formUrl = "";
-
-    if (pairing.type === "secret-santa") {
-      formUrl = `${window.location.origin}/event/${userId}/${pairing.id}`;
-    } else if (pairing.type === "random-positioning") {
-      formUrl = `${window.location.origin}/event/rp/${userId}/${pairing.id}`;
-    } else {
-      const serializedPairings = encodeURIComponent(
-        JSON.stringify(pairing.groups)
-      );
-      const encryptedUserId = encryptData(userId);
-
-      formUrl = `${
-        window.location.origin
-      }/form?groupingPurpose=${encodeURIComponent(
-        pairing.groupingPurpose
-      )}&numGroups=${pairing.numGroups}&numParticipants=${
-        pairing.numParticipants
-      }&characteristicsLabel=${encodeURIComponent(
-        pairing.characteristicsLabel || ""
-      )}&pairings=${serializedPairings}&userId=${encryptedUserId}`;
-    }
+    let formUrl = `${window.location.origin}/event/${userId}/${pairing.id}`;
 
     if (isShortened) {
       setIsLoadingForm(actualIndex);
@@ -124,6 +104,28 @@ export const useResultActions = (
     }
   };
 
+  const handleWhatsAppShare = async (pairingIndex: number, isFormLink = true) => {
+    if (!data) return;
+
+    const actualIndex = selectedIndex !== null ? selectedIndex : pairingIndex;
+    const pairing = data.pairings[actualIndex];
+    if (!pairing) return;
+
+    let targetUrl = isFormLink
+      ? `${window.location.origin}/event/${userId}/${pairing.id}`
+      : `${window.location.origin}/event/results/${userId}/${pairing.id}`;
+
+    if (isShortened) {
+      targetUrl = await shortenUrl(targetUrl);
+    }
+
+    shareToWhatsApp({
+      pairing,
+      shareUrl: targetUrl,
+      isFormLink,
+    });
+  };
+
   return {
     copiedLink,
     copiedFormUrl,
@@ -133,5 +135,6 @@ export const useResultActions = (
     isLoadingForm,
     handleShare,
     handleFormRedirect,
+    handleWhatsAppShare,
   };
 };
