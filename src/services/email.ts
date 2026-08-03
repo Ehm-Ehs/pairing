@@ -1,54 +1,33 @@
-import { getWelcomeEmail } from "./emailTemplates";
+import { sendWhatsAppNotification } from "./whatsappService";
 
-interface EmailData {
+interface NotificationData {
   to: string | string[];
   subject: string;
   html?: string;
   from?: string;
-  templateParams?: Record<string, unknown>;
+  message?: string;
 }
 
-export const sendEmail = async (data: EmailData) => {
+/**
+ * Sends notification via WhatsApp API (replacing Resend email service).
+ */
+export const sendEmail = async (data: NotificationData) => {
   try {
-    const response = await fetch("/api/send-email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        to: data.to,
-        subject: data.subject,
-        html: data.html,
-        from: data.from,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      return { success: false, error: result.error || "Failed to send email" };
-    }
-
-    console.log("Email sent successfully:", result.data);
-    return { success: true, data: result.data };
+    const recipient = Array.isArray(data.to) ? data.to[0] : data.to;
+    const msg = data.message || `*${data.subject}*\n\nYour PairForm event notification details.`;
+    return await sendWhatsAppNotification({ phone: recipient, message: msg, eventTitle: data.subject });
   } catch (error: any) {
-    console.error("Error sending email:", error);
+    console.error("Error sending WhatsApp notification:", error);
     return { success: false, error: error.message || "Unknown error" };
   }
 };
 
 export const sendWelcomeEmail = async (email: string, name: string) => {
   try {
-    const emailContent = getWelcomeEmail(name);
-
-    return await sendEmail({
-      to: email,
-      subject: emailContent.subject,
-      html: emailContent.html,
-      from: emailContent.from,
-    });
+    const msg = `👋 *Welcome to PairForm, ${name}!*\n\nYour account has been created successfully. Create and share pairing events easily!`;
+    return await sendWhatsAppNotification({ phone: email, message: msg, eventTitle: "Welcome to PairForm" });
   } catch (error) {
-    console.error("Error sending welcome email:", error);
+    console.error("Error sending welcome notification:", error);
     return null;
   }
 };

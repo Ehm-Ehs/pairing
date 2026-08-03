@@ -28,19 +28,27 @@ export const useRandomPositioningActions = (
       toast.success("Positions successfully generated!");
 
       if (pairing && pairing.participants) {
-        import("../services/email").then(({ sendEmail }) => {
-          import("../services/emailTemplates").then(({ getPairingEmail }) => {
-            pairing.participants.forEach((p: any) => {
-              if (p.email && p.assignedNumber) {
-                const emailContent = getPairingEmail(
-                  pairing.title || "Random Positioning Event",
-                  p.name,
-                  `Position #${p.assignedNumber}`,
-                  false
-                );
-                sendEmail({ to: p.email, subject: emailContent.subject, html: emailContent.html });
-              }
-            });
+        Promise.all([
+          import("../services/notificationDispatcher"),
+          import("../services/emailTemplates"),
+        ]).then(([{ dispatchNotification }, { getPairingEmail }]) => {
+          const title = pairing.title || "Random Positioning Event";
+          const channel = pairing.notificationChannel || "both";
+
+          pairing.participants.forEach((p: any) => {
+            if (p.assignedNumber) {
+              const textMsg = `🎲 *Random Position Assigned: ${title}*\n\nHi ${p.name}!\n\nYour position is: *Position #${p.assignedNumber}*`;
+              const emailTemplate = getPairingEmail(title, p.name, `Position #${p.assignedNumber}`, false);
+
+              dispatchNotification({
+                recipient: { name: p.name, email: p.email, phone: p.phone || p.email },
+                eventTitle: title,
+                subject: emailTemplate.subject,
+                textMessage: textMsg,
+                htmlMessage: emailTemplate.html,
+                channel: channel,
+              });
+            }
           });
         });
       }

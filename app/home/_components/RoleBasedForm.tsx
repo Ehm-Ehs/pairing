@@ -13,6 +13,8 @@ interface FormComponentProps {
     characteristics: { name: string; count: string }[];
     isRandom?: boolean;
     imageUrl?: string;
+    visibilityMode?: "public" | "restricted";
+    notificationChannel?: "email" | "whatsapp" | "both";
   };
   validationSchema: Yup.Schema<any>;
   onSubmit: (values: any) => void;
@@ -207,6 +209,94 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                   />
                   <span>Role / Characteristic Based</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Public Results Visibility Setting */}
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-gray-600">
+                Public Link Group Visibility
+              </label>
+              <div className="bg-white rounded-xl p-4 flex gap-6 md:gap-12 flex-col sm:flex-row shadow-sm border border-gray-100/50">
+                <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
+                  <input
+                    type="radio"
+                    name="visibilityMode"
+                    value="public"
+                    checked={values.visibilityMode !== "restricted"}
+                    onChange={() => setFieldValue("visibilityMode", "public")}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="block font-bold text-gray-900">🌐 Public (Show All Groups)</span>
+                    <span className="text-xs text-gray-400 font-normal">Everyone on public links can view members of all groups</span>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
+                  <input
+                    type="radio"
+                    name="visibilityMode"
+                    value="restricted"
+                    checked={values.visibilityMode === "restricted"}
+                    onChange={() => setFieldValue("visibilityMode", "restricted")}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="block font-bold text-gray-900">🔒 Restricted (Blur Other Groups)</span>
+                    <span className="text-xs text-gray-400 font-normal">Participants see only their group (available slots remain visible)</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Notification Channel Setting */}
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-gray-600">
+                Participant Notification Channel
+              </label>
+              <div className="bg-white rounded-xl p-4 flex gap-6 md:gap-8 flex-col sm:flex-row shadow-sm border border-gray-100/50">
+                <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
+                  <input
+                    type="radio"
+                    name="notificationChannel"
+                    value="email"
+                    checked={values.notificationChannel === "email"}
+                    onChange={() => setFieldValue("notificationChannel", "email")}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="block font-bold text-gray-900">📧 Email (Resend API)</span>
+                    <span className="text-xs text-gray-400 font-normal">Send alerts via Resend email</span>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
+                  <input
+                    type="radio"
+                    name="notificationChannel"
+                    value="whatsapp"
+                    checked={values.notificationChannel === "whatsapp"}
+                    onChange={() => setFieldValue("notificationChannel", "whatsapp")}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="block font-bold text-gray-900">💬 WhatsApp API</span>
+                    <span className="text-xs text-gray-400 font-normal">Send alerts via WhatsApp message</span>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
+                  <input
+                    type="radio"
+                    name="notificationChannel"
+                    value="both"
+                    checked={values.notificationChannel === "both" || !values.notificationChannel}
+                    onChange={() => setFieldValue("notificationChannel", "both")}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="block font-bold text-gray-900">📬 Both (Email & WhatsApp)</span>
+                    <span className="text-xs text-gray-400 font-normal">Send notifications through both channels</span>
+                  </div>
                 </label>
               </div>
             </div>

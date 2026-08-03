@@ -20,9 +20,37 @@ interface RoleBasedListProps {
 
 const RoleBasedList = ({ pairing, isPublicView = false }: RoleBasedListProps) => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [lookupEmail, setLookupEmail] = useState("");
+  const [unblurredGroupKey, setUnblurredGroupKey] = useState<string | null>(null);
 
   const storageUid = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("user") || "{}")?.uid : "";
   const userId = auth.currentUser?.uid || storageUid || "";
+
+  const isRestricted = isPublicView && pairing.visibilityMode === "restricted";
+
+  const handleLookupSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lookupEmail.trim()) {
+      setUnblurredGroupKey(null);
+      return;
+    }
+    const cleanEmail = lookupEmail.trim().toLowerCase();
+    let foundGroupKey: string | null = null;
+
+    Object.entries(pairing.groups || {}).forEach(([gKey, group]) => {
+      if (group.some((m) => m.email?.toLowerCase() === cleanEmail)) {
+        foundGroupKey = gKey;
+      }
+    });
+
+    if (foundGroupKey) {
+      setUnblurredGroupKey(foundGroupKey);
+    } else {
+      import("react-toastify").then(({ toast }) => {
+        toast.error("Email not found in participant list.");
+      });
+    }
+  };
 
   const filledParticipants: (Participant & { groupKey: string; groupNum: number })[] = [];
   Object.entries(pairing.groups || {}).forEach(([groupKey, group]) => {
@@ -92,9 +120,46 @@ const RoleBasedList = ({ pairing, isPublicView = false }: RoleBasedListProps) =>
         </div>
       )}
 
+      {isRestricted && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-blue-500/10 border border-amber-200/80 rounded-3xl p-5 md:p-6 text-left shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+          <div>
+            <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider mb-2 inline-block">
+              Restricted Visibility Mode
+            </span>
+            <h4 className="text-base font-bold text-gray-900 font-heading">
+              Looking for your assigned group?
+            </h4>
+            <p className="text-xs text-gray-600 mt-1">
+              Enter your registered email below to unblur and reveal your group members! (Available slots remain open).
+            </p>
+          </div>
+          <form onSubmit={handleLookupSubmit} className="flex items-center gap-2 w-full md:w-auto">
+            <input
+              type="email"
+              placeholder="Your registered email"
+              value={lookupEmail}
+              onChange={(e) => setLookupEmail(e.target.value)}
+              className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none w-full md:w-64"
+            />
+            <button
+              type="submit"
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all flex-shrink-0 cursor-pointer"
+            >
+              Reveal My Group
+            </button>
+          </form>
+        </div>
+      )}
+
       <div className="flex flex-col gap-4 text-left">
         <h3 className="text-2xl font-bold text-gray-900 font-heading">Groups</h3>
-        <RoleGrid pairing={pairing} isDeleting={isDeleting} handleClearSlot={handleClearSlot} />
+        <RoleGrid
+          pairing={pairing}
+          isDeleting={isDeleting}
+          handleClearSlot={handleClearSlot}
+          isPublicView={isPublicView}
+          unblurredGroupKey={unblurredGroupKey}
+        />
       </div>
 
       {!isPublicView && (

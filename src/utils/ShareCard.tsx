@@ -69,7 +69,14 @@ const ShareCard = ({
             className="bg-white text-[#3A76F0] hover:bg-white/90 flex-1"
           >
             {isLoadingLink === originalIndex ? (
-              <span className="animate-pulse">Shortening...</span>
+              <span className="flex items-center gap-1.5">
+                <span>Copying</span>
+                <span className="inline-flex items-center gap-0.5">
+                  <span className="w-1.5 h-1.5 bg-[#3A76F0] rounded-full animate-bounce [animation-delay:-0.3s]" />
+                  <span className="w-1.5 h-1.5 bg-[#3A76F0] rounded-full animate-bounce [animation-delay:-0.15s]" />
+                  <span className="w-1.5 h-1.5 bg-[#3A76F0] rounded-full animate-bounce" />
+                </span>
+              </span>
             ) : copiedLink === originalIndex ? (
               <>
                 <FaCheck className="w-4 h-4 mr-2" />
@@ -90,7 +97,14 @@ const ShareCard = ({
             className="bg-white text-[#3A76F0] hover:bg-white/90 flex-1"
           >
             {isLoadingForm === originalIndex ? (
-              <span className="animate-pulse">Shortening...</span>
+              <span className="flex items-center gap-1.5">
+                <span>Copying</span>
+                <span className="inline-flex items-center gap-0.5">
+                  <span className="w-1.5 h-1.5 bg-[#3A76F0] rounded-full animate-bounce [animation-delay:-0.3s]" />
+                  <span className="w-1.5 h-1.5 bg-[#3A76F0] rounded-full animate-bounce [animation-delay:-0.15s]" />
+                  <span className="w-1.5 h-1.5 bg-[#3A76F0] rounded-full animate-bounce" />
+                </span>
+              </span>
             ) : copiedFormUrl ? (
               <>
                 <FaCheck className="w-4 h-4 mr-2" />

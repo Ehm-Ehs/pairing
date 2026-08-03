@@ -33,6 +33,8 @@ export interface BasePairing {
   groupingPurpose: string; // Kept for backward compatibility, same as title.
   status?: "open" | "locked";
   imageUrl?: string;
+  visibilityMode?: "public" | "restricted";
+  notificationChannel?: "email" | "whatsapp" | "both";
 }
 
 export interface RoleBasedPairing extends BasePairing {
@@ -57,6 +59,7 @@ export interface RandomPositioningPairing extends BasePairing {
   description?: string;
   deadline?: string;
   hideNames: boolean;
+  assignmentMode?: "participants-pick" | "fcfs" | "random";
   participants: RandomParticipant[];
   status: "open" | "locked";
   expectedParticipants?: number;

@@ -23,6 +23,7 @@ const EventCard = ({
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const stats = getEventStats(event);
 
@@ -39,10 +40,17 @@ const EventCard = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleCopyLink = (e: React.MouseEvent) => {
+  const handleCopyLink = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    copyJoinLink(event);
-    setIsCopied(true);
+    setIsCopying(true);
+    try {
+      await copyJoinLink(event);
+      setIsCopied(true);
+    } catch (err) {
+      console.error("Copy error:", err);
+    } finally {
+      setIsCopying(false);
+    }
     setTimeout(() => {
       setIsCopied(false);
       setShowMenu(false);
@@ -271,7 +279,8 @@ const EventCard = ({
             {event.type === "role-based" ? "Group Pairs" :
              event.type === "secret-santa"
                ? (event.config?.allowWishlist ? "Secret Santa" : "Just Pair")
-               : "Random Positioning"}
+               : ((event as any).assignmentMode === "fcfs" ? "First Come, First Served" :
+                  (event as any).assignmentMode === "random" ? "Random Assignment" : "Participants Pick")}
           </span>
         </div>
 
@@ -315,9 +324,19 @@ const EventCard = ({
             <div className="absolute right-0 bottom-full mb-2 w-36 bg-white border border-gray-100 rounded-xl shadow-lg py-1.5 z-40 animate-in fade-in slide-in-from-bottom-2 duration-150 text-left">
               <button
                 onClick={handleCopyLink}
-                className="w-full text-left px-3.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2 font-bold"
+                disabled={isCopying}
+                className="w-full text-left px-3.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2 font-bold disabled:opacity-75"
               >
-                {isCopied ? (
+                {isCopying ? (
+                  <span className="flex items-center gap-1 text-blue-600">
+                    <span>Copying</span>
+                    <span className="inline-flex items-center gap-0.5 ml-0.5">
+                      <span className="w-1 h-1 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                      <span className="w-1 h-1 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                      <span className="w-1 h-1 bg-blue-600 rounded-full animate-bounce" />
+                    </span>
+                  </span>
+                ) : isCopied ? (
                   <>
                     <FaCheck className="w-3 h-3 text-emerald-500" />
                     <span className="text-emerald-600">Copied!</span>
@@ -325,7 +344,7 @@ const EventCard = ({
                 ) : (
                   <>
                     <FaCopy className="w-3 h-3 text-gray-400" />
-                    Copy pairs
+                    Copy link
                   </>
                 )}
               </button>

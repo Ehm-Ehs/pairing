@@ -639,3 +639,30 @@ export async function duplicatePairingEvent(userId: string, eventId: string) {
     throw error;
   }
 }
+
+export async function updatePairingVisibility(
+  userId: string,
+  eventId: string,
+  visibilityMode: "public" | "restricted"
+) {
+  try {
+    const { pairingRef, pairing, isCollectionDoc, legacyUserDocSnap, legacyPairingIndex } =
+      await getPairingRefAndData(userId, eventId);
+
+    const updatedPairing = { ...pairing, visibilityMode };
+
+    if (isCollectionDoc) {
+      await setDoc(pairingRef, { visibilityMode }, { merge: true });
+    }
+
+    if (legacyUserDocSnap && legacyPairingIndex !== undefined && legacyPairingIndex >= 0) {
+      const userData = legacyUserDocSnap.data();
+      const pairings = userData?.pairings || [];
+      pairings[legacyPairingIndex] = updatedPairing;
+      await setDoc(doc(db, "Users", userId), { pairings: JSON.parse(JSON.stringify(pairings)) }, { merge: true });
+    }
+  } catch (error) {
+    console.error("Error updating pairing visibility:", error);
+    throw error;
+  }
+}

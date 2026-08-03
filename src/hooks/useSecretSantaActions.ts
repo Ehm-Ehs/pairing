@@ -84,14 +84,26 @@ export function useSecretSantaActions(pairing: SecretSantaPairing, userId: strin
       toast.success("Pairs generated successfully!");
 
       if (updatedPairing && updatedPairing.pairs) {
-        const { sendEmail } = await import("../services/email");
+        const { dispatchNotification } = await import("../services/notificationDispatcher");
         const { getPairingEmail } = await import("../services/emailTemplates");
+        const title = updatedPairing.title || "Secret Santa";
+        const channel = updatedPairing.notificationChannel || "both";
+
         updatedPairing.pairs.forEach((pair: any) => {
           const santa = updatedPairing.participants.find((p: any) => p.id === pair.santaId);
           const receiver = updatedPairing.participants.find((p: any) => p.id === pair.receiverId);
-          if (santa && santa.email && receiver) {
-            const emailContent = getPairingEmail(updatedPairing.title || "Secret Santa", santa.name, receiver.name, true);
-            sendEmail({ to: santa.email, subject: emailContent.subject, html: emailContent.html });
+          if (santa && receiver) {
+            const textMsg = `🎅 *Secret Santa Assignment: ${title}*\n\nHi ${santa.name}! Your Secret Santa pair has been drawn.\n\n🎁 *You are buying a gift for: ${receiver.name}*\n\nKeep it a secret and have fun!`;
+            const emailTemplate = getPairingEmail(title, santa.name, receiver.name, true);
+
+            dispatchNotification({
+              recipient: { name: santa.name, email: santa.email, phone: santa.phone || santa.email },
+              eventTitle: title,
+              subject: emailTemplate.subject,
+              textMessage: textMsg,
+              htmlMessage: emailTemplate.html,
+              channel: channel,
+            });
           }
         });
       }
