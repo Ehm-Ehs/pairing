@@ -16,14 +16,17 @@ export function PWAInstallPrompt() {
   const [appName, setAppName] = useState<string>("PairForm");
 
   useEffect(() => {
-    // Check hostname / environment for staging vs production branding
+    // Check hostname / environment for develop vs production branding
     if (typeof window !== "undefined") {
       const hostname = window.location.hostname.toLowerCase();
-      const isStaging =
+      const isDevelop =
+        hostname.includes("develop") ||
+        hostname.includes("dev") ||
         hostname.includes("staging") ||
         hostname.includes("stag") ||
+        process.env.NEXT_PUBLIC_APP_ENV === "develop" ||
         process.env.NEXT_PUBLIC_APP_ENV === "staging";
-      setAppName(isStaging ? "Pairform-stag" : "PairForm");
+      setAppName(isDevelop ? "Pairform-dev" : "PairForm");
     }
 
     // Check if user previously dismissed prompt in the last 7 days

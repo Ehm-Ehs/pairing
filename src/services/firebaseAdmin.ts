@@ -7,7 +7,7 @@ function getAdminApp() {
       ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
       : undefined;
 
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_STAGING_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_DEVELOP_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_STAGING_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
     if (serviceAccount) {
       return initializeApp({

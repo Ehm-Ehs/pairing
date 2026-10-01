@@ -10,21 +10,24 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     // Fallback if headers are unavailable
   }
 
-  const isStaging =
+  const isDevelop =
+    process.env.NEXT_PUBLIC_APP_ENV === 'develop' ||
     process.env.NEXT_PUBLIC_APP_ENV === 'staging' ||
     process.env.VERCEL_ENV === 'preview' ||
+    host.toLowerCase().includes('develop') ||
+    host.toLowerCase().includes('dev') ||
     host.toLowerCase().includes('staging') ||
     host.toLowerCase().includes('stag');
 
-  const name = isStaging ? 'Pairform-stag' : 'PairForm - Simple, Fair Grouping';
-  const short_name = isStaging ? 'Pairform-stag' : 'PairForm';
-  const theme_color = isStaging ? '#f59e0b' : '#3b82f6';
+  const name = isDevelop ? 'Pairform-dev' : 'PairForm - Simple, Fair Grouping';
+  const short_name = isDevelop ? 'Pairform-dev' : 'PairForm';
+  const theme_color = isDevelop ? '#f59e0b' : '#3b82f6';
 
   return {
     name,
     short_name,
-    description: isStaging
-      ? 'PairForm Staging testing environment for automated team pairing.'
+    description: isDevelop
+      ? 'PairForm Develop testing environment for automated team pairing.'
       : 'Smart automated group generator, team balancing, and Secret Santa matching without chaos.',
     start_url: '/',
     display: 'standalone',
