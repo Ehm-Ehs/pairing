@@ -1,10 +1,7 @@
-import { useState } from "react";
-import { Badge } from "../../../src/components/ui/Badge";
-import { RoleBasedPairing, Participant } from "../../../src/types";
-import { capitalizeWords } from "../../../src/utils/stringUtils";
-import { getGravatarUrl } from "../../../src/utils/avatar";
-import { FaSearch, FaFileDownload, FaTrashAlt } from "react-icons/fa";
-import { auth } from "../../../src/services/firebase";
+"use client";
+import React, { useState } from "react";
+import { FaSearch, FaTrashAlt, FaUsers } from "react-icons/fa";
+import { RoleBasedPairing } from "../../../src/types";
 import { usePagination } from "../../../src/hooks/usePagination";
 import { useBulkSelection } from "../../../src/hooks/useBulkSelection";
 import { useRoleBasedActions } from "../../../src/hooks/useRoleBasedActions";
@@ -12,54 +9,56 @@ import { PaginationBar } from "../../../src/components/ui/PaginationBar";
 import { EmptyState } from "../../../src/components/ui/EmptyState";
 import { ParticipantTable } from "../../../src/components/ui/ParticipantTable";
 import RoleGrid, { getRoleBadgeStyle } from "./RoleGrid";
+import { capitalizeWords, formatGroupName } from "../../../src/utils/stringUtils";
+import { toast } from "react-toastify";
 
 interface RoleBasedListProps {
   pairing: RoleBasedPairing;
   isPublicView?: boolean;
 }
 
-const RoleBasedList = ({ pairing, isPublicView = false }: RoleBasedListProps) => {
+const RoleBasedList: React.FC<RoleBasedListProps> = ({ pairing, isPublicView = false }) => {
+  const [activeTab, setActiveTab] = useState<"grid" | "list">("grid");
   const [searchTerm, setSearchTerm] = useState("");
-  const [lookupEmail, setLookupEmail] = useState("");
-  const [unblurredGroupKey, setUnblurredGroupKey] = useState<string | null>(null);
 
-  const storageUid = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("user") || "{}")?.uid : "";
-  const userId = auth.currentUser?.uid || storageUid || "";
-
-  const isRestricted = isPublicView && pairing.visibilityMode === "restricted";
-
-  const handleLookupSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!lookupEmail.trim()) {
-      setUnblurredGroupKey(null);
-      return;
+  let userId = "";
+  try {
+    const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null;
+    if (userStr && userStr !== "null") {
+      const parsed = JSON.parse(userStr);
+      userId = parsed.uid || "";
     }
-    const cleanEmail = lookupEmail.trim().toLowerCase();
-    let foundGroupKey: string | null = null;
+  } catch {
+    // ignored
+  }
 
-    Object.entries(pairing.groups || {}).forEach(([gKey, group]) => {
-      if (group.some((m) => m.email?.toLowerCase() === cleanEmail)) {
-        foundGroupKey = gKey;
-      }
-    });
+  let unblurredGroupKey: string | null = null;
+  if (typeof window !== "undefined") {
+    const searchParams = new URLSearchParams(window.location.search);
+    unblurredGroupKey = searchParams.get("group");
+  }
 
-    if (foundGroupKey) {
-      setUnblurredGroupKey(foundGroupKey);
-    } else {
-      import("react-toastify").then(({ toast }) => {
-        toast.error("Email not found in participant list.");
-      });
-    }
-  };
+  const filledParticipants: {
+    id: string;
+    number: number;
+    role: string;
+    name: string;
+    email: string;
+    groupKey: string;
+    groupNum: string | number;
+  }[] = [];
 
-  const filledParticipants: (Participant & { groupKey: string; groupNum: number })[] = [];
   Object.entries(pairing.groups || {}).forEach(([groupKey, group]) => {
-    const digits = groupKey.replace(/\D+/g, "");
-    const parsedNum = digits ? parseInt(digits, 10) : 1;
-    const groupNum = groupKey.toLowerCase().startsWith("group_0") || groupKey === "0" ? parsedNum + 1 : parsedNum;
+    const groupNum = formatGroupName(groupKey);
     group.forEach((member) => {
       if (member.name && member.name.trim() !== "") {
-        filledParticipants.push({ ...member, groupKey, groupNum });
+        filledParticipants.push({
+          ...member,
+          name: member.name,
+          email: member.email || "",
+          groupKey,
+          groupNum,
+        });
       }
     });
   });
@@ -92,67 +91,138 @@ const RoleBasedList = ({ pairing, isPublicView = false }: RoleBasedListProps) =>
   };
 
   const handleExportParticipantsCSV = () => {
-    if (filledParticipants.length === 0) return;
-    let csvContent = "data:text/csv;charset=utf-8,Name,Email,Role,Assigned Group\n";
-    filledParticipants.forEach((p) => {
-      csvContent += `"${p.name}","${p.email}","${p.role}","Group ${p.groupNum}"\n`;
-    });
-    const link = document.createElement("a");
-    link.href = encodeURI(csvContent);
-    link.download = `${pairing.groupingPurpose.replace(/\s+/g, "_")}_participants.csv`;
-    link.click();
+    if (filledParticipants.length === 0) {
+      toast.info("No participants to export.");
+      return;
+    }
+    try {
+      let csvContent = "data:text/csv;charset=utf-8,";
+      csvContent += "Name,Email,Role,Assigned Group\n";
+
+      filledParticipants.forEach((p) => {
+        csvContent += `"${p.name}","${p.email}","${p.role}","Group ${p.groupNum}"\n`;
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `${pairing.groupingPurpose.replace(/\s+/g, "_")}_participants.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Participants list exported!");
+    } catch {
+      toast.error("Failed to export participants.");
+    }
+  };
+
+  const handleBulkImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+
+    try {
+      const { parseParticipantsCsv } = await import("../../../src/utils/csvImport");
+      const { editPairingValue } = await import("../../../src/services/endpoints");
+      const parsed = await parseParticipantsCsv(file);
+      if (parsed.length === 0) {
+        toast.error("No valid participants found in CSV file.");
+        return;
+      }
+
+      let count = 0;
+      const groupsObj = pairing.groups as Record<string, any[]>;
+      const groupKeys = Object.keys(groupsObj);
+      for (const p of parsed) {
+        if (!p.name && !p.email) continue;
+        let filled = false;
+
+        for (const groupKey of groupKeys) {
+          const group = groupsObj[groupKey];
+          const emptySlotIndex = group.findIndex((slot: any) => !slot.name || slot.name.trim() === "");
+          if (emptySlotIndex !== -1) {
+            const slot = group[emptySlotIndex];
+            await editPairingValue(
+              userId,
+              pairing.groupingPurpose,
+              groupKey,
+              emptySlotIndex,
+              slot.id,
+              {
+                name: p.name || (p.email ? p.email.split("@")[0] : "Participant"),
+                email: p.email || "",
+                track: p.role || slot.role || "",
+              }
+            );
+            count++;
+            filled = true;
+            break;
+          }
+        }
+        if (!filled) break;
+      }
+
+      if (count > 0) {
+        toast.success(`Successfully imported ${count} participants from CSV!`);
+      } else {
+        toast.info("All group slots are already filled or no empty slots available.");
+      }
+    } catch (err: any) {
+      console.error("CSV import error:", err);
+      toast.error("Failed to import CSV: " + err.message);
+    } finally {
+      e.target.value = "";
+    }
   };
 
   return (
-    <div className="flex flex-col gap-8">
-      {pairing.characteristics && pairing.characteristics.length > 0 && (
-        <div className="bg-white rounded-3xl p-6 border border-gray-150/40 shadow-sm text-left">
-          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
-            Characteristics Distribution {pairing.characteristicsLabel && `- ${pairing.characteristicsLabel.toUpperCase()}`}
+    <div className="flex flex-col gap-6">
+      {/* Sub-Header & Tab switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-150 pb-4">
+        <div>
+          <h3 className="text-xl md:text-2xl font-bold text-gray-900 font-heading">
+            {activeTab === "grid" ? "Group Breakdown" : "Registered Participants"}
           </h3>
-          <div className="flex flex-wrap gap-2">
-            {pairing.characteristics.map((char, i) => (
-              <Badge key={i} variant="secondary" className="bg-blue-50 text-blue-600 border border-blue-100 rounded-full px-3 py-1 text-xs font-semibold capitalize">
-                {capitalizeWords(char.name)}: {char.count}
-              </Badge>
-            ))}
-          </div>
+          <p className="text-xs text-gray-400 font-medium">
+            {activeTab === "grid"
+              ? "View roles and member allocations per group"
+              : "Search, filter, and manage all joined participants"}
+          </p>
         </div>
-      )}
 
-      {isRestricted && (
-        <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-blue-500/10 border border-amber-200/80 rounded-3xl p-5 md:p-6 text-left shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-          <div>
-            <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider mb-2 inline-block">
-              Restricted Visibility Mode
-            </span>
-            <h4 className="text-base font-bold text-gray-900 font-heading">
-              Looking for your assigned group?
-            </h4>
-            <p className="text-xs text-gray-600 mt-1">
-              Enter your registered email below to unblur and reveal your group members! (Available slots remain open).
-            </p>
-          </div>
-          <form onSubmit={handleLookupSubmit} className="flex items-center gap-2 w-full md:w-auto">
-            <input
-              type="email"
-              placeholder="Your registered email"
-              value={lookupEmail}
-              onChange={(e) => setLookupEmail(e.target.value)}
-              className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none w-full md:w-64"
-            />
-            <button
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all flex-shrink-0 cursor-pointer"
-            >
-              Reveal My Group
-            </button>
-          </form>
+        <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-2xl self-start sm:self-auto border border-gray-200/60 shadow-inner">
+          <button
+            type="button"
+            onClick={() => setActiveTab("grid")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              activeTab === "grid"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-800"
+            }`}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="14" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+            </svg>
+            Group View
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("list")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              activeTab === "list"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-800"
+            }`}
+          >
+            <FaUsers className="w-3.5 h-3.5" />
+            List View ({filledParticipants.length})
+          </button>
         </div>
-      )}
+      </div>
 
-      <div className="flex flex-col gap-4 text-left">
-        <h3 className="text-2xl font-bold text-gray-900 font-heading">Groups</h3>
+      {activeTab === "grid" ? (
         <RoleGrid
           pairing={pairing}
           isDeleting={isDeleting}
@@ -160,80 +230,136 @@ const RoleBasedList = ({ pairing, isPublicView = false }: RoleBasedListProps) =>
           isPublicView={isPublicView}
           unblurredGroupKey={unblurredGroupKey}
         />
-      </div>
-
-      {!isPublicView && (
-        <div className="flex flex-col gap-4 text-left border-t border-gray-100 pt-8">
-          <h3 className="text-2xl font-bold text-gray-900 font-heading">All Participants</h3>
-          <div className="bg-white rounded-[2rem] border border-gray-150/40 shadow-sm overflow-hidden flex flex-col">
-            <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-              <div>
-                <h4 className="text-base font-bold text-gray-900">Participants List</h4>
-                <p className="text-xs text-gray-400">View and manage all participants</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {selectedIds.size > 0 && pairing.status !== "locked" && (
-                  <button onClick={handleBulkClearSlots} disabled={isDeleting !== null} className="flex items-center px-4 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors text-xs font-bold gap-2">
-                    <FaTrashAlt /> Remove Selected ({selectedIds.size})
-                  </button>
-                )}
-                <div className="relative flex items-center bg-white border border-gray-200 rounded-xl px-3.5 py-2 w-full sm:w-64 shadow-sm">
-                  <FaSearch className="w-3.5 h-3.5 text-gray-400 mr-2 flex-shrink-0" />
-                  <input type="text" placeholder="Search participant" value={searchTerm} onChange={(e) => handleSearchChange(e.target.value)} className="bg-transparent border-0 outline-none text-xs w-full placeholder-gray-400 text-gray-700 font-medium" />
-                </div>
-                <button onClick={handleExportParticipantsCSV} disabled={filledParticipants.length === 0} className="flex items-center justify-center p-2.5 bg-gray-50 text-gray-600 hover:text-blue-600 border border-gray-200 hover:border-blue-200 rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
-                  <FaFileDownload className="w-4 h-4" />
-                </button>
-              </div>
+      ) : (
+        <div className="bg-white rounded-[2rem] border border-gray-150/40 shadow-sm overflow-hidden flex flex-col">
+          {/* List Search & Controls Header */}
+          <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+            <div className="relative flex items-center bg-white border border-gray-200 rounded-xl px-3.5 py-2 w-full sm:w-72 shadow-sm">
+              <FaSearch className="w-3.5 h-3.5 text-gray-400 mr-2 flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="Search name, email, or role..."
+                value={searchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="bg-transparent border-0 outline-none text-xs w-full placeholder-gray-400 text-gray-700 font-medium"
+              />
             </div>
 
-            {filledParticipants.length === 0 ? (
-              <EmptyState message="No participants yet. Share the link to invite people!" />
-            ) : filteredParticipants.length === 0 ? (
-              <div className="py-12 text-center text-xs text-gray-400 font-semibold">No participants match "{searchTerm}"</div>
-            ) : (
-              <ParticipantTable
-                headers={["Name", "Email", "Role", "Group"]}
-                enableBulkSelection={true}
-                isAllPageSelected={isAllPageSelected(paginatedParticipants)}
-                onSelectAllToggle={() => handleSelectAllToggle(paginatedParticipants)}
-              >
-                {paginatedParticipants.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4 text-center">
-                      <input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => handleSelectRow(p.id)} className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500 cursor-pointer" />
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <img src={getGravatarUrl(p.email, p.name)} alt="avatar" className="w-7 h-7 rounded-full object-cover border border-gray-100" />
-                        <p className="font-bold text-gray-900 capitalize font-heading">{p.name}</p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 font-mono text-gray-500">{p.email || "-"}</td>
-                    <td className="px-6 py-4">
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full capitalize ${getRoleBadgeStyle(p.role)}`}>
-                        {p.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-semibold text-gray-600">Group {p.groupNum}</td>
-                  </tr>
-                ))}
-              </ParticipantTable>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Import CSV Button */}
+              {!isPublicView && pairing.status !== "locked" && (
+                <label className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-xl px-4 py-2.5 shadow-sm hover:shadow transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 flex-shrink-0 select-none">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  <span>Import CSV</span>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleBulkImportCSV}
+                    className="hidden"
+                  />
+                </label>
+              )}
 
-            {totalPages > 1 && (
-              <PaginationBar 
-                currentPage={currentPage} 
-                totalPages={totalPages} 
-                pageSize={pageSize} 
-                onPageChange={setCurrentPage} 
-                onPageSizeChange={setPageSize}
-                totalCount={totalCount}
-                startEntryIndex={startEntryIndex}
-                endEntryIndex={endEntryIndex}
-              />
-            )}
+              {/* Export CSV Button */}
+              <button
+                type="button"
+                onClick={handleExportParticipantsCSV}
+                className="bg-gradient-to-b from-[#3A76F0] to-[#012A7D] hover:opacity-95 text-white text-xs font-bold rounded-xl px-4 py-2.5 flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                Export CSV
+              </button>
+            </div>
           </div>
+
+          {/* Bulk delete bar */}
+          {!isPublicView && selectedIds.size > 0 && (
+            <div className="bg-blue-50/50 border-b border-blue-100/50 px-6 py-3 flex items-center justify-between animate-in fade-in duration-150">
+              <span className="text-xs font-bold text-blue-700">
+                {selectedIds.size} participant(s) selected
+              </span>
+              <button
+                type="button"
+                disabled={isDeleting !== null}
+                onClick={handleBulkClearSlots}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                <FaTrashAlt className="w-3 h-3" /> Remove Selected
+              </button>
+            </div>
+          )}
+
+          {/* Table / Empty states */}
+          {filledParticipants.length === 0 ? (
+            <EmptyState message="No participants have registered yet. Share the event link to get started!" />
+          ) : filteredParticipants.length === 0 ? (
+            <div className="py-12 text-center text-xs text-gray-400 font-semibold">
+              No participants match &quot;{searchTerm}&quot;
+            </div>
+          ) : (
+            <ParticipantTable
+              headers={["Name", "Email", "Role", "Group", "Action"]}
+              enableBulkSelection={!isPublicView}
+              isAllPageSelected={isAllPageSelected(paginatedParticipants)}
+              onSelectAllToggle={() => handleSelectAllToggle(paginatedParticipants)}
+              selectedIds={Array.from(selectedIds)}
+              onSelectOneToggle={handleSelectRow}
+              rows={paginatedParticipants.map((p) => ({
+                id: `${p.groupKey}_${p.id}`,
+                cells: [
+                  <span key="name" className="font-bold text-gray-900 font-heading capitalize">
+                    {p.name}
+                  </span>,
+                  <span key="email" className="text-gray-500 font-mono">
+                    {p.email || "-"}
+                  </span>,
+                  <span
+                    key="role"
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-full capitalize ${getRoleBadgeStyle(
+                      p.role
+                    )}`}
+                  >
+                    {capitalizeWords(p.role)}
+                  </span>,
+                  <span key="group" className="font-bold text-blue-600">
+                    Group {p.groupNum}
+                  </span>,
+                  !isPublicView && pairing.status !== "locked" ? (
+                    <button
+                      key="action"
+                      type="button"
+                      disabled={isDeleting === p.id}
+                      onClick={() => handleClearSlot(p.groupKey, p as any)}
+                      className="text-red-500 hover:text-red-700 text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {isDeleting === p.id ? "Clearing..." : "Clear Slot"}
+                    </button>
+                  ) : (
+                    <span key="action" className="text-gray-300">-</span>
+                  ),
+                ],
+              }))}
+            />
+          )}
+
+          <PaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalCount={totalCount}
+            startEntryIndex={startEntryIndex}
+            endEntryIndex={endEntryIndex}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       )}
     </div>

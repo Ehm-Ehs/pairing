@@ -15,9 +15,9 @@ const SuccessContent = () => {
   const router = useRouter();
 
   const groupName = searchParams.get("groupName") || "Group 3";
-  const role = searchParams.get("role") || "Frontend Dev";
-  const eventName = searchParams.get("eventName") || "Lagos Tech Hackathon";
-  const email = searchParams.get("email") || "amaka.o@gmail.com";
+  const role = searchParams.get("role") || "";
+  const eventName = searchParams.get("eventName") || "Pairing Event";
+  const email = searchParams.get("email") || "";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-800/80 p-4">
@@ -60,7 +60,7 @@ const SuccessContent = () => {
           You're in!
         </h1>
         <p className="text-sm text-gray-500 text-center max-w-md mb-8 leading-relaxed">
-          A confirmation with your group details has been sent to <span className="font-bold text-gray-800">{email}</span>. Check your inbox (and spam, just in case).
+          A confirmation with your group details has been sent to {email ? <span className="font-bold text-gray-800">{email}</span> : "your email"}. Check your inbox (and spam, just in case).
         </p>
 
         {/* Assignment panel */}
@@ -73,17 +73,21 @@ const SuccessContent = () => {
               <span className="text-gray-500 font-medium">Event</span>
               <span className="font-bold text-gray-900 capitalize">{capitalizeWords(eventName)}</span>
             </div>
-            <div className="flex justify-between items-center text-sm border-b border-gray-200/50 pb-3">
-              <span className="text-gray-500 font-medium">Your Role</span>
-              <span className="font-bold text-gray-900 capitalize">{capitalizeWords(role)}</span>
-            </div>
+            {role ? (
+              <div className="flex justify-between items-center text-sm border-b border-gray-200/50 pb-3">
+                <span className="text-gray-500 font-medium">Your Role</span>
+                <span className="font-bold text-gray-900 capitalize">{capitalizeWords(role)}</span>
+              </div>
+            ) : null}
             <div className="flex justify-between items-center text-sm border-b border-gray-200/50 pb-3">
               <span className="text-gray-500 font-medium">Assigned Group</span>
               <span className="font-bold text-[#1449b2] capitalize">{capitalizeWords(groupName)}</span>
             </div>
             <div className="flex justify-between items-center text-sm">
               <span className="text-gray-500 font-medium">Status</span>
-              <span className="font-bold text-[#1449b2] capitalize">{capitalizeWords(groupName)} - {capitalizeWords(role)}</span>
+              <span className="font-bold text-[#1449b2] capitalize">
+                {role ? `${capitalizeWords(groupName)} - ${capitalizeWords(role)}` : capitalizeWords(groupName)}
+              </span>
             </div>
           </div>
         </div>

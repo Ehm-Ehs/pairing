@@ -245,6 +245,19 @@ const ParticipantFormContent = () => {
           newValue
         );
 
+        if (values.email) {
+          const participantName = `${firstName} ${lastName}`.trim();
+          import("../../src/services/email").then(({ sendRoleAssignedEmail }) => {
+            sendRoleAssignedEmail(
+              values.email,
+              participantName,
+              groupingPurpose,
+              selectedGroupKey,
+              values.track
+            );
+          });
+        }
+
         if (result && result.isFull) {
           const allEmails = result.participants
             .map((p: any) => p.email)

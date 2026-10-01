@@ -73,10 +73,12 @@ const JoinSuccess: React.FC = () => {
               <span className="text-gray-500 font-medium">Event</span>
               <span className="font-bold text-gray-900 capitalize">{capitalizeWords(eventName)}</span>
             </div>
-            <div className="flex justify-between items-center text-sm border-b border-gray-200/50 pb-3">
-              <span className="text-gray-500 font-medium">Your Role</span>
-              <span className="font-bold text-gray-900">Participant</span>
-            </div>
+            {!isRandomPositioning && !isSecretSanta && (
+              <div className="flex justify-between items-center text-sm border-b border-gray-200/50 pb-3">
+                <span className="text-gray-500 font-medium">Your Role</span>
+                <span className="font-bold text-gray-900">Participant</span>
+              </div>
+            )}
             {pairIndex && pairIndex !== "-1" && positionLetter && (
               <div className="flex justify-between items-center text-sm border-b border-gray-200/50 pb-3">
                 <span className="text-gray-500 font-medium">Selected Slot</span>

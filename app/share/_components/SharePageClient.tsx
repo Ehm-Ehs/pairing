@@ -229,7 +229,12 @@ const SharePageClient: React.FC = () => {
     // Role Based Handling
     if (type === "role-based") {
       const groups = fetchedPairing.groups || {};
-      const parsedPairings = groups;
+      const targetGroup = searchParams.get("group") || searchParams.get("groupKey");
+      
+      let entries = Object.entries(groups);
+      if (targetGroup) {
+        entries = entries.filter(([gKey]) => gKey === targetGroup || gKey === `group_${targetGroup}` || gKey.replace("group_", "") === targetGroup);
+      }
 
       return (
         <div className="min-h-screen bg-gray-50">
@@ -239,10 +244,10 @@ const SharePageClient: React.FC = () => {
               <h1 className="text-3xl font-bold text-gray-900 mb-2 capitalize">
                 {capitalizeWords(groupingPurpose || "")}
               </h1>
-              <p className="text-muted-foreground">Shared Event Results</p>
+              <p className="text-muted-foreground">{targetGroup ? `Shared Group: ${targetGroup}` : "Shared Event Results"}</p>
             </div>
             <div className="flex flex-col sm:flex-row flex-wrap justify-center  gap-4">
-              {Object.entries(parsedPairings).map(
+              {entries.map(
                 ([groupKey, participants], groupIndex) => {
                   const group = participants as Participant[];
                   const groupFilled = group.length;

@@ -2,16 +2,65 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Helper functions for auth & role verification
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isOrgAdmin(orgId) {
+      return isAuthenticated() && (
+        (exists(/databases/$(database)/documents/Organizations/$(orgId)) &&
+         get(/databases/$(database)/documents/Organizations/$(orgId)).data.createdBy == request.auth.uid) ||
+        (exists(/databases/$(database)/documents/OrgMembers/$(orgId + "_" + request.auth.uid)) &&
+         get(/databases/$(database)/documents/OrgMembers/$(orgId + "_" + request.auth.uid)).data.role == "admin")
+      );
+    }
+
+    function isOrgMember(orgId) {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/OrgMembers/$(orgId + "_" + request.auth.uid)) ||
+        (exists(/databases/$(database)/documents/Organizations/$(orgId)) &&
+         get(/databases/$(database)/documents/Organizations/$(orgId)).data.createdBy == request.auth.uid)
+      );
+    }
+
     // Users collection rules
     match /Users/{userId} {
       allow read, create, update: if true;
-      allow delete: if request.auth != null && request.auth.uid == userId;
+      allow delete: if isOwner(userId);
+    }
+
+    // Organizations collection rules
+    match /Organizations/{orgId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isOrgAdmin(orgId);
+    }
+
+    // OrgMembers collection rules
+    match /OrgMembers/{memberId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+
+    // OrgInvites collection rules
+    match /OrgInvites/{inviteId} {
+      allow read: if true;
+      allow create, update, delete: if isAuthenticated();
     }
 
     // Pairings collection rules (top-level collection for events)
     match /Pairings/{pairingId} {
-      allow read, create, update: if true;
-      allow delete: if request.auth != null;
+      allow read: if true; // Public view for event registration / participant links
+      allow create: if isAuthenticated();
+      allow update: if true; // Allows anonymous participant join submissions & owner edits
+      allow delete: if isAuthenticated();
     }
 
     // Notifications collection rules
@@ -19,13 +68,29 @@ service cloud.firestore {
       allow read, create, update, delete: if true;
     }
 
+    // Push Subscriptions collection rules (PWA Web Push)
+    match /push_subscriptions/{subId} {
+      allow read, create, update, delete: if true;
+    }
+
+    // TokenLedgers & TokenLedgerEntries collection rules (Payment credits / Token tracking)
+    match /TokenLedgers/{ledgerId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+    
+    match /TokenLedgerEntries/{entryId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+
     // Mail collection rules for email notifications
     match /mail/{emailId} {
       allow create: if true;
-      allow read, update, delete: if request.auth != null;
+      allow read, update, delete: if isAuthenticated();
     }
 
-    // Default deny for unmapped paths
+    // Default deny catch-all
     match /{document=**} {
       allow read, write: if false;
     }

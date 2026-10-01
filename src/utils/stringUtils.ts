@@ -14,8 +14,8 @@ export const capitalizeWords = (str: string): string => {
  * Safely formats any group key (e.g., "group_1", "group_0", "0", "Group 1", "Team Alpha") into a clean display name.
  * Prevents "Group NaN" errors when parsing non-numeric group keys.
  */
-export const formatGroupName = (groupKey?: string | null, fallbackIndex?: number): string => {
-  if (!groupKey) {
+export const formatGroupName = (groupKey?: string | number | null, fallbackIndex?: number): string => {
+  if (groupKey === null || groupKey === undefined || groupKey === "") {
     return fallbackIndex !== undefined ? `Group ${fallbackIndex + 1}` : "Group 1";
   }
 

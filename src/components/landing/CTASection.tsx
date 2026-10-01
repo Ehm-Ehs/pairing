@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { ChevronRightIcon } from "../ui/icons";
 
 interface CTASectionProps {
-  onGetStarted: () => void;
-  scrollToHowItWorks: () => void;
+  onGetStarted?: () => void;
+  scrollToHowItWorks?: () => void;
 }
 
 export default function CTASection({
@@ -55,19 +56,26 @@ export default function CTASection({
               Set up in under 2 minutes. No credit card. No learning curve. Just balanced groups, automatically.
             </p>
             <div className="flex flex-row items-center justify-center gap-3.5 w-full max-w-xl mx-auto px-2">
-              <button
+              <Link
+                href="/create-event"
                 onClick={onGetStarted}
                 className="flex-1 max-w-[240px] px-6 py-4 text-[13px] sm:text-[15px] font-semibold text-white bg-gradient-to-r from-[#205BE2] via-[#1A4ED8] to-[#0A389D] rounded-full hover:from-[#1b4ec2] hover:to-[#082f85] transition-all shadow-lg shadow-[#1D4ED8]/20 flex items-center justify-center gap-2.5 whitespace-nowrap active:scale-[0.98]"
               >
                 Create your first event
                 <ChevronRightIcon className="w-2 h-3.5 flex-shrink-0 text-white" />
-              </button>
-              <button
-                onClick={scrollToHowItWorks}
+              </Link>
+              <Link
+                href="/#how-it-works"
+                onClick={(e) => {
+                  if (scrollToHowItWorks) {
+                    e.preventDefault();
+                    scrollToHowItWorks();
+                  }
+                }}
                 className="flex-1 max-w-[180px] px-6 py-4 text-[13px] sm:text-[15px] font-semibold text-[#000000] bg-gradient-to-b from-[#F2F2F3] to-[#E5E6E8] border border-white/40 rounded-full hover:from-[#e9e9eb] hover:to-[#dadbdc] transition-all shadow-sm flex items-center justify-center whitespace-nowrap active:scale-[0.98]"
               >
                 See how it works
-              </button>
+              </Link>
             </div>
           </div>
         </div>

@@ -11,12 +11,14 @@ import { addParticipantToRandomPositioning } from "../../../src/services/endpoin
 import { toast } from "react-toastify";
 import { v4 as uuidv4 } from "uuid";
 import { Loading } from "../../../src/components/ui/loading";
-import { FaRandom, FaCalendarAlt, FaInfoCircle } from "react-icons/fa";
+import { FaRandom, FaCalendarAlt, FaInfoCircle, FaWhatsapp } from "react-icons/fa";
 import { Button } from "../../../src/components/ui/button";
+import PhoneInputWithCountry from "../../../src/components/ui/PhoneInputWithCountry";
 
 interface JoinFormValues {
   fullName: string;
   email: string;
+  phone?: string;
   assignedNumber: number;
 }
 
@@ -114,6 +116,7 @@ const JoinRandomPositioning: React.FC = () => {
         id: uuidv4(),
         name: values.fullName.trim(),
         email: values.email.trim(),
+        phone: values.phone?.trim() || "",
         assignedNumber: finalAssignedNumber,
         joinedAt: Date.now(),
       };
@@ -123,6 +126,18 @@ const JoinRandomPositioning: React.FC = () => {
         event.id,
         newParticipant
       );
+
+      if (values.email) {
+        import("../../../src/services/email").then(({ sendRoleAssignedEmail }) => {
+          sendRoleAssignedEmail(
+            values.email.trim(),
+            values.fullName.trim(),
+            event.title,
+            `Position #${finalAssignedNumber}`,
+            "Participant"
+          );
+        });
+      }
 
       const queryParams = new URLSearchParams({
         eventName: event.title,
@@ -204,7 +219,7 @@ const JoinRandomPositioning: React.FC = () => {
             <div className="flex flex-col gap-3 w-full max-w-xs mt-2">
               <button
                 onClick={() => setShowReveal(true)}
-                className="bg-gradient-to-b from-[#3A76F0] to-[#012A7D] hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-full text-xs transition-all shadow-md cursor-pointer text-center"
+                className="bg-gradient-to-b from-[#3A76F0] to-[#012A7D] hover:opacity-95 text-white font-bold px-4 sm:px-8 py-2.5 sm:py-3.5 rounded-full text-xs sm:text-sm transition-all shadow-md cursor-pointer text-center whitespace-nowrap"
               >
                 Already registered? Reveal assignment
               </button>
@@ -509,6 +524,28 @@ const JoinRandomPositioning: React.FC = () => {
                   </p>
                 </div>
 
+                {/* WhatsApp Phone Number */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
+                    <FaWhatsapp className="text-emerald-600 w-4 h-4" />
+                    <span>WhatsApp Phone Number (Optional)</span>
+                  </label>
+                  <PhoneInputWithCountry
+                    id="phone"
+                    name="phone"
+                    value={values.phone}
+                    onChange={(val) => setFieldValue("phone", val)}
+                  />
+                  <ErrorMessage
+                    name="phone"
+                    component="div"
+                    className="text-red-500 text-xs mt-1 font-semibold"
+                  />
+                  <p className="text-gray-400 text-[11px] mt-1.5 pl-1">
+                    Select your country code and enter your WhatsApp phone number
+                  </p>
+                </div>
+
                 {/* Choose Your Position Grid Selector - ONLY for Participants Pick mode */}
                 {assignmentMode === "participants-pick" && (
                   <div className="flex flex-col gap-3">
@@ -568,7 +605,7 @@ const JoinRandomPositioning: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => router.push("/")}
-                  className="bg-[#E5E7EB] hover:bg-[#D1D5DB] text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all shadow-sm flex-1 cursor-pointer"
+                  className="bg-[#E5E7EB] hover:bg-[#D1D5DB] text-gray-700 font-bold px-4 sm:px-8 py-2.5 sm:py-3.5 rounded-full text-xs sm:text-sm transition-all shadow-sm flex-1 cursor-pointer whitespace-nowrap text-center"
                 >
                   Cancel
                 </button>
@@ -576,7 +613,7 @@ const JoinRandomPositioning: React.FC = () => {
                   type="submit"
                   disabled={submitting}
                   isLoading={submitting}
-                  className="bg-gradient-to-b from-[#8338EC] to-[#6f2ec9] hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-full text-xs transition-all shadow-md flex-1 cursor-pointer flex items-center justify-center gap-1.5 h-auto"
+                  className="bg-gradient-to-b from-[#8338EC] to-[#6f2ec9] hover:opacity-95 text-white font-bold px-4 sm:px-8 py-2.5 sm:py-3.5 rounded-full text-xs sm:text-sm transition-all shadow-md flex-1 cursor-pointer flex items-center justify-center gap-1.5 h-auto whitespace-nowrap"
                 >
                   {submitting ? "Joining..." : "Claim my position >"}
                 </Button>

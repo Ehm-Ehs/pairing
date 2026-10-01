@@ -1,5 +1,6 @@
 import React from "react";
-import { FaTimes, FaLock } from "react-icons/fa";
+import { usePathname } from "next/navigation";
+import { FaTimes, FaLock, FaLink } from "react-icons/fa";
 import { RoleBasedPairing, Participant } from "../../../src/types";
 import { getGravatarUrl } from "../../../src/utils/avatar";
 import { capitalizeWords, formatGroupName } from "../../../src/utils/stringUtils";
@@ -42,6 +43,8 @@ const RoleGrid: React.FC<RoleGridProps> = ({
   isPublicView = false,
   unblurredGroupKey = null,
 }) => {
+  const pathname = usePathname();
+  const isYourPairingPage = !isPublicView || pathname?.includes("/your-pairing") || pathname?.includes("/result");
   const isRestricted = isPublicView && pairing.visibilityMode === "restricted";
 
   return (
@@ -77,9 +80,34 @@ const RoleGrid: React.FC<RoleGridProps> = ({
                   </span>
                 )}
               </div>
-              <span className="text-xs font-semibold text-gray-400">
-                {filledGroupSlots}/{totalGroupSlots} members
-              </span>
+              <div className="flex items-center gap-2">
+                {isYourPairingPage && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const serializedGroup = encodeURIComponent(JSON.stringify({ [groupKey]: group }));
+                      const encryptedUserId = btoa(pairing.ownerId || "");
+                      const groupUrl = `${window.location.origin}/form?groupingPurpose=${encodeURIComponent(
+                        pairing.groupingPurpose
+                      )}&numGroups=1&numParticipants=${group.length}&characteristicsLabel=${encodeURIComponent(
+                        pairing.characteristicsLabel || ""
+                      )}&pairings=${serializedGroup}&userId=${encryptedUserId}&group=${groupKey}`;
+
+                      navigator.clipboard.writeText(groupUrl);
+                      import("react-toastify").then(({ toast }) => {
+                        toast.success(`Copied invite link for ${formatGroupName(groupKey, groupIndex)}!`);
+                      });
+                    }}
+                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg border border-blue-100 flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Copy invite link for this group only"
+                  >
+                    <FaLink className="w-2.5 h-2.5" /> Share Group
+                  </button>
+                )}
+                <span className="text-xs font-semibold text-gray-400">
+                  {filledGroupSlots}/{totalGroupSlots} members
+                </span>
+              </div>
             </div>
 
             {/* Slots List */}

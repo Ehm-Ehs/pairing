@@ -81,12 +81,21 @@ export const fetchUserData = async (
   });
 };
 
-export async function addPairing(userId: string, pairingData: Pairing) {
+export async function addPairing(
+  userId: string,
+  pairingData: Pairing,
+  workspace?: { id: string; type: "personal" | "organization" }
+) {
   try {
+    const ownerType = workspace?.type === "organization" ? "org" : "personal";
+    const ownerId = workspace?.type === "organization" ? workspace.id : userId;
+
     const sanitizedPairing = JSON.parse(
       JSON.stringify({
         ...pairingData,
-        ownerId: userId,
+        ownerType,
+        ownerId,
+        createdBy: userId,
       })
     );
 
@@ -94,25 +103,27 @@ export async function addPairing(userId: string, pairingData: Pairing) {
     const pairingRef = doc(db, "Pairings", pairingData.id);
     await setDoc(pairingRef, sanitizedPairing);
 
-    // 2. Also sync to Users/{userId}.pairings for dual-write compatibility & realtime listeners
-    try {
-      const userRef = doc(db, "Users", userId);
-      const userDocSnap = await getDoc(userRef);
-      if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
-        const existingPairings: Pairing[] = userData.pairings || [];
-        const updatedPairings = [
-          sanitizedPairing,
-          ...existingPairings.filter((p) => p.id !== pairingData.id),
-        ];
-        await setDoc(
-          userRef,
-          { pairings: JSON.parse(JSON.stringify(updatedPairings)) },
-          { merge: true }
-        );
+    // 2. Also sync to Users/{userId}.pairings for personal workspace dual-write compatibility
+    if (ownerType === "personal") {
+      try {
+        const userRef = doc(db, "Users", userId);
+        const userDocSnap = await getDoc(userRef);
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          const existingPairings: Pairing[] = userData.pairings || [];
+          const updatedPairings = [
+            sanitizedPairing,
+            ...existingPairings.filter((p) => p.id !== pairingData.id),
+          ];
+          await setDoc(
+            userRef,
+            { pairings: JSON.parse(JSON.stringify(updatedPairings)) },
+            { merge: true }
+          );
+        }
+      } catch (userDocErr) {
+        console.warn("Could not sync pairing to User doc:", userDocErr);
       }
-    } catch (userDocErr) {
-      console.warn("Could not sync pairing to User doc:", userDocErr);
     }
 
     console.log("Pairing document created successfully!");
@@ -122,6 +133,76 @@ export async function addPairing(userId: string, pairingData: Pairing) {
   }
 }
 
+/**
+ * Fetches events scoped to the active workspace (Personal Space vs Organization).
+ * Per Spec §6 & §10: Strict workspace isolation.
+ */
+export async function fetchWorkspacePairings(
+  workspace: { id: string; type: "personal" | "organization"; role?: "admin" | "member" },
+  userId: string
+): Promise<Pairing[]> {
+  try {
+    if (workspace.type === "organization") {
+      // Query events owned strictly by this org
+      const q = query(
+        collection(db, "Pairings"),
+        where("ownerId", "==", workspace.id)
+      );
+      const snap = await getDocs(q);
+      const orgEvents: Pairing[] = [];
+      const userRole = workspace.role || "member";
+      snap.forEach((d) => {
+        const data = d.data() as Pairing;
+        // Org Admins see all organization pairings. Regular members see pairings they created.
+        if (userRole === "admin" || data.createdBy === userId || data.ownerId === userId) {
+          orgEvents.push(data);
+        }
+      });
+      return orgEvents.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    } else {
+      // Personal space: Query events owned strictly by this user
+      const collectionPairings: Pairing[] = [];
+      const q = query(
+        collection(db, "Pairings"),
+        where("ownerId", "==", userId)
+      );
+      const snap = await getDocs(q);
+      snap.forEach((d) => {
+        const data = d.data() as Pairing;
+        if (!data.ownerType || data.ownerType === "personal" || data.ownerId === userId) {
+          collectionPairings.push(data);
+        }
+      });
+
+      // Legacy pairings check
+      try {
+        const userDocRef = doc(db, "Users", userId);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          const legacyPairings: Pairing[] = userData.pairings || [];
+          const mergedMap = new Map<string, Pairing>();
+          legacyPairings.forEach((p) => {
+            if (p && p.id && (!p.ownerType || p.ownerType === "personal")) mergedMap.set(p.id, p);
+          });
+          collectionPairings.forEach((p) => {
+            if (p && p.id) mergedMap.set(p.id, p);
+          });
+          return Array.from(mergedMap.values()).sort(
+            (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+          );
+        }
+      } catch (e) {
+        console.warn("Legacy user pairings check failed:", e);
+      }
+
+      return collectionPairings.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    }
+  } catch (error) {
+    console.error("Error fetching workspace pairings:", error);
+    return [];
+  }
+}
 // Helper to get pairing document regardless of whether it's in Pairings collection or legacy Users doc
 async function getPairingRefAndData(
   userId: string,
@@ -206,11 +287,30 @@ export async function editPairingValue(
       throw new Error("This event is closed. No further registrations are allowed.");
     }
 
+    // Call atomic API route for token validation & deduction
+    const joinRes = await fetch("/api/events/join", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId,
+        eventId: pairing.id,
+        eventType: "role-based",
+        participant: newValue,
+        groupKey,
+        slotId: id,
+        groupingPurpose,
+        orgId: pairing.orgId,
+      }),
+    });
+    const joinData = await joinRes.json();
+    if (!joinRes.ok) {
+      throw new Error(joinData.error || "Failed to join event.");
+    }
+
     // Check if email already exists in any of the groups for this event
     if (newValue.email && newValue.email.trim() !== "") {
       const emailLower = newValue.email.trim().toLowerCase();
       let isDuplicate = false;
-
       Object.entries(pairing.groups || {}).forEach(([_gKey, groupMembers]: [string, any]) => {
         if (Array.isArray(groupMembers)) {
           groupMembers.forEach((member: any) => {
@@ -263,6 +363,21 @@ export async function editPairingValue(
           console.error("Failed to notify organizer:", notifyError);
         }
 
+        // Task 4 Trigger 1: Send 'pairform_invite' WhatsApp Template if phone exists
+        const targetVal: any = newValue;
+        if (targetVal.phone || targetVal.contact) {
+          try {
+            const { sendJoinInviteWhatsApp } = await import("./whatsappService");
+            await sendJoinInviteWhatsApp({
+              phone: targetVal.phone || targetVal.contact,
+              participantName: targetVal.name || "Participant",
+              eventName: groupingPurpose || pairing.title || "PairForm Event",
+              inviteUrl: `${typeof window !== "undefined" ? window.location.origin : ""}/event?id=${pairing.id}`,
+            });
+          } catch (waErr) {
+            console.error("Failed to send WhatsApp join_invite template:", waErr);
+          }
+        }
         return { participants: group, isFull };
       }
     }
@@ -284,6 +399,23 @@ export async function addParticipantToSecretSanta(
 
     const participants = pairing.participants || [];
 
+    // Call atomic API route for token validation & deduction
+    const joinRes = await fetch("/api/events/join", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId,
+        eventId,
+        eventType: "secret-santa",
+        participant,
+        orgId: pairing.orgId,
+      }),
+    });
+    const joinData = await joinRes.json();
+    if (!joinRes.ok) {
+      throw new Error(joinData.error || "Failed to join event.");
+    }
+
     if (participant.email && participant.email.trim() !== "") {
       const emailLower = participant.email.trim().toLowerCase();
       const isDuplicate = participants.some(
@@ -293,7 +425,6 @@ export async function addParticipantToSecretSanta(
         throw new Error("This email is already registered for this event.");
       }
     }
-
     pairing.participants = [...participants, participant];
 
     if (
@@ -324,6 +455,20 @@ export async function addParticipantToSecretSanta(
       console.error("Failed to notify organizer:", notifyError);
     }
 
+    // Task 4 Trigger 1: Send 'pairform_invite' WhatsApp Template if phone exists
+    if (participant.phone || participant.contact) {
+      try {
+        const { sendJoinInviteWhatsApp } = await import("./whatsappService");
+        await sendJoinInviteWhatsApp({
+          phone: participant.phone || participant.contact,
+          participantName: participant.name || "Participant",
+          eventName: pairing.groupingPurpose || pairing.title || "Secret Santa",
+          inviteUrl: `${typeof window !== "undefined" ? window.location.origin : ""}/event?id=${eventId}`,
+        });
+      } catch (waErr) {
+        console.error("Failed to send WhatsApp join_invite template:", waErr);
+      }
+    }
     if (isCollectionDoc) {
       await setDoc(pairingRef, JSON.parse(JSON.stringify(pairing)), { merge: true });
     } else {
@@ -377,6 +522,23 @@ export async function generateSecretSantaPairs(
       await setDoc(pairingRef, { pairings: JSON.parse(JSON.stringify(pairings)) }, { merge: true });
     }
 
+    // Task 4 Trigger 2: Send 'pairform_result_ready' WhatsApp Template when pairing completes
+    for (const p of participants) {
+      const phone = p.phone || p.contact;
+      if (phone) {
+        try {
+          const { sendResultReadyWhatsApp } = await import("./whatsappService");
+          await sendResultReadyWhatsApp({
+            phone,
+            participantName: p.name || "Participant",
+            eventName: pairing.groupingPurpose || pairing.title || "Secret Santa",
+            resultUrl: `${typeof window !== "undefined" ? window.location.origin : ""}/result?id=${eventId}`,
+          });
+        } catch (waErr) {
+          console.error("Failed to send WhatsApp result_ready template:", waErr);
+        }
+      }
+    }
     console.log("Pairs generated successfully");
     return pairing;
   } catch (error) {
@@ -426,6 +588,23 @@ export async function addParticipantToRandomPositioning(
 
     const participants = pairing.participants || [];
 
+    // Call atomic API route for token validation & deduction
+    const joinRes = await fetch("/api/events/join", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId,
+        eventId,
+        eventType: "random-positioning",
+        participant,
+        orgId: pairing.orgId,
+      }),
+    });
+    const joinData = await joinRes.json();
+    if (!joinRes.ok) {
+      throw new Error(joinData.error || "Failed to join event.");
+    }
+
     if (participant.email && participant.email.trim() !== "") {
       const emailLower = participant.email.trim().toLowerCase();
       const isDuplicate = participants.some(
@@ -452,6 +631,20 @@ export async function addParticipantToRandomPositioning(
       console.error("Failed to notify organizer:", notifyError);
     }
 
+    // Task 4 Trigger 1: Send 'pairform_invite' WhatsApp Template if phone exists
+    if (participant.phone || participant.contact) {
+      try {
+        const { sendJoinInviteWhatsApp } = await import("./whatsappService");
+        await sendJoinInviteWhatsApp({
+          phone: participant.phone || participant.contact,
+          participantName: participant.name || "Participant",
+          eventName: pairing.groupingPurpose || pairing.title || "Random Positioning",
+          inviteUrl: `${typeof window !== "undefined" ? window.location.origin : ""}/event?id=${eventId}`,
+        });
+      } catch (waErr) {
+        console.error("Failed to send WhatsApp join_invite template:", waErr);
+      }
+    }
     if (isCollectionDoc) {
       await setDoc(pairingRef, JSON.parse(JSON.stringify(pairing)), { merge: true });
     } else {
@@ -663,6 +856,33 @@ export async function updatePairingVisibility(
     }
   } catch (error) {
     console.error("Error updating pairing visibility:", error);
+    throw error;
+  }
+}
+export async function updateRoleBasedPairingGroups(
+  userId: string,
+  eventId: string,
+  groupingPurpose: string,
+  groups: any
+) {
+  try {
+    const { pairingRef, pairing, isCollectionDoc, legacyUserDocSnap, legacyPairingIndex } =
+      await getPairingRefAndData(userId, eventId, groupingPurpose);
+
+    const updatedPairing = { ...pairing, groups };
+
+    if (isCollectionDoc) {
+      await setDoc(pairingRef, { groups: JSON.parse(JSON.stringify(groups)) }, { merge: true });
+    }
+
+    if (legacyUserDocSnap && legacyPairingIndex !== undefined && legacyPairingIndex >= 0) {
+      const userData = legacyUserDocSnap.data();
+      const pairings = userData?.pairings || [];
+      pairings[legacyPairingIndex] = updatedPairing;
+      await setDoc(doc(db, "Users", userId), { pairings: JSON.parse(JSON.stringify(pairings)) }, { merge: true });
+    }
+  } catch (error) {
+    console.error("Error updating role based pairing groups:", error);
     throw error;
   }
 }

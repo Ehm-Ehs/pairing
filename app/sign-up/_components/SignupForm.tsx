@@ -7,10 +7,15 @@ import { useSearchParams } from "next/navigation";
 import { useSignup } from "../../../src/hooks/useSignup";
 import { Button } from "../../../src/components/ui/button";
 
-const SignupForm = () => {
+interface SignupFormProps {
+  initialEmail?: string;
+  initialName?: string;
+}
+
+const SignupForm = ({ initialEmail = "", initialName = "" }: SignupFormProps) => {
   const searchParams = useSearchParams();
-  const emailParam = searchParams.get("email") || "";
-  const nameParam = searchParams.get("name") || "";
+  const emailParam = initialEmail || searchParams?.get("email") || "";
+  const nameParam = initialName || searchParams?.get("name") || "";
 
   const nameParts = nameParam.trim().split(/\s+/);
   const firstNameParam = nameParts[0] || "";

@@ -45,16 +45,16 @@ export default function GuestLimitBlocker() {
       {/* Call to Actions */}
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full">
         <button
-          onClick={() => router.push("/sign-up")}
-          className="w-full sm:flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-full py-4 px-6 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-600/30 transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0"
+          onClick={() => router.push("/sign-up?redirect=/pricing")}
+          className="w-full sm:flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-full py-3.5 px-5 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-600/30 transition-all duration-300 transform hover:-translate-y-0.5 text-xs"
         >
           Create Free Account
         </button>
         <button
-          onClick={() => router.push("/login")}
-          className="w-full sm:flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-full py-4 px-6 transition-all duration-300 border border-gray-200/50 transform hover:-translate-y-0.5 active:translate-y-0"
+          onClick={() => router.push("/pricing")}
+          className="w-full sm:flex-1 bg-gray-900 hover:bg-black text-white font-bold rounded-full py-3.5 px-5 transition-all duration-300 text-xs shadow-md"
         >
-          Log in
+          View Token Packs
         </button>
       </div>
 

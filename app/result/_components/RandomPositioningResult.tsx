@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { FaSearch, FaFileDownload, FaTrashAlt, FaRandom } from "react-icons/fa";
+import { FaSearch, FaTrashAlt, FaRandom } from "react-icons/fa";
 import { RandomPositioningPairing } from "../../../src/types";
 import { usePagination } from "../../../src/hooks/usePagination";
 import { useBulkSelection } from "../../../src/hooks/useBulkSelection";
@@ -10,6 +10,8 @@ import { EmptyState } from "../../../src/components/ui/EmptyState";
 import { ParticipantTable } from "../../../src/components/ui/ParticipantTable";
 import StatsCard from "./StatsCard";
 import RandomPositionGrid from "./RandomPositionGrid";
+import { auth } from "../../../src/services/firebase";
+import { toast } from "react-toastify";
 
 interface RandomPositioningResultProps {
   data: RandomPositioningPairing;
@@ -68,6 +70,43 @@ const RandomPositioningResult: React.FC<RandomPositioningResultProps> = ({ data,
     }
   };
 
+  const handleBulkImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !auth.currentUser?.uid) return;
+
+    try {
+      const { parseParticipantsCsv } = await import("../../../src/utils/csvImport");
+      const { addParticipantToRandomPositioning } = await import("../../../src/services/endpoints");
+      const parsed = await parseParticipantsCsv(file);
+      if (parsed.length === 0) {
+        toast.error("No valid participants found in CSV file.");
+        return;
+      }
+
+      let count = 0;
+      for (const p of parsed) {
+        if (p.name || p.email) {
+          await addParticipantToRandomPositioning(
+            auth.currentUser.uid,
+            data.id,
+            {
+              name: p.name || (p.email ? p.email.split("@")[0] : "Participant"),
+              email: p.email || "",
+            }
+          );
+          count++;
+        }
+      }
+
+      toast.success(`Successfully imported ${count} participants from CSV!`);
+    } catch (err: any) {
+      console.error("CSV import error:", err);
+      toast.error("Failed to import CSV: " + err.message);
+    } finally {
+      e.target.value = "";
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
@@ -99,7 +138,36 @@ const RandomPositioningResult: React.FC<RandomPositioningResultProps> = ({ data,
                     <FaRandom className="w-3 h-3 text-gray-500" /> Reassign all
                   </button>
                 )}
-                <button onClick={handleExportCSV} className="bg-gradient-to-b from-[#3A76F0] to-[#012A7D] text-white text-xs font-bold rounded-xl px-5 py-2.5 flex items-center justify-center gap-1.5 shadow-md">
+
+                {/* Import CSV Button */}
+                {data.status !== "locked" && (
+                  <label className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-xl px-4 py-2.5 shadow-sm hover:shadow transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 flex-shrink-0 select-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <span>Import CSV</span>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      onChange={handleBulkImportCSV}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+
+                {/* Export Button */}
+                <button
+                  type="button"
+                  onClick={handleExportCSV}
+                  className="bg-gradient-to-b from-[#3A76F0] to-[#012A7D] hover:opacity-95 text-white text-xs font-bold rounded-xl px-5 py-2.5 flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer flex-shrink-0"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-0.5">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
                   Export
                 </button>
               </div>
@@ -117,52 +185,46 @@ const RandomPositioningResult: React.FC<RandomPositioningResultProps> = ({ data,
             {totalParticipants === 0 ? (
               <EmptyState message="No participants yet. Share the link to invite people!" />
             ) : filteredParticipants.length === 0 ? (
-              <div className="py-12 text-center text-xs text-gray-400 font-semibold">No participants match "{searchTerm}"</div>
+              <div className="py-12 text-center text-xs text-gray-400 font-semibold">No participants match &quot;{searchTerm}&quot;</div>
             ) : (
               <ParticipantTable
                 headers={["Name", "Email", "Position", "Action"]}
                 enableBulkSelection={true}
                 isAllPageSelected={isAllPageSelected(paginatedParticipants)}
                 onSelectAllToggle={() => handleSelectAllToggle(paginatedParticipants)}
-              >
-                {paginatedParticipants.map((p) => {
-                  const isRowSelected = selectedIds.has(p.id);
-                  const positionText = p.assignedNumber ? `Position #${p.assignedNumber}` : "Unassigned";
-                  return (
-                    <tr key={p.id} className={`hover:bg-gray-50/40 transition-colors ${isRowSelected ? "bg-blue-50/10" : ""}`}>
-                      <td className="py-4 px-6 text-center">
-                        <input type="checkbox" checked={isRowSelected} onChange={() => handleSelectRow(p.id)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" />
-                      </td>
-                      <td className="py-4 px-6 font-bold text-gray-900 capitalize font-heading">{p.name}</td>
-                      <td className="py-4 px-6 font-mono text-xs text-gray-500">{p.email || "-"}</td>
-                      <td className="py-4 px-6">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold border ${p.assignedNumber ? "bg-purple-50 text-[#8338EC] border-purple-100" : "bg-gray-100 text-gray-500 border-gray-200"}`}>
-                          {positionText}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6 text-right">
-                        <button disabled={isDeleting === p.id} onClick={() => handleRemove(p.id, p.name)} className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-1.5 rounded-full text-[10px] font-bold border border-red-100 disabled:opacity-50">
-                          {isDeleting === p.id ? "Deleting..." : "Delete"}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </ParticipantTable>
-            )}
-
-            {totalPages > 1 && (
-              <PaginationBar 
-                currentPage={currentPage} 
-                totalPages={totalPages} 
-                pageSize={pageSize} 
-                onPageChange={setCurrentPage} 
-                onPageSizeChange={setPageSize}
-                totalCount={totalCount}
-                startEntryIndex={startEntryIndex}
-                endEntryIndex={endEntryIndex}
+                selectedIds={Array.from(selectedIds)}
+                onSelectOneToggle={handleSelectRow}
+                rows={paginatedParticipants.map((p) => ({
+                  id: p.id,
+                  cells: [
+                    <span key="name" className="font-bold text-gray-900">{p.name}</span>,
+                    <span key="email" className="text-gray-500">{p.email || "-"}</span>,
+                    <span key="pos" className="font-bold text-blue-600">
+                      {p.assignedNumber ? `Position #${p.assignedNumber}` : "Unassigned"}
+                    </span>,
+                    <button
+                      key="action"
+                      disabled={isDeleting === p.id}
+                      onClick={() => handleRemove(p.id, p.name)}
+                      className="text-red-500 hover:text-red-700 text-xs font-bold transition-colors disabled:opacity-50"
+                    >
+                      {isDeleting === p.id ? "Removing..." : "Remove"}
+                    </button>,
+                  ],
+                }))}
               />
             )}
+
+            <PaginationBar
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              startEntryIndex={startEntryIndex}
+              endEntryIndex={endEntryIndex}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           </div>
         </div>
       )}

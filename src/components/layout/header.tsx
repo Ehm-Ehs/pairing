@@ -6,6 +6,9 @@ import NotificationDropdown from "../ui/NotificationDropdown";
 import { signOut } from "firebase/auth";
 import { auth } from "../../services/firebase";
 import { capitalizeWords } from "../../utils/stringUtils";
+import { useWorkspace } from "../../context/WorkspaceContext";
+import { TokenBadge } from "../tokens/TokenBadge";
+import { FaCog, FaBuilding, FaUser, FaCoins } from "react-icons/fa";
 
 import { GroupingsPageProps } from "../../types";
 
@@ -17,6 +20,9 @@ interface HeaderProps {
 function Header({ children, user }: HeaderProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { activeWorkspace } = useWorkspace();
+
+  const isOrgAdmin = activeWorkspace.type === "organization" && activeWorkspace.role === "admin";
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -46,16 +52,43 @@ function Header({ children, user }: HeaderProps) {
   return (
     <div className="bg-white border-b border-gray-100 relative z-50">
       <div className="flex items-center justify-between px-5 sm:px-10 py-4 max-w-7xl mx-auto">
-        <Link href="/home">
-          <div className="flex items-center gap-2 cursor-pointer">
-            <div className="w-10 h-10">
-              <Logo />
+        <div className="flex items-center gap-4">
+          <Link href="/home">
+            <div className="flex items-center gap-2 cursor-pointer">
+              <div className="w-10 h-10">
+                <Logo />
+              </div>
+              <p className="font-semibold text-black text-xl hidden sm:block">Pair Form</p>
             </div>
-            <p className="font-semibold text-black text-xl">Pair Form</p>
-          </div>
-        </Link>
+          </Link>
+          {activeWorkspace.type === "organization" && (
+            <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-100 flex items-center gap-1.5">
+              <FaBuilding className="w-3 h-3" />
+              <span>{activeWorkspace.name}</span>
+            </span>
+          )}
+        </div>
         {user ? (
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 sm:gap-4">
+            {/* Token Badge Display */}
+            <div className="hidden xs:block">
+              <TokenBadge
+                balance={typeof user.tokenBalance === "number" ? user.tokenBalance : 50}
+                tier={user.tier || "free"}
+                hasEverPaid={user.hasEverPaid === true}
+              />
+            </div>
+
+            {isOrgAdmin && (
+              <Link
+                href="/settings/org"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium transition-colors"
+              >
+                <FaCog className="w-3.5 h-3.5 text-gray-500" />
+                <span className="hidden sm:inline">Org Settings</span>
+              </Link>
+            )}
+
             <NotificationDropdown userId={user.userId || user.uid!} />
 
             <div className="relative" ref={dropdownRef}>
@@ -71,7 +104,11 @@ function Header({ children, user }: HeaderProps) {
                   className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="bg-[#3A76F0] px-6 py-5 text-center">
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsProfileOpen(false)}
+                    className="bg-[#3A76F0] hover:bg-blue-600 transition-colors px-6 py-5 text-center block"
+                  >
                     <div className="flex justify-center mb-3">
                       <Avatar
                         name={`${user.firstName} ${user.lastName}`}
@@ -82,12 +119,49 @@ function Header({ children, user }: HeaderProps) {
                     <p className="text-white font-semibold text-lg truncate">
                       {capitalizeWords(`${user.firstName} ${user.lastName}`)}
                     </p>
-                  </div>
+                    <span className="text-xs text-blue-100 font-medium hover:underline">
+                      View Profile & Tokens
+                    </span>
+                  </Link>
 
-                  <div className="p-4">
+                  <div className="p-3 space-y-1.5">
+                    <Link
+                      href="/profile"
+                      onClick={() => setIsProfileOpen(false)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-700 text-xs font-semibold hover:bg-gray-100 transition-colors"
+                    >
+                      <FaUser className="w-3.5 h-3.5 text-gray-400" />
+                      <span>My Profile</span>
+                    </Link>
+
+                    <Link
+                      href="/pricing"
+                      onClick={() => setIsProfileOpen(false)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-gray-700 text-xs font-semibold hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <FaCoins className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Pricing & Tokens</span>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
+                        {user.tokenBalance ?? 50}
+                      </span>
+                    </Link>
+
+                    {isOrgAdmin && (
+                      <Link
+                        href="/settings/org"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-700 text-xs font-semibold hover:bg-gray-100 transition-colors"
+                      >
+                        <FaCog className="w-3.5 h-3.5 text-gray-400" />
+                        <span>Organization Settings</span>
+                      </Link>
+                    )}
+
                     <div
                       onClick={handleSignOut}
-                      className="w-full text-center py-2.5 rounded-full bg-gray-900 text-white font-medium text-sm hover:bg-gray-800 transition-colors cursor-pointer flex items-center justify-center gap-2"
+                      className="w-full text-center py-2 rounded-full bg-gray-900 text-white font-medium text-xs hover:bg-gray-800 transition-colors cursor-pointer flex items-center justify-center gap-2 mt-2"
                     >
                       Logout
                     </div>
@@ -110,3 +184,4 @@ function Header({ children, user }: HeaderProps) {
 }
 
 export default Header;
+

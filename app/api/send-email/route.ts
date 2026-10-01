@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.NEXT_PUBLIC_RESEND_API_KEY);
+const apiKey = process.env.RESEND_API_KEY || process.env.NEXT_PUBLIC_RESEND_API_KEY;
+const resend = new Resend(apiKey);
 
 export async function POST(request: Request) {
   try {
     const { to, subject, html, from } = await request.json();
+    const senderEmail = from || "PairForm <onboarding@resend.dev>";
     console.log("Attempting to send email to:", to);
     console.log(
       "Using API Key starting with:",
-      process.env.NEXT_PUBLIC_RESEND_API_KEY?.substring(0, 5)
+      apiKey?.substring(0, 5)
     );
-    console.log("From:", from);
+    console.log("From:", senderEmail);
 
     if (!to || !subject || !html) {
       return NextResponse.json(
@@ -21,7 +23,7 @@ export async function POST(request: Request) {
     }
 
     const data = await resend.emails.send({
-      from: from,
+      from: senderEmail,
       to: to,
       subject: subject,
       html: html,

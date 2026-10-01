@@ -44,10 +44,7 @@ export default function Hero({ scrollToHowItWorks, onGetStarted }: HeroProps) {
 
       {/* Hero Content */}
       <div className="relative z-10 flex flex-col items-center px-4">
-        <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-white border border-blue-100 text-blue-700 text-xs sm:text-sm font-medium mb-8 shadow-sm">
-          <span className="flex w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-          Smart automated balancing. Fair groups. Zero chaos.
-        </div>
+
         <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-bold tracking-tight text-black mb-4 max-w-4xl leading-[1.1]">
           Event formation,<br />
           <span className="font-serif italic text-[#1a56db] font-normal tracking-normal">finally effortless.</span>
@@ -59,13 +56,14 @@ export default function Hero({ scrollToHowItWorks, onGetStarted }: HeroProps) {
         </p>
 
         <div className="flex flex-row items-center justify-center gap-3.5 mb-8 w-full max-w-xl px-2">
-          <button
+          <Link
+            href="/create-event"
             onClick={onGetStarted}
             className="flex-1 max-w-[240px] px-6 py-4 text-[13px] sm:text-[15px] font-semibold text-white bg-gradient-to-r from-[#205BE2] via-[#1A4ED8] to-[#0A389D] rounded-full hover:from-[#1b4ec2] hover:to-[#082f85] transition-all shadow-lg shadow-[#1D4ED8]/20 flex items-center justify-center gap-2.5 whitespace-nowrap active:scale-[0.98]"
           >
             Create your first event
             <ChevronRightIcon className="w-2 h-3.5 flex-shrink-0 text-white" />
-          </button>
+          </Link>
           <button
             onClick={scrollToHowItWorks}
             className="flex-1 max-w-[180px] px-6 py-4 text-[13px] sm:text-[15px] font-semibold text-[#000000] bg-gradient-to-b from-[#F2F2F3] to-[#E5E6E8] border border-white/40 rounded-full hover:from-[#e9e9eb] hover:to-[#dadbdc] transition-all shadow-sm flex items-center justify-center whitespace-nowrap active:scale-[0.98]"
@@ -82,6 +80,8 @@ export default function Hero({ scrollToHowItWorks, onGetStarted }: HeroProps) {
                 className="inline-block h-6 w-6 rounded-full ring-2 ring-white object-cover"
                 src={`/avatars/avatar${i}.png`}
                 alt={`User ${i}`}
+                loading={i === 1 ? "eager" : "lazy"}
+                {...(i === 1 ? { fetchPriority: "high" } : {})}
               />
             ))}
           </div>

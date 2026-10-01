@@ -94,9 +94,19 @@ export const getPairingEmail = (
 export const getRoleAssignedEmail = (
   eventName: string,
   participantName: string,
-  groupNumber: number,
-  role: string
+  groupNumber: number | string,
+  role?: string
 ) => {
+  const groupLabel =
+    typeof groupNumber === "string" &&
+    (groupNumber.toLowerCase().startsWith("group") ||
+      groupNumber.toLowerCase().startsWith("pair") ||
+      groupNumber.toLowerCase().startsWith("table") ||
+      groupNumber.toLowerCase().startsWith("position") ||
+      groupNumber.toLowerCase().includes("pool"))
+      ? groupNumber
+      : `Group ${groupNumber}`;
+
   return {
     from: EMAIL_SENDERS.NOTIFY,
     subject: `You're in! Group Assignment for ${eventName}`,
@@ -110,11 +120,15 @@ export const getRoleAssignedEmail = (
         
         <p style="font-size: 16px;">Thanks for completing the form, you’ve been successfully added to the group on <strong>PairForm</strong></p>
         
-        <p style="font-size: 16px;">Your information has been received and saved, and you’re now part of the <strong>${eventName}</strong> grouping process. </p>
+        <p style="font-size: 16px;">Your information has been received and saved, and you’re now part of the <strong>${eventName}</strong> grouping process.</p>
         
         <div style="padding: 20px; background-color: #e6f7ff; border: 1px solid #91d5ff; border-radius: 6px; margin: 25px 0; text-align: center;">
-          <p style="font-size: 18px; margin: 0; color: #0050b3;"><strong>Group ${groupNumber}</strong></p>
-          <p style="font-size: 16px; margin-top: 5px; color: #333;">Role: <strong>${role}</strong></p>
+          <p style="font-size: 18px; margin: 0; color: #0050b3;"><strong>${groupLabel}</strong></p>
+          ${
+            role
+              ? `<p style="font-size: 16px; margin-top: 5px; color: #333;">Role: <strong>${role}</strong></p>`
+              : ""
+          }
         </div>
         
         <h3 style="font-size: 18px; font-weight: 600; margin-top: 30px;">What happens next?</h3>
@@ -229,6 +243,54 @@ export const getGroupCompleteEmail = (
           —<br/>
           <strong>The PairForm Team</strong><br/>
           <span style="font-style: italic; color: #888;">Fair groups. Zero stress.</span>
+        </p>
+      </div>
+    `,
+  };
+};
+
+export const getRoundNotificationEmail = (
+  eventName: string,
+  participantName: string,
+  roundNumber: number,
+  tableNumber: number,
+  partnerNames: string,
+  groupLink: string = "https://pair-form.com"
+) => {
+  const tableDisplay = tableNumber === 0 ? "Solo / Floating Facilitator" : `Table ${tableNumber}`;
+
+  return {
+    from: EMAIL_SENDERS.NOTIFY,
+    subject: `Round ${roundNumber} Assignment: ${eventName}`,
+    html: `
+      <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; line-height: 1.6;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <img src="https://pair-form.com/logo.png" alt="PairForm Logo" style="max-width: 150px; height: auto;" />
+        </div>
+
+        <h1 style="color: #111; font-size: 24px; font-weight: 700;">Hi ${participantName},</h1>
+        
+        <p style="font-size: 16px;">Round <strong>${roundNumber}</strong> for <strong>${eventName}</strong> has started!</p>
+        
+        <div style="padding: 20px; background-color: #e6f7ff; border: 1px solid #91d5ff; border-radius: 8px; margin: 25px 0; text-align: center;">
+          <p style="font-size: 20px; margin: 0; color: #0050b3;"><strong>${tableDisplay}</strong></p>
+          ${partnerNames ? `<p style="font-size: 16px; margin-top: 8px; color: #333;">Partner(s): <strong>${partnerNames}</strong></p>` : ""}
+        </div>
+        
+        <p style="font-size: 15px;">Please head over to your assigned table for this round. You can view your new grouping & live schedule below:</p>
+        
+        <div style="margin: 30px 0; text-align: center;">
+          <a href="${groupLink}" style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+            🔗 View Your New Grouping & Table
+          </a>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid #eee; margin: 40px 0;" />
+        
+        <p style="font-size: 14px; color: #666;">
+          Best,<br/>
+          <strong>The PairForm Team</strong><br/>
+          <span style="font-style: italic; color: #888;">Simple. Fair. Stress-free networking.</span>
         </p>
       </div>
     `,

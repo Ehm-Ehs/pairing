@@ -11,12 +11,14 @@ import { addParticipantToSecretSanta } from "../../../src/services/endpoints";
 import { toast } from "react-toastify";
 import { v4 as uuidv4 } from "uuid";
 import { Loading } from "../../../src/components/ui/loading";
-import { FaGift } from "react-icons/fa";
+import { FaGift, FaWhatsapp } from "react-icons/fa";
 import { Button } from "../../../src/components/ui/button";
+import PhoneInputWithCountry from "../../../src/components/ui/PhoneInputWithCountry";
 
 interface JoinFormValues {
   fullName: string;
   email: string;
+  phone: string;
   wishlist: string;
   pairIndex: number;
   positionLetter: string;
@@ -101,12 +103,33 @@ const JoinSecretSanta: React.FC = () => {
         id: uuidv4(),
         name: values.fullName.trim(),
         email: values.email.trim(),
+        phone: values.phone?.trim() || "",
         wishlist: isSecretSanta ? values.wishlist.trim() : "",
         pairIndex: isSecretSanta ? -1 : values.pairIndex,
         positionLetter: isSecretSanta ? "" : values.positionLetter,
       };
 
       await addParticipantToSecretSanta(validUserId, event.id, newParticipant);
+
+      if (values.email) {
+        const isWishlistEvent = event.config?.allowWishlist;
+        const groupLabel = isWishlistEvent
+          ? "Secret Santa Participant Pool"
+          : `Pair ${values.pairIndex + 1}`;
+        const roleLabel = isWishlistEvent
+          ? "Gift Giver"
+          : `Side ${values.positionLetter}`;
+
+        import("../../../src/services/email").then(({ sendRoleAssignedEmail }) => {
+          sendRoleAssignedEmail(
+            values.email.trim(),
+            values.fullName.trim(),
+            event.title,
+            groupLabel,
+            roleLabel
+          );
+        });
+      }
 
       const queryParams = new URLSearchParams({
         eventName: event.title,
@@ -437,6 +460,7 @@ const JoinSecretSanta: React.FC = () => {
           initialValues={{
             fullName: "",
             email: "",
+            phone: "",
             wishlist: "",
             pairIndex: -1,
             positionLetter: "",
@@ -522,6 +546,28 @@ const JoinSecretSanta: React.FC = () => {
                   />
                   <p className="text-gray-400 text-[11px] mt-1.5 pl-1">
                     We'll send your partner assignment here
+                  </p>
+                </div>
+
+                {/* WhatsApp Phone Number */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
+                    <FaWhatsapp className="text-emerald-600 w-4 h-4" />
+                    <span>WhatsApp Phone Number (Optional)</span>
+                  </label>
+                  <PhoneInputWithCountry
+                    id="phone"
+                    name="phone"
+                    value={values.phone}
+                    onChange={(val) => setFieldValue("phone", val)}
+                  />
+                  <ErrorMessage
+                    name="phone"
+                    component="div"
+                    className="text-red-500 text-xs mt-1 font-semibold"
+                  />
+                  <p className="text-gray-400 text-[11px] mt-1.5 pl-1">
+                    Select your country code and enter your WhatsApp phone number
                   </p>
                 </div>
 
@@ -674,7 +720,7 @@ const JoinSecretSanta: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => router.push("/")}
-                  className="bg-[#E5E7EB] hover:bg-[#D1D5DB] text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all shadow-sm flex-1 cursor-pointer"
+                  className="bg-[#E5E7EB] hover:bg-[#D1D5DB] text-gray-700 font-bold px-4 sm:px-8 py-2.5 sm:py-3.5 rounded-full text-xs sm:text-sm transition-all shadow-sm flex-1 cursor-pointer whitespace-nowrap text-center"
                 >
                   Cancel
                 </button>
@@ -682,7 +728,7 @@ const JoinSecretSanta: React.FC = () => {
                   type="submit"
                   disabled={submitting}
                   isLoading={submitting}
-                  className="bg-gradient-to-b from-[#10B981] to-[#059669] hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-full text-xs transition-all shadow-md flex-1 cursor-pointer flex items-center justify-center gap-1.5 h-auto"
+                  className="bg-gradient-to-b from-[#10B981] to-[#059669] hover:opacity-95 text-white font-bold px-4 sm:px-8 py-2.5 sm:py-3.5 rounded-full text-xs sm:text-sm transition-all shadow-md flex-1 cursor-pointer flex items-center justify-center gap-1.5 h-auto whitespace-nowrap"
                 >
                   {submitting ? "Joining..." : "Join event >"}
                 </Button>

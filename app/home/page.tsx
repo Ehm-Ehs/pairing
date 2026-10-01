@@ -1,10 +1,15 @@
-"use client";
+import type { Metadata } from "next";
+import HomePageClient from "./_components/HomePageClient";
 
-import NextProtectedRoute from "../../src/components/routes/NextProtectedRoute";
-import Home from "./_components/home";
+export const metadata: Metadata = {
+  title: "Dashboard | PairForm",
+  description: "User Dashboard - Manage your events, pairings, and team formations on PairForm.",
+  robots: {
+    index: false,
+    follow: true,
+  },
+};
 
 export default function HomePage() {
-  return (
-    <NextProtectedRoute>{(user) => <Home data={user} />}</NextProtectedRoute>
-  );
+  return <HomePageClient />;
 }

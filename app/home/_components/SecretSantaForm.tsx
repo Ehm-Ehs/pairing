@@ -97,8 +97,8 @@ const SecretSantaForm: React.FC<SecretSantaFormProps> = ({
                 <div className="bg-blue-50 text-blue-600 border border-blue-100/50 text-xs rounded-2xl p-4 leading-relaxed mb-6">
                   <span className="font-bold">How it works:</span>{" "}
                   {isSecretSanta
-                    ? "Participants join through a shared link. Once everyone has registered, you'll generate the pairings. Each person will see only who they're buying for—completely anonymous!"
-                    : "Participants join through a shared link. Once everyone has registered, you'll generate the pairings. We'll utilize our algorithm to shuffle and assign pairs randomly."}
+                    ? "Participants join through a shared link. Once everyone has registered, you will generate the pairings. Each person will see only who they are buying for, completely anonymous!"
+                    : "Participants join through a shared link. Once everyone has registered, you will generate the pairings. We will utilize our algorithm to shuffle and assign pairs randomly."}
                 </div>
 
                 {/* Event Name */}
@@ -187,6 +187,58 @@ const SecretSantaForm: React.FC<SecretSantaFormProps> = ({
                   </div>
                 </div>
 
+                {/* Multi-Round Speed Networking Rotation Setting */}
+                <div className="mb-4 bg-white border border-gray-150/20 rounded-2xl p-4 shadow-sm flex flex-col gap-3">
+                  <label className="flex items-center justify-between cursor-pointer select-none">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        name="isSpeedNetworking"
+                        checked={(values as any).isSpeedNetworking || false}
+                        onChange={(e) => {
+                          setFieldValue("isSpeedNetworking", e.target.checked);
+                          if (e.target.checked && !(values as any).speedNetworkingRounds) {
+                            setFieldValue("speedNetworkingRounds", 3);
+                          }
+                        }}
+                        className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                      />
+                      <div>
+                        <span className="text-sm font-bold text-gray-900 flex flex-wrap items-center gap-2">
+                          <span>Enable Multi-Round Speed Networking</span>
+                          <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-extrabold uppercase tracking-wider">
+                            0.5 Tokens / Participant
+                          </span>
+                        </span>
+                        <p className="text-xs text-gray-500 font-medium mt-0.5">
+                          Generate continuous 1-on-1 rounds with zero repeat partner pairings (0.5 tokens per participant).
+                        </p>
+                      </div>
+                    </div>
+                  </label>
+
+                  {(values as any).isSpeedNetworking && (
+                    <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-4 animate-in fade-in duration-200">
+                      <div className="flex flex-col">
+                        <label className="text-xs font-bold text-gray-700">Number of 1:1 Networking Rounds</label>
+                        <span className="text-[11px] text-gray-400">Select how many 1-on-1 rounds to generate (1 to 10)</span>
+                      </div>
+                      <select
+                        name="speedNetworkingRounds"
+                        value={(values as any).speedNetworkingRounds || 3}
+                        onChange={(e) => setFieldValue("speedNetworkingRounds", Number(e.target.value))}
+                        className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((r) => (
+                          <option key={r} value={r}>
+                            {r} {r === 1 ? "Round" : "Rounds"}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
                 {/* Upload Event Image (optional) */}
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-semibold text-gray-600">
@@ -200,9 +252,8 @@ const SecretSantaForm: React.FC<SecretSantaFormProps> = ({
                         fileInputRef.current?.click();
                       }
                     }}
-                    className={`relative bg-white border-2 border-dashed border-gray-250/50 rounded-2xl flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-colors shadow-sm ${
-                      values.imageUrl ? "h-64 border-solid" : "p-6 hover:bg-gray-50/55"
-                    }`}
+                    className={`relative bg-white border-2 border-dashed border-gray-250/50 rounded-2xl flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-colors shadow-sm ${values.imageUrl ? "h-64 border-solid" : "p-6 hover:bg-gray-50/55"
+                      }`}
                   >
                     <input
                       type="file"

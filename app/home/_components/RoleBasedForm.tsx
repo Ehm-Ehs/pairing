@@ -301,6 +301,58 @@ const FormComponent: React.FC<FormComponentProps> = ({
               </div>
             </div>
 
+            {/* Multi-Round Speed Networking Setting */}
+            <div className="flex flex-col gap-3 p-4 rounded-xl bg-white border border-gray-100/80 shadow-sm">
+              <label className="flex items-center justify-between cursor-pointer select-none">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    name="isSpeedNetworking"
+                    checked={(values as any).isSpeedNetworking || false}
+                    onChange={(e) => {
+                      setFieldValue("isSpeedNetworking", e.target.checked);
+                      if (e.target.checked && !(values as any).speedNetworkingRounds) {
+                        setFieldValue("speedNetworkingRounds", 3);
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="text-sm font-bold text-gray-900 flex flex-wrap items-center gap-2">
+                      <span>Enable Multi-Round Speed Networking</span>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-extrabold uppercase tracking-wider">
+                        0.5 Tokens / Participant
+                      </span>
+                    </span>
+                    <p className="text-xs text-gray-500 font-medium mt-0.5">
+                      Generate continuous multi-round table rotations with zero repeat pairings (0.5 tokens per participant).
+                    </p>
+                  </div>
+                </div>
+              </label>
+
+              {(values as any).isSpeedNetworking && (
+                <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-4 animate-in fade-in duration-200">
+                  <div className="flex flex-col">
+                    <label className="text-xs font-bold text-gray-700">Number of Networking Rounds</label>
+                    <span className="text-[11px] text-gray-400">Select how many rounds to generate (1 to 10)</span>
+                  </div>
+                  <select
+                    name="speedNetworkingRounds"
+                    value={(values as any).speedNetworkingRounds || 3}
+                    onChange={(e) => setFieldValue("speedNetworkingRounds", Number(e.target.value))}
+                    className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((r) => (
+                      <option key={r} value={r}>
+                        {r} {r === 1 ? "Round" : "Rounds"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
             {/* Upload Event Image */}
             <div className="flex flex-col gap-2">
               <label className="text-sm font-semibold text-gray-600">
@@ -450,21 +502,66 @@ const FormComponent: React.FC<FormComponentProps> = ({
                         </div>
                       ))}
 
-                      <button
-                        type="button"
-                        disabled={isAddRoleDisabled}
-                        onClick={() =>
-                          arrayHelpers.push({ name: "", count: "" })
-                        }
-                        className={`font-bold text-sm mt-2 flex items-center gap-1.5 w-fit select-none transition-colors ${
-                          isAddRoleDisabled
-                            ? "text-gray-400 cursor-not-allowed opacity-60"
-                            : "text-[#3A76F0] hover:text-[#2f5fc7] cursor-pointer"
-                        }`}
-                      >
-                        <FaPlus className="w-3 h-3" />
-                        Add Role
-                      </button>
+                      <div className="flex flex-wrap items-center justify-between gap-4 mt-2 pt-2 border-t border-gray-200/60">
+                        <button
+                          type="button"
+                          disabled={isAddRoleDisabled}
+                          onClick={() =>
+                            arrayHelpers.push({ name: "", count: "" })
+                          }
+                          className={`font-bold text-xs flex items-center gap-1.5 select-none transition-colors ${
+                            isAddRoleDisabled
+                              ? "text-gray-400 cursor-not-allowed opacity-60"
+                              : "text-[#3A76F0] hover:text-[#2f5fc7] cursor-pointer"
+                          }`}
+                        >
+                          <FaPlus className="w-3 h-3" />
+                          Add Role
+                        </button>
+
+                        <div className="flex items-center gap-3">
+                          <label className="text-xs font-bold text-gray-600 hover:text-gray-900 cursor-pointer flex items-center gap-1.5 select-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                              <polyline points="7 10 12 15 17 10"></polyline>
+                              <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            <span>Import Roles CSV</span>
+                            <input
+                              type="file"
+                              accept=".csv"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  try {
+                                    const { parseRolesCsv } = await import("../../../src/utils/csvImport");
+                                    const parsed = await parseRolesCsv(file);
+                                    if (parsed.length > 0) {
+                                      setFieldValue("characteristics", parsed);
+                                    }
+                                  } catch (err: any) {
+                                    console.error("Failed to parse roles CSV:", err);
+                                  } finally {
+                                    e.target.value = "";
+                                  }
+                                }
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const { downloadCsvTemplate } = await import("../../../src/utils/csvImport");
+                              downloadCsvTemplate("roles-only");
+                            }}
+                            className="text-xs font-bold text-gray-500 hover:text-gray-800 underline cursor-pointer select-none"
+                          >
+                            Sample CSV
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 />

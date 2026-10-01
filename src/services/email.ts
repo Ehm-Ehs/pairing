@@ -1,4 +1,5 @@
 import { sendWhatsAppNotification } from "./whatsappService";
+import { getWelcomeEmail, getRoleAssignedEmail } from "./emailTemplates";
 
 interface NotificationData {
   to: string | string[];
@@ -28,6 +29,33 @@ export const sendWelcomeEmail = async (email: string, name: string) => {
     return await sendWhatsAppNotification({ phone: email, message: msg, eventTitle: "Welcome to PairForm" });
   } catch (error) {
     console.error("Error sending welcome notification:", error);
+    return null;
+  }
+};
+
+export const sendRoleAssignedEmail = async (
+  email: string,
+  participantName: string,
+  eventName: string,
+  groupNumber: number | string,
+  role?: string
+) => {
+  try {
+    const emailContent = getRoleAssignedEmail(
+      eventName,
+      participantName,
+      groupNumber,
+      role
+    );
+
+    return await sendEmail({
+      to: email,
+      subject: emailContent.subject,
+      html: emailContent.html,
+      from: emailContent.from,
+    });
+  } catch (error) {
+    console.error("Error sending role assigned email:", error);
     return null;
   }
 };

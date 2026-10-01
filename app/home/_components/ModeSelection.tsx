@@ -40,7 +40,7 @@ export const ModeSelection: React.FC<ModeSelectionProps> = ({ onSelect }) => {
                 Balanced team with roles
               </p>
             </div>
-            <span className="border border-[#3A76F0] text-[#3A76F0] group-hover:bg-[#3A76F0]/5 font-bold text-xs rounded-full px-4 py-1.5 transition-colors inline-flex items-center">
+            <span className="border border-[#3A76F0] text-[#3A76F0] group-hover:bg-[#3A76F0]/5 font-bold text-xs rounded-full px-4 py-1.5 transition-colors inline-flex items-center whitespace-nowrap">
               Create Event &gt;
             </span>
           </div>
@@ -61,7 +61,7 @@ export const ModeSelection: React.FC<ModeSelectionProps> = ({ onSelect }) => {
                 1:1 anonymous matching
               </p>
             </div>
-            <span className="border border-[#34C759] text-[#34C759] group-hover:bg-[#34C759]/5 font-bold text-xs rounded-full px-4 py-1.5 transition-colors inline-flex items-center">
+            <span className="border border-[#34C759] text-[#34C759] group-hover:bg-[#34C759]/5 font-bold text-xs rounded-full px-4 py-1.5 transition-colors inline-flex items-center whitespace-nowrap">
               Create Event &gt;
             </span>
           </div>
@@ -82,7 +82,7 @@ export const ModeSelection: React.FC<ModeSelectionProps> = ({ onSelect }) => {
                 Assign linear positions (1st, 2nd...) to participants
               </p>
             </div>
-            <span className="border border-[#CB30E0] text-[#CB30E0] group-hover:bg-[#CB30E0]/5 font-bold text-xs rounded-full px-4 py-1.5 transition-colors inline-flex items-center">
+            <span className="border border-[#CB30E0] text-[#CB30E0] group-hover:bg-[#CB30E0]/5 font-bold text-xs rounded-full px-4 py-1.5 transition-colors inline-flex items-center whitespace-nowrap">
               Create Event &gt;
             </span>
           </div>

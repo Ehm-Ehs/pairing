@@ -1,5 +1,5 @@
 import { toast } from "react-toastify";
-import { SecretSantaPairing } from "../types";
+import { SecretSantaPairing, RoleBasedPairing } from "../types";
 
 export function exportSecretSantaCsv(pairing: SecretSantaPairing) {
   const participantsList = pairing.participants || [];
@@ -9,8 +9,7 @@ export function exportSecretSantaCsv(pairing: SecretSantaPairing) {
   }
   
   try {
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Name,Email,Wishlist,Assignment\n";
+    let csvContent = "Name,Email,Wishlist,Assignment\n";
 
     participantsList.forEach((p) => {
       let assignmentName = "Not Assigned Yet";
@@ -33,7 +32,7 @@ export function exportSecretSantaCsv(pairing: SecretSantaPairing) {
       csvContent += `"${p.name}","${p.email || ""}","${p.wishlist || ""}","${assignmentName}"\n`;
     });
 
-    const encodedUri = encodeURI(csvContent);
+    const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     link.setAttribute("download", `${pairing.groupingPurpose?.replace(/\s+/g, "_") || 'event'}_participants.csv`);
@@ -45,5 +44,34 @@ export function exportSecretSantaCsv(pairing: SecretSantaPairing) {
   } catch (error) {
     console.error("Export error:", error);
     toast.error("Failed to export participants.");
+  }
+}
+
+export function exportGroupPairsCsv(pairing: RoleBasedPairing) {
+  try {
+    let csvContent = "Group,Slot Number,Role,Name,Email\n";
+
+    Object.entries(pairing.groups || {}).forEach(([groupKey, group]: [string, any]) => {
+      if (Array.isArray(group)) {
+        group.forEach((member: any) => {
+          const name = member.name || "Available Slot";
+          const email = member.email || "";
+          csvContent += `"Group ${parseInt(groupKey) + 1}",${member.number},"${member.role}","${name}","${email}"\n`;
+        });
+      }
+    });
+
+    const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${pairing.groupingPurpose?.replace(/\s+/g, "_") || "event"}_group_pairings.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.success("Group pairings exported!");
+  } catch (err) {
+    console.error("Failed to export CSV:", err);
+    toast.error("Failed to export group pairings CSV.");
   }
 }

@@ -324,18 +324,18 @@ const RandomPositioningForm: React.FC<RandomPositioningFormProps> = ({
               </div>
 
               {/* Form Action Buttons */}
-              <div className="flex gap-4 mt-4 w-full">
+              <div className="flex items-center justify-center gap-3 sm:gap-4 mt-4 w-full">
                 <button
                   type="button"
                   onClick={onCancel}
-                  className="bg-gray-150 hover:bg-gray-200 text-gray-700 font-bold px-8 py-3 rounded-full text-xs transition-all shadow-sm flex-1 cursor-pointer"
+                  className="bg-gray-150 hover:bg-gray-200 text-gray-700 font-bold px-5 sm:px-8 py-2.5 sm:py-3 rounded-full text-xs sm:text-sm transition-all shadow-sm flex-1 cursor-pointer whitespace-nowrap text-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="bg-gradient-to-b from-[#CB30E0] to-[#6A0D7A] hover:from-[#d54eeb] hover:to-[#7f1692] text-white font-bold px-8 py-3 rounded-full text-sm transition-all shadow-lg shadow-fuchsia-500/25 hover:shadow-xl hover:shadow-fuchsia-500/35 active:scale-95 cursor-pointer disabled:from-fuchsia-400 disabled:to-fuchsia-600 disabled:cursor-not-allowed border-0 outline-none flex-1"
+                  className="bg-gradient-to-b from-[#CB30E0] to-[#6A0D7A] hover:from-[#d54eeb] hover:to-[#7f1692] text-white font-bold px-5 sm:px-8 py-2.5 sm:py-3 rounded-full text-xs sm:text-sm transition-all shadow-lg shadow-fuchsia-500/25 hover:shadow-xl hover:shadow-fuchsia-500/35 active:scale-95 cursor-pointer disabled:from-fuchsia-400 disabled:to-fuchsia-600 disabled:cursor-not-allowed border-0 outline-none flex-1 whitespace-nowrap text-center"
                 >
                   {loading ? "Creating event..." : "Create event >"}
                 </button>

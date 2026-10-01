@@ -6,6 +6,11 @@ import { db } from "../../src/services/firebase";
 import { toast } from "react-toastify";
 import { Button } from "../../src/components/ui/button";
 import { useRouter } from "next/navigation";
+import { useWorkspace } from "../../src/context/WorkspaceContext";
+import { CreateOrgModal } from "../../src/components/CreateOrgModal";
+import { InlineOrgSettings } from "../../src/components/InlineOrgSettings";
+import { FaWhatsapp } from "react-icons/fa";
+import PhoneInputWithCountry from "../../src/components/ui/PhoneInputWithCountry";
 
 const Toggle = ({
   checked,
@@ -38,6 +43,8 @@ const Toggle = ({
 const SettingsContent = ({ user }: { user: any }) => {
   const userId = user?.uid || user?.userId || "";
   const router = useRouter();
+  const { activeWorkspace, userOrganizations } = useWorkspace();
+  const [isCreateOrgOpen, setIsCreateOrgOpen] = useState(false);
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -53,6 +60,9 @@ const SettingsContent = ({ user }: { user: any }) => {
     emailConfirmations: true,
     closedEventMessage: "",
     fullEventMessage: "",
+    visibilityMode: "public" as "public" | "restricted",
+    notificationChannel: "both" as "email" | "whatsapp" | "both",
+    whatsappNumber: "",
   });
   const [saving, setSaving] = useState(false);
   const [isSignUpModalOpen, setIsSignUpModalOpen] = useState(false);
@@ -130,14 +140,6 @@ const SettingsContent = ({ user }: { user: any }) => {
   };
 
   const handleSave = async () => {
-    const isGuest = user?.isAnonymous || false;
-    const hasEmail = email.trim() !== "";
-
-    if (isGuest && hasEmail) {
-      setIsSignUpModalOpen(true);
-      return;
-    }
-
     await saveSettingsData();
   };
 
@@ -347,6 +349,112 @@ const SettingsContent = ({ user }: { user: any }) => {
               description="Send email confirmations to participants when they join"
             />
             
+            {/* Public Link Group Visibility Setting */}
+            <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 text-left">
+              <label className="block text-xs font-bold text-gray-550 uppercase tracking-wider">
+                Public Link Group Visibility
+              </label>
+              <div className="bg-white rounded-2xl p-4 flex gap-6 md:gap-12 flex-col sm:flex-row border border-gray-200/80 shadow-sm">
+                <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
+                  <input
+                    type="radio"
+                    name="visibilityMode"
+                    value="public"
+                    checked={defaults.visibilityMode !== "restricted"}
+                    onChange={() => setDefaults((prev) => ({ ...prev, visibilityMode: "public" }))}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="block font-bold text-gray-900">🌐 Public (Show All Groups)</span>
+                    <span className="text-xs text-gray-400 font-normal">Everyone on public links can view members of all groups</span>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
+                  <input
+                    type="radio"
+                    name="visibilityMode"
+                    value="restricted"
+                    checked={defaults.visibilityMode === "restricted"}
+                    onChange={() => setDefaults((prev) => ({ ...prev, visibilityMode: "restricted" }))}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="block font-bold text-gray-900">🔒 Restricted (Blur Other Groups)</span>
+                    <span className="text-xs text-gray-400 font-normal">Participants see only their group (available slots remain visible)</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Participant Notification Channel Setting */}
+            <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 text-left">
+              <label className="block text-xs font-bold text-gray-550 uppercase tracking-wider">
+                Participant Notification Channel
+              </label>
+              <div className="bg-white rounded-2xl p-4 flex gap-6 md:gap-8 flex-col sm:flex-row border border-gray-200/80 shadow-sm">
+                <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
+                  <input
+                    type="radio"
+                    name="notificationChannel"
+                    value="email"
+                    checked={defaults.notificationChannel === "email"}
+                    onChange={() => setDefaults((prev) => ({ ...prev, notificationChannel: "email" }))}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="block font-bold text-gray-900">📧 Email (Resend API)</span>
+                    <span className="text-xs text-gray-400 font-normal">Send alerts via Resend email</span>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
+                  <input
+                    type="radio"
+                    name="notificationChannel"
+                    value="whatsapp"
+                    checked={defaults.notificationChannel === "whatsapp"}
+                    onChange={() => setDefaults((prev) => ({ ...prev, notificationChannel: "whatsapp" }))}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="block font-bold text-gray-900">💬 WhatsApp API</span>
+                    <span className="text-xs text-gray-400 font-normal">Send alerts via WhatsApp message</span>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
+                  <input
+                    type="radio"
+                    name="notificationChannel"
+                    value="both"
+                    checked={defaults.notificationChannel === "both" || !defaults.notificationChannel}
+                    onChange={() => setDefaults((prev) => ({ ...prev, notificationChannel: "both" }))}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="block font-bold text-gray-900">📬 Both (Email & WhatsApp)</span>
+                    <span className="text-xs text-gray-400 font-normal">Send notifications through both channels</span>
+                  </div>
+                </label>
+              </div>
+
+               {(defaults.notificationChannel === "whatsapp" || defaults.notificationChannel === "both") && (
+                <div className="mt-3 p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl animate-in fade-in duration-200">
+                  <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <FaWhatsapp className="w-4 h-4 text-emerald-600" />
+                    <span>Organizer WhatsApp Phone Number</span>
+                  </label>
+                  <PhoneInputWithCountry
+                    id="whatsappNumber"
+                    name="whatsappNumber"
+                    value={defaults.whatsappNumber || ""}
+                    onChange={(val) => setDefaults((prev) => ({ ...prev, whatsappNumber: val }))}
+                  />
+                  <p className="text-[11px] text-emerald-700 mt-1.5 font-medium">
+                    Select your country code and enter your WhatsApp number for organizer notifications.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="flex flex-col gap-4 mt-4 pt-4 border-t border-gray-100 text-left">
               <div>
                 <label className="block text-xs font-bold text-gray-550 uppercase tracking-wider mb-1.5">
@@ -374,6 +482,77 @@ const SettingsContent = ({ user }: { user: any }) => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Card: Organization Workspace */}
+        <div className="bg-white rounded-3xl border border-gray-150 p-6 md:p-8 shadow-sm text-left flex flex-col gap-5">
+          <div>
+            <h3 className="text-base font-bold text-gray-900 font-heading">
+              Organization Workspace
+            </h3>
+            <p className="text-xs text-gray-400 font-medium mt-0.5">
+              Manage team access and organization settings
+            </p>
+          </div>
+          <hr className="border-gray-100" />
+
+          {activeWorkspace.type === "organization" ? (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-2 border-b border-gray-100 pb-4">
+                <div>
+                  {(() => {
+                    const matchedOrg = userOrganizations.find((o) => o.id === activeWorkspace.id);
+                    const isUserAdmin =
+                      activeWorkspace.role === "admin" ||
+                      matchedOrg?.userRole === "admin" ||
+                      matchedOrg?.createdBy === userId;
+                    const roleLabel = isUserAdmin ? "ADMIN" : "MEMBER";
+
+                    return (
+                      <>
+                        <span className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                          🏢 {activeWorkspace.name}
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                              isUserAdmin
+                                ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                : "bg-gray-100 text-gray-700 border border-gray-200"
+                            }`}
+                          >
+                            {roleLabel}
+                          </span>
+                        </span>
+                        <p className="text-xs text-gray-500 mt-1 font-medium">
+                          {isUserAdmin
+                            ? "You are an Admin of this organization. Manage members, branding, and integrations below."
+                            : "You are a Member of this organization. Shared events are visible in your workspace dashboard."}
+                        </p>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              <InlineOrgSettings />
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-2">
+              <div>
+                <span className="text-sm font-bold text-gray-900">Create an Organization</span>
+                <p className="text-xs text-gray-500 mt-1 font-medium">
+                  Set up a shared workspace for your company, school, or team.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsCreateOrgOpen(true)}
+                className="bg-[#1449b2] hover:bg-[#0f3d99] text-white text-xs font-bold rounded-full px-6 py-3 shadow-md transition-all cursor-pointer flex-shrink-0"
+              >
+                Create Organization
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Card 4: Account Management */}
@@ -475,6 +654,11 @@ const SettingsContent = ({ user }: { user: any }) => {
           </div>
         </div>
       )}
+
+      <CreateOrgModal
+        isOpen={isCreateOrgOpen}
+        onClose={() => setIsCreateOrgOpen(false)}
+      />
     </div>
   );
 };

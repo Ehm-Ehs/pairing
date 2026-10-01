@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { Button } from "../../../src/components/ui/button";
 import { Card, CardContent } from "../../../src/components/ui/card";
 import { FaPlus, FaSearch, FaChevronLeft, FaChevronRight, FaLayerGroup } from "react-icons/fa";
-import { GroupingsPageProps } from "../../../src/types";
+import { GroupingsPageProps, Pairing } from "../../../src/types";
 import DashboardStats from "./DashboardStats";
 import EventCard from "../../../src/utils/EventCard";
 import { useHomeActions } from "../../../src/hooks/useHomeActions";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useWorkspace } from "../../../src/context/WorkspaceContext";
+import { fetchWorkspacePairings } from "../../../src/services/endpoints";
 
 interface HomeProps {
   data: GroupingsPageProps | null;
@@ -14,7 +16,28 @@ interface HomeProps {
 
 export default function Home({ data }: HomeProps) {
   const router = useRouter();
-  const allEvents = data?.pairings || [];
+  const { activeWorkspace } = useWorkspace();
+  const userId = data?.userId || data?.uid || "";
+  const [workspacePairings, setWorkspacePairings] = useState<Pairing[]>([]);
+  const [loadingPairings, setLoadingPairings] = useState(true);
+
+  useEffect(() => {
+    async function loadWorkspaceEvents() {
+      if (!userId) return;
+      setLoadingPairings(true);
+      try {
+        const events = await fetchWorkspacePairings(activeWorkspace, userId);
+        setWorkspacePairings(events);
+      } catch (err) {
+        console.error("Failed to load workspace pairings:", err);
+      } finally {
+        setLoadingPairings(false);
+      }
+    }
+    loadWorkspaceEvents();
+  }, [activeWorkspace, userId]);
+
+  const allEvents = workspacePairings;
   const organizerName = data?.firstName || "Organizer";
   const {
     handleCreateNew,
@@ -237,7 +260,7 @@ export default function Home({ data }: HomeProps) {
                 event={event}
                 index={originalIndex !== -1 ? originalIndex : index}
                 onGeneratePairs={handleGeneratePairs}
-                onViewDetails={handleShare}
+                onViewDetails={() => handleShare(event.id, event)}
               />
             );
           })}

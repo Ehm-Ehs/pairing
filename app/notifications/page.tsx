@@ -199,6 +199,8 @@ const NotifCard = ({
   );
 };
 
+import { subscribeUserToPush, isPushNotificationSupported } from "../../src/utils/webPush";
+
 // ─── Main content component ───────────────────────────────────────────────────
 const NotificationsContent = ({ user }: { user: any }) => {
   const router = useRouter();
@@ -206,6 +208,7 @@ const NotificationsContent = ({ user }: { user: any }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [pushStatus, setPushStatus] = useState<"idle" | "subscribing" | "subscribed" | "error">("idle");
 
   useEffect(() => {
     if (!userId) return;
@@ -220,6 +223,16 @@ const NotificationsContent = ({ user }: { user: any }) => {
     });
     return () => unsub();
   }, [userId]);
+
+  const handleEnablePush = async () => {
+    setPushStatus("subscribing");
+    const result = await subscribeUserToPush(userId);
+    if (result.success) {
+      setPushStatus("subscribed");
+    } else {
+      setPushStatus("error");
+    }
+  };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -295,17 +308,34 @@ const NotificationsContent = ({ user }: { user: any }) => {
             )}
           </div>
 
-          {/* Summary pills */}
-          <div className="flex gap-3 mt-6 flex-wrap">
-            <div className="px-3 py-1.5 bg-white/10 border border-white/20 rounded-full text-xs font-bold backdrop-blur-sm">
-              {notifications.length} total
+          {/* Summary pills & Web Push Banner */}
+          <div className="flex items-center justify-between gap-3 mt-6 flex-wrap">
+            <div className="flex gap-2 flex-wrap">
+              <div className="px-3 py-1.5 bg-white/10 border border-white/20 rounded-full text-xs font-bold backdrop-blur-sm">
+                {notifications.length} total
+              </div>
+              <div className="px-3 py-1.5 bg-rose-500/30 border border-rose-400/30 rounded-full text-xs font-bold backdrop-blur-sm">
+                {unreadCount} unread
+              </div>
+              <div className="px-3 py-1.5 bg-emerald-500/20 border border-emerald-400/30 rounded-full text-xs font-bold backdrop-blur-sm">
+                {notifications.length - unreadCount} read
+              </div>
             </div>
-            <div className="px-3 py-1.5 bg-rose-500/30 border border-rose-400/30 rounded-full text-xs font-bold backdrop-blur-sm">
-              {unreadCount} unread
-            </div>
-            <div className="px-3 py-1.5 bg-emerald-500/20 border border-emerald-400/30 rounded-full text-xs font-bold backdrop-blur-sm">
-              {notifications.length - unreadCount} read
-            </div>
+
+            {pushStatus !== "subscribed" && (
+              <button
+                onClick={handleEnablePush}
+                disabled={pushStatus === "subscribing"}
+                className="px-3.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-300/40 text-amber-800 text-xs font-bold rounded-full transition-all flex items-center gap-1.5 backdrop-blur-sm"
+              >
+                <span>🔔</span>
+                {pushStatus === "subscribing"
+                  ? "Enabling Push..."
+                  : pushStatus === "error"
+                  ? "Permission Denied"
+                  : "Enable Web Push Alerts"}
+              </button>
+            )}
           </div>
         </div>
       </div>

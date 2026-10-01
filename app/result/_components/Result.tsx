@@ -17,10 +17,15 @@ const RandomPositioningResult = dynamic(() => import("./RandomPositioningResult"
   loading: () => <div className="text-gray-400 animate-pulse py-8 text-center text-xs font-semibold">Loading Positions List...</div>,
   ssr: false,
 });
+
+const SpeedNetworkingMatrix = dynamic(() => import("../../../src/components/events/SpeedNetworkingMatrix"), {
+  loading: () => <div className="text-gray-400 animate-pulse py-8 text-center text-xs font-semibold">Loading Speed Networking Matrix...</div>,
+  ssr: false,
+});
 import { useResultActions } from "../../../src/hooks/useResultActions";
 import { closePairingEvent, updatePairingVisibility } from "../../../src/services/endpoints";
 import { auth } from "../../../src/services/firebase";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { formatGroupName } from "../../../src/utils/stringUtils";
 import { FaWhatsapp, FaLock, FaGlobe } from "react-icons/fa";
@@ -39,9 +44,12 @@ interface ResultProps {
   isPublicView?: boolean;
 }
 
+import { useWorkspace } from "../../../src/context/WorkspaceContext";
+
 const Result = ({ data, isPublicView = false }: ResultProps) => {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { activeWorkspace } = useWorkspace();
   const [isClosing, setIsClosing] = useState(false);
   const [isTogglingVisibility, setIsTogglingVisibility] = useState(false);
   const [copiedLinkLocal, setCopiedLinkLocal] = useState(false);
@@ -88,6 +96,79 @@ const Result = ({ data, isPublicView = false }: ResultProps) => {
 
   const userId = data?.userId || data?.uid || auth.currentUser?.uid || storageUid || "";
 
+  const [directPairing, setDirectPairing] = useState<any>(null);
+  const [fetchingDirect, setFetchingDirect] = useState(false);
+  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
+
+  useEffect(() => {
+    const fetchDirectPairing = async () => {
+      if (!directPairing && !fetchingDirect && !hasAttemptedFetch) {
+        setFetchingDirect(true);
+        try {
+          const { doc, getDoc } = await import("firebase/firestore");
+          const { db, fetchWorkspacePairings } = await import("../../../src/services/firebase").then(async (m) => {
+            const ep = await import("../../../src/services/endpoints");
+            return { db: m.db, fetchWorkspacePairings: ep.fetchWorkspacePairings };
+          });
+
+          // 1. Try direct Pairings collection query by ID
+          if (idParam) {
+            const pSnap = await getDoc(doc(db, "Pairings", idParam));
+            if (pSnap.exists()) {
+              setDirectPairing(pSnap.data());
+              return;
+            }
+          }
+
+          // 2. Fetch workspace pairings for active workspace (e.g., Organization workspace)
+          if (userId && activeWorkspace) {
+            const workspaceEvents = await fetchWorkspacePairings(activeWorkspace, userId);
+            let match = null;
+            if (idParam) {
+              match = workspaceEvents.find((p: any) => p.id === idParam);
+            } else if (indexParam !== null && indexParam !== undefined) {
+              const pIdx = parseInt(indexParam);
+              if (!isNaN(pIdx) && workspaceEvents[pIdx]) {
+                match = workspaceEvents[pIdx];
+              }
+            } else if (workspaceEvents.length > 0) {
+              match = workspaceEvents[0];
+            }
+
+            if (match) {
+              setDirectPairing(match);
+              return;
+            }
+          }
+
+          // 3. Fallback: Check legacy User document pairings array
+          if (userId) {
+            const uSnap = await getDoc(doc(db, "Users", userId));
+            if (uSnap.exists()) {
+              const uData = uSnap.data();
+              const userPairings = uData.pairings || [];
+              let match = null;
+              if (idParam) {
+                match = userPairings.find((p: any) => p.id === idParam);
+              } else if (indexParam !== null) {
+                match = userPairings[parseInt(indexParam)];
+              }
+              if (match) {
+                setDirectPairing(match);
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Direct pairing fetch error:", err);
+        } finally {
+          setFetchingDirect(false);
+          setHasAttemptedFetch(true);
+        }
+      }
+    };
+    fetchDirectPairing();
+  }, [idParam, indexParam, selectedIndex, directPairing, fetchingDirect, hasAttemptedFetch, userId, activeWorkspace]);
+
   if (!data) {
     return (
       <div className="p-8 text-center text-gray-500 font-semibold">
@@ -96,16 +177,45 @@ const Result = ({ data, isPublicView = false }: ResultProps) => {
     );
   }
 
-  if (idParam && selectedIndex === null && data) {
+  if ((idParam || indexParam) && !directPairing && fetchingDirect) {
     return (
-      <div className="p-8 text-center text-gray-500 font-semibold">
+      <div className="p-8 text-center text-gray-500 font-semibold animate-pulse">
         Loading event details...
       </div>
     );
   }
 
-  const pairingsToRender =
-    selectedIndex !== null && data.pairings ? [data.pairings[selectedIndex]] : (data.pairings || []);
+  const pairingsToRender = directPairing
+    ? [directPairing]
+    : selectedIndex !== null && data.pairings && data.pairings[selectedIndex]
+    ? [data.pairings[selectedIndex]]
+    : (data.pairings && data.pairings.length > 0)
+    ? data.pairings
+    : [];
+
+  if (pairingsToRender.length === 0 && (hasAttemptedFetch || selectedIndex === null || !data.pairings?.length)) {
+    return (
+      <div className="py-16 px-4 text-center flex flex-col items-center justify-center max-w-md mx-auto">
+        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-gray-400">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+        </div>
+        <h3 className="text-lg font-bold text-gray-900 mb-1 font-heading">Event Not Found</h3>
+        <p className="text-xs text-gray-500 mb-6 font-medium">The requested event could not be found or may have been deleted.</p>
+        <button
+          type="button"
+          onClick={() => router.push("/home")}
+          className="bg-gradient-to-b from-[#3A76F0] to-[#012A7D] text-white text-xs font-bold px-6 py-2.5 rounded-full shadow-md transition-all active:scale-95 cursor-pointer"
+        >
+          Back to My Events
+        </button>
+      </div>
+    );
+  }
 
   const handleCloseEventClick = (eventId: string) => {
     toast(
@@ -204,8 +314,10 @@ const Result = ({ data, isPublicView = false }: ResultProps) => {
             filledSlots = pairing.participants ? pairing.participants.length : 0;
           } else {
             totalSlots = parseInt(pairing.numParticipants.toString());
-            Object.values(pairing.groups || {}).forEach((group) => {
-              filledSlots += group.filter((p: any) => p.name).length;
+            Object.values(pairing.groups || {}).forEach((group: any) => {
+              if (Array.isArray(group)) {
+                filledSlots += group.filter((p: any) => p && p.name).length;
+              }
             });
           }
 
@@ -262,13 +374,15 @@ const Result = ({ data, isPublicView = false }: ResultProps) => {
               let csvContent = "data:text/csv;charset=utf-8,";
               csvContent += "Group,Slot Number,Role,Name,Email\n";
 
-              Object.entries(pairing.groups || {}).forEach(([groupKey, group]) => {
-                const groupName = formatGroupName(groupKey);
-                group.forEach((member) => {
-                  const name = member.name || "Available Slot";
-                  const email = member.email || "";
-                  csvContent += `"${groupName}",${member.number},"${member.role}","${name}","${email}"\n`;
-                });
+              Object.entries(pairing.groups || {}).forEach(([groupKey, group]: [string, any]) => {
+                if (Array.isArray(group)) {
+                  const groupName = formatGroupName(groupKey);
+                  group.forEach((member: any) => {
+                    const name = member.name || "Available Slot";
+                    const email = member.email || "";
+                    csvContent += `"${groupName}",${member.number},"${member.role || ""}","${name}","${email}"\n`;
+                  });
+                }
               });
 
               const encodedUri = encodeURI(csvContent);
@@ -535,6 +649,24 @@ const Result = ({ data, isPublicView = false }: ResultProps) => {
                   </div>
                 )}
               </div>
+
+              {/* Speed Networking Multi-Round Matrix */}
+              {pairing.isSpeedNetworking && (
+                <SpeedNetworkingMatrix
+                  participants={
+                    pairing.type === "secret-santa" || pairing.type === "random-positioning"
+                      ? (pairing.participants || []).map((p: any) => ({ id: p.id || p.email, name: p.name, email: p.email, phone: p.phone }))
+                      : Object.values(pairing.groups || {})
+                          .flat()
+                          .filter((p: any) => p && p.name && p.name.trim() !== "")
+                          .map((p: any) => ({ id: p.id || p.email || Math.random().toString(), name: p.name, email: p.email, phone: p.phone }))
+                  }
+                  eventName={pairing.groupingPurpose}
+                  initialRounds={pairing.speedNetworkingRounds || 3}
+                  eventId={pairing.id}
+                  userId={userId}
+                />
+              )}
 
               {/* Event Stats capsules */}
               <EventStats

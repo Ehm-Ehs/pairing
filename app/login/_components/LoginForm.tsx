@@ -5,12 +5,11 @@ import * as Yup from "yup";
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
-  signInAnonymously,
 } from "firebase/auth";
 import { auth, googleProvider, db } from "../../../src/services/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Logo from "../../../src/assets/logo";
 import Auth from "../../../src/services/auth.module";
 import { toast } from "react-toastify";
@@ -23,6 +22,8 @@ import { useState } from "react";
 
 const LoginForm = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectUrl = searchParams.get("redirect") || "/home";
   const [showPassword, setShowPassword] = useState(false);
 
   const handleGoogleSignIn = async () => {
@@ -40,6 +41,11 @@ const LoginForm = () => {
           email: user.email,
           firstName: user.displayName?.split(" ")[0] || "",
           lastName: user.displayName?.split(" ").slice(1).join(" ") || "",
+          tokenBalance: 50,
+          freeTokensGranted: 50,
+          paidTokensPurchased: 0,
+          tier: "free",
+          hasEverPaid: false,
         });
 
         if (user.email) {
@@ -66,7 +72,7 @@ const LoginForm = () => {
           position: "top-center",
           autoClose: 3000,
         });
-        router.push("/home");
+        router.push(redirectUrl);
       }
     } catch (error: any) {
       console.error("Error logging in with Google:", error);
@@ -76,49 +82,6 @@ const LoginForm = () => {
     }
   };
 
-  const handleAnonymousSignIn = async () => {
-    try {
-      const result = await signInAnonymously(auth);
-      const user = result.user;
-
-      const docRef = doc(db, "Users", user.uid);
-      const docSnap = await getDoc(docRef);
-
-      if (!docSnap.exists()) {
-        const userId = uuidv4();
-        await setDoc(docRef, {
-          userId,
-          email: null,
-          firstName: "Guest",
-          lastName: "User",
-          isAnonymous: true,
-          createdAt: new Date().toISOString(),
-        });
-      }
-
-      const accessToken = await user.getIdToken();
-      if (accessToken && user) {
-        const userToStore = {
-          uid: user.uid,
-          email: null,
-          displayName: "Guest User",
-          photoURL: null,
-        };
-        // @ts-ignore
-        Auth.authenticateUser({ accessToken, data: userToStore });
-        toast.success("Logged in as Guest!", {
-          position: "top-center",
-          autoClose: 3000,
-        });
-        router.push("/home");
-      }
-    } catch (error: any) {
-      console.error("Error signing in as guest:", error);
-      toast.error(getFriendlyFirebaseErrorMessage(error), {
-        position: "top-center",
-      });
-    }
-  };
 
   const handleSubmit = async (values: { email: string; password: string }) => {
     try {
@@ -137,7 +100,7 @@ const LoginForm = () => {
         toast.error("Account details not found. Please sign up.", {
           position: "top-center",
         });
-        router.push("/sign-up");
+        router.push(`/sign-up?redirect=${encodeURIComponent(redirectUrl)}`);
         return;
       }
 
@@ -157,7 +120,7 @@ const LoginForm = () => {
           autoClose: 3000,
         });
 
-        router.push("/home");
+        router.push(redirectUrl);
       } else {
         toast.error("Failed to retrieve login details. Please try again.", {
           position: "top-center",
@@ -280,15 +243,7 @@ const LoginForm = () => {
                 Sign in with Google
               </Button>
 
-              <div className="flex justify-center mt-2">
-                <button
-                  type="button"
-                  onClick={handleAnonymousSignIn}
-                  className="text-sm text-gray-700 font-semibold underline hover:text-black cursor-pointer"
-                >
-                  Sign in Anonymously
-                </button>
-              </div>
+
             </Form>
           )}
         </Formik>

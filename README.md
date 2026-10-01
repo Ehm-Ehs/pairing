@@ -1,87 +1,85 @@
-# Pair Form - Random Group Generator
+# PairForm - Intelligent Team Formation & Pairing Platform
 
-Effortlessly create random pairings and groups for your team, class, or event. Pair Form makes group generation simple and fair.
+PairForm is an enterprise-ready, high-performance web application built for creating balanced teams, role-capped project groups, breakout rooms, speed networking schedules, and Secret Santa gift exchanges.
 
-## Features
+---
 
-- **Random Group Generation**: Automatically generate random pairs or groups based on your participants.
-- **Authentication**: Secure Sign Up and Sign In functionality using Firebase.
-- **Participant Management**: Easily add and manage users for your events.
-- **Dashboard**: A central hub to view and manage your pairings.
-- **Event Creation**: Create custom events, specifying group sizes and other parameters.
-- **Share Results**: Generate unique URLs to share grouping results with others.
+## 💡 Overview of What We Have Built
 
-## Tech Stack
+### 1. Authentication & Role-Based Access Control
+* **Firebase Authentication**: Email and password signup, login, and password reset flows (`/login`, `/sign-up`, `/forgot-password`).
+* **Dynamic Super Admin System**: Super admins are dynamically assigned via Firestore (`Users` collection with `role: "super_admin"` or `isSuperAdmin: true`). Configured with fallback defaults in `src/config/admin.ts`.
+* **Guest Flow & Interactive Auth Guard**: Guest users can configure events directly on the landing page form. Clicking "Create Event" prompts sign-in/sign-up and automatically restores their event payload from `sessionStorage` post-auth.
+* **Guest Adaptive Header**: Context-aware navigation bar hiding "Create Org" and disabling account settings for guest users.
 
-- **Framework**: [React](https://reactjs.org/) with [Vite](https://vitejs.dev/)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Authentication & Backend**: [Firebase](https://firebase.google.com/)
-- **State Management**: React Hooks & Context
-- **Forms**: [Formik](https://formik.org/) & [Yup](https://github.com/jquense/yup)
-- **Notifications**: [React Toastify](https://github.com/fkhadra/react-toastify)
-- **Icons**: [React Icons](https://react-icons.github.io/react-icons/)
+### 2. Event & Pairing Engine (`src/utils/pairing.ts`)
+* **Secret Santa Exchange**:
+  * 100% secret random partner draws.
+  * Custom exclusion rules (e.g. spouses/couples cannot draw each other).
+  * Wishlist creation and private budget tracking.
+* **Role-Based & Skill-Balanced Pairing**:
+  * Strict role caps per team (e.g. maximum 2 Developers, 1 Designer, 1 PM).
+  * Skill distribution algorithm equalizing experience levels across competing teams.
+* **Random Positioning & Breakout Rooms**:
+  * Instant group division for speed networking rounds or Zoom/Teams workshops.
+* **Participant Results & Share Links**:
+  * Unique share links (`/event/[id]`, `/your-pairing/[id]`) for participants to view their assignments securely.
 
-## Getting Started
+### 3. Monetization & Token Ledger System
+* **Paystack Payment Integration**:
+  * Payment initialization and verification via `/api/payments/paystack/verify` and `/api/payments/paystack/webhook`.
+* **Token Ledger Architecture**:
+  * Credit balance tracking recorded in Firestore collections (`TokenLedgers` & `TokenLedgerEntries`).
+* **Pricing Plans**:
+  * Interactive subscription and credit top-up page (`/pricing`).
 
-Follow these instructions to get a copy of the project up and running on your local machine.
+### 4. Automated Notifications
+* **Email Dispatch**: Resend integration via `/api/send-email` for match notifications, invites, and wishlists.
+* **WhatsApp Dispatch**: WhatsApp notification endpoint (`/api/send-whatsapp`) for instant mobile delivery.
 
-### Prerequisites
+### 5. Security & Testing
+* **Firestore Security Rules (`firestore.rules`)**:
+  * Locked down collection rules enforcing authentication, organization boundaries, token ledger security, and default deny policies.
+* **Automated Vitest Security Suite (`tests/firestore-rules.test.ts`)**:
+  * 11 automated security unit tests covering rule syntax, auth checks, and data isolation.
+* **TypeScript Integrity**:
+  * Strict compilation check with 0 type errors (`npx tsc --noEmit`).
 
-Make sure you have Node.js installed on your system.
+### 6. SEO & Modern UI Architecture
+* **Single-Page Landing**: Clean navigation targeting smooth scroll sections (`#how-it-works`, `#features`, `#use-cases`).
+* **Structured JSON-LD Schema**: Embedded `SoftwareApplication` metadata in `app/layout.tsx` for optimal organic search visibility without thin content sub-pages.
+* **Responsive Stack**: Next.js App Router, Tailwind CSS, Framer Motion, and React Icons.
 
-- [Node.js](https://nodejs.org/)
+---
 
-### Installation
+## 🛠️ What Is Missing & Future Enhancements
 
-1.  Clone the repository:
+1. **Production Webhook Signature Verification**
+   * Ensure `PAYSTACK_SECRET_KEY` is set in production environment variables (Vercel/Netlify) to sign and verify incoming payment webhooks securely.
 
-    ```bash
-    git clone https://github.com/your-username/random-selection.git
-    cd random-selection
-    ```
+2. **Full WhatsApp Business API Integration**
+   * Connect `/api/send-whatsapp` to an active Twilio or Meta WhatsApp Business account for automated production delivery.
 
-2.  Install dependencies:
+3. **CSV / Excel Export for Workshop Hosts**
+   * Add a 1-click **Export to CSV / Excel** button formatted for Zoom & MS Teams pre-assigned breakout room imports.
 
-    ```bash
-    npm install
-    ```
+4. **Multi-Round Speed Networking Matrix**
+   * Visual schedule matrix generator ensuring zero duplicate pairings across multiple continuous networking rounds.
 
-3.  Set up Environment Variables:
-    Create a `.env.local` file in the root directory and add your Firebase configuration keys:
-    ```env
-    VITE_FIREBASE_API_KEY=your_api_key
-    VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
-    VITE_FIREBASE_PROJECT_ID=your_project_id
-    VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
-    VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-    VITE_FIREBASE_APP_ID=your_app_id
-    ```
+5. **Advanced Organization Analytics Dashboard**
+   * Enhanced admin panel in `/settings` for tracking organization credits, historical team formations, and bulk member CSV uploads.
 
-### Running Locally
+---
 
-Start the development server:
+## 🧪 Running Tests & Checks
 
 ```bash
+# Run TypeScript type check
+npx tsc --noEmit
+
+# Run Security & Firestore Rules Tests
+npx vitest run tests/firestore-rules.test.ts
+
+# Start Development Server
 npm run dev
 ```
-
-Open [http://localhost:5173](http://localhost:5173) (or the port shown in your terminal) to view it in the browser.
-
-### Building for Production
-
-To build the app for production:
-
-```bash
-npm run build
-```
-
-To preview the production build locally:
-
-```bash
-npm run preview
-```
-
-## License
-
-This project is licensed under the MIT License.

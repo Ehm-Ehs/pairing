@@ -3,7 +3,7 @@
 import Script from "next/script";
 
 const Clarity = () => {
-  const clarityId = process.env.NEXT_PUBLIC_MICROSOFT_CLARITY_ID;
+  const clarityId = process.env.NEXT_PUBLIC_MICROSOFT_CLARITY_ID || "xtzh6n3f1g";
 
   if (!clarityId) {
     return null;

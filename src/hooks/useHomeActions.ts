@@ -56,8 +56,14 @@ export const useHomeActions = () => {
     }
   };
 
-  const handleShare = (index: number) => {
-    router.push(`/your-pairing?index=${index}`);
+  const handleShare = (target: number | string, eventObj?: any) => {
+    if (typeof target === "string") {
+      router.push(`/your-pairing?id=${target}`);
+    } else if (eventObj && eventObj.id) {
+      router.push(`/your-pairing?id=${eventObj.id}`);
+    } else {
+      router.push(`/your-pairing?index=${target}`);
+    }
   };
 
   const calculateTotalStats = (events: GroupingsPageProps["pairings"]) => {

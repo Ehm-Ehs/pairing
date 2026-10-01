@@ -4,7 +4,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: ["/", "/login", "/sign-up", "/forgot-password"],
+      allow: ["/", "/sign-up"],
       disallow: ["/api/", "/event/", "/home", "/your-pairing", "/result", "/settings", "/share", "/notifications"],
     },
     sitemap: "https://pair-form.com/sitemap.xml",

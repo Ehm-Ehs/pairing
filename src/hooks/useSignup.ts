@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   createUserWithEmailAndPassword,
   signInWithPopup,
@@ -14,12 +14,18 @@ import { auth, db, googleProvider } from "../services/firebase";
 import Auth from "../services/auth.module";
 import { sendWelcomeEmail } from "../services/email";
 import { getFriendlyFirebaseErrorMessage } from "../utils/firebaseErrorUtils";
+import { acceptOrgInvite } from "../services/orgService";
 
 export const useSignup = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const inviteToken = searchParams.get("inviteToken") || searchParams.get("token") || "";
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isGoogleSigningUp, setIsGoogleSigningUp] = useState(false);
+
+  const redirectUrl = searchParams.get("redirect") || "/home";
 
   const handleGoogleSignUp = async () => {
     if (isGoogleSigningUp) return;
@@ -33,12 +39,17 @@ export const useSignup = () => {
 
       if (!docSnap.exists()) {
         const userId = uuidv4();
-        // Create new user if not exists
+        // Create new user if not exists with 50 free tokens
         await setDoc(docRef, {
           userId,
           email: user.email,
           firstName: user.displayName?.split(" ")[0] || "",
           lastName: user.displayName?.split(" ").slice(1).join(" ") || "",
+          tokenBalance: 50,
+          freeTokensGranted: 50,
+          paidTokensPurchased: 0,
+          tier: "free",
+          hasEverPaid: false,
         });
 
         // Send welcome email
@@ -65,11 +76,16 @@ export const useSignup = () => {
           photoURL: user.photoURL,
         };
         Auth.authenticateUser({ accessToken, data: userToStore });
+
+        if (inviteToken) {
+          await acceptOrgInvite(inviteToken, user.uid, user.email || "", user.displayName || "");
+        }
+
         toast.success("Sign up successful!", {
           position: "top-center",
           autoClose: 3000,
         });
-        router.push("/home");
+        router.push(redirectUrl);
       }
     } catch (error: any) {
       console.error("Error signing up with Google:", error);
@@ -148,6 +164,11 @@ export const useSignup = () => {
               firstName: values.firstName,
               lastName: values.lastName,
               isAnonymous: false,
+              tokenBalance: 50,
+              freeTokensGranted: 50,
+              paidTokensPurchased: 0,
+              tier: "free",
+              hasEverPaid: false,
             },
             { merge: true }
           );
@@ -158,7 +179,16 @@ export const useSignup = () => {
             firstName: values.firstName,
             lastName: values.lastName,
             isAnonymous: false,
+            tokenBalance: 50,
+            freeTokensGranted: 50,
+            paidTokensPurchased: 0,
+            tier: "free",
+            hasEverPaid: false,
           });
+        }
+
+        if (inviteToken) {
+          await acceptOrgInvite(inviteToken, user.uid, user.email || "", `${values.firstName} ${values.lastName}`);
         }
 
         // Send welcome email
@@ -179,7 +209,7 @@ export const useSignup = () => {
           autoClose: 3000,
         });
 
-        router.push("/home");
+        router.push(redirectUrl);
       } else {
         toast.error("Failed to retrieve login details. Please try again.", {
           position: "top-center",

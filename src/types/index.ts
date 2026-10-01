@@ -11,12 +11,14 @@ export interface Participant {
   role: string;
   name?: string;
   email?: string;
+  phone?: string;
 }
 
 export interface SantaParticipant {
   id: string;
   name: string;
   email?: string;
+  phone?: string;
   wishlist?: string;
   assignedToId?: string; // ID of the person they are buying for
   pairIndex?: number;
@@ -35,6 +37,11 @@ export interface BasePairing {
   imageUrl?: string;
   visibilityMode?: "public" | "restricted";
   notificationChannel?: "email" | "whatsapp" | "both";
+  ownerType?: "personal" | "org";
+  ownerId?: string;
+  createdBy?: string;
+  isSpeedNetworking?: boolean;
+  speedNetworkingRounds?: number;
 }
 
 export interface RoleBasedPairing extends BasePairing {
@@ -50,6 +57,7 @@ export interface RandomParticipant {
   id: string;
   name: string;
   email?: string;
+  phone?: string;
   assignedNumber?: number;
   joinedAt: number;
 }
@@ -83,6 +91,8 @@ export type Pairing =
   | SecretSantaPairing
   | RandomPositioningPairing;
 
+export * from "./tokenTypes";
+
 export interface GroupingsPageProps {
   uid?: string;
   userId: string;
@@ -91,6 +101,13 @@ export interface GroupingsPageProps {
   email: string;
   pairings: Pairing[];
   isAnonymous?: boolean;
+  role?: string;
+  isSuperAdmin?: boolean;
+  tokenBalance?: number;
+  freeTokensGranted?: number;
+  paidTokensPurchased?: number;
+  tier?: "free" | "pro" | "growth" | "enterprise" | "super_admin";
+  hasEverPaid?: boolean;
 }
 
 export interface HomeProps {

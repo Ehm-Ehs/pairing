@@ -25,3 +25,26 @@ export const getParticipantJoinedTime = (participantId: string, createdAt: any, 
     return "Recent";
   }
 };
+
+export const formatTimeAgo = (createdAt: any) => {
+  if (!createdAt) return "Recent";
+  try {
+    const baseTime = createdAt?.seconds 
+      ? createdAt.seconds * 1000 
+      : typeof createdAt === "number" 
+        ? createdAt 
+        : typeof createdAt === "string"
+          ? new Date(createdAt).getTime()
+          : Date.now();
+    const diffMs = Date.now() - baseTime;
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
+  } catch {
+    return "Recent";
+  }
+};

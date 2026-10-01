@@ -6,9 +6,10 @@ import Logo from "../../assets/logo";
 import { FaBars, FaTimes } from "react-icons/fa";
 
 interface NavbarProps {
-  scrollToHowItWorks: () => void;
-  scrollToUseCases: () => void;
-  scrollToFeatures: () => void;
+  scrollToHowItWorks?: () => void;
+  scrollToUseCases?: () => void;
+  scrollToFeatures?: () => void;
+  scrollToPricing?: () => void;
   onGetStarted?: () => void;
 }
 
@@ -16,13 +17,30 @@ export default function Navbar({
   scrollToHowItWorks,
   scrollToUseCases,
   scrollToFeatures,
+  scrollToPricing,
   onGetStarted,
 }: NavbarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  const handleNavClick = (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    hash: string,
+    scrollFn?: () => void
+  ) => {
+    if (typeof window !== "undefined" && window.location.pathname === "/") {
+      e.preventDefault();
+      if (scrollFn) {
+        scrollFn();
+      } else {
+        const el = document.getElementById(hash);
+        el?.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  };
+
   return (
     <nav className="relative flex items-center justify-between px-4 py-4 md:px-8 max-w-7xl mx-auto z-50">
-      <Link href="/home">
+      <Link href="/">
         <div className="flex items-center py-2 cursor-pointer">
           <Logo className="h-9 w-auto" />
         </div>
@@ -30,35 +48,34 @@ export default function Navbar({
 
       {/* Desktop Menu */}
       <div className="hidden md:flex gap-6 lg:gap-8 items-center absolute left-1/2 transform -translate-x-1/2">
+
         <a
-          href="#how-it-works"
-          onClick={(e) => {
-            e.preventDefault();
-            scrollToHowItWorks();
-          }}
+          href="/#how-it-works"
+          onClick={(e) => handleNavClick(e, "how-it-works", scrollToHowItWorks)}
           className="text-[13px] font-medium text-gray-500 hover:text-gray-900 transition-colors"
         >
           How it Works
         </a>
         <a
-          href="#features"
-          onClick={(e) => {
-            e.preventDefault();
-            scrollToFeatures();
-          }}
+          href="/#features"
+          onClick={(e) => handleNavClick(e, "features", scrollToFeatures)}
           className="text-[13px] font-medium text-gray-500 hover:text-gray-900 transition-colors"
         >
           Features
         </a>
         <a
-          href="#use-cases"
-          onClick={(e) => {
-            e.preventDefault();
-            scrollToUseCases();
-          }}
+          href="/#use-cases"
+          onClick={(e) => handleNavClick(e, "use-cases", scrollToUseCases)}
           className="text-[13px] font-medium text-gray-500 hover:text-gray-900 transition-colors"
         >
           Use cases
+        </a>
+        <a
+          href="/#pricing"
+          onClick={(e) => handleNavClick(e, "pricing", scrollToPricing)}
+          className="text-[13px] font-medium text-gray-500 hover:text-gray-900 transition-colors"
+        >
+          Pricing
         </a>
       </div>
 
@@ -70,22 +87,24 @@ export default function Navbar({
         >
           Login
         </Link>
-        <button
+        <Link
+          href="/create-event"
           onClick={onGetStarted}
-          className="px-6 py-2 text-[13px] font-medium text-white bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] border border-blue-600 rounded-full hover:from-[#2563eb] hover:to-[#1e40af] transition-colors shadow-sm"
+          className="px-6 py-2 text-[13px] font-medium text-white bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] border border-blue-600 rounded-full hover:from-[#2563eb] hover:to-[#1e40af] transition-colors shadow-sm flex items-center justify-center"
         >
           Get started
-        </button>
+        </Link>
       </div>
 
       {/* Mobile Menu & Get Started */}
       <div className="flex md:hidden gap-2 items-center">
-        <button
+        <Link
+          href="/create-event"
           onClick={onGetStarted}
-          className="px-4 py-2 text-[13px] font-semibold text-white bg-[#1D4ED8] rounded-full hover:bg-blue-700 transition-colors shadow-sm"
+          className="px-4 py-2 text-[13px] font-semibold text-white bg-[#1D4ED8] rounded-full hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center"
         >
           Get started
-        </button>
+        </Link>
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
           aria-label="Toggle menu"
@@ -105,11 +124,11 @@ export default function Navbar({
       {/* Mobile Menu Dropdown */}
       {isMenuOpen && (
         <div className="absolute top-full left-0 right-0 bg-white shadow-lg rounded-b-lg border-t border-gray-100 p-4 flex flex-col gap-4 md:hidden animate-in slide-in-from-top-2">
+
           <a
-            href="#how-it-works"
+            href="/#how-it-works"
             onClick={(e) => {
-              e.preventDefault();
-              scrollToHowItWorks();
+              handleNavClick(e, "how-it-works", scrollToHowItWorks);
               setIsMenuOpen(false);
             }}
             className="text-left text-sm font-medium text-gray-600"
@@ -117,10 +136,9 @@ export default function Navbar({
             How it Works
           </a>
           <a
-            href="#features"
+            href="/#features"
             onClick={(e) => {
-              e.preventDefault();
-              scrollToFeatures();
+              handleNavClick(e, "features", scrollToFeatures);
               setIsMenuOpen(false);
             }}
             className="text-left text-sm font-medium text-gray-600"
@@ -128,15 +146,24 @@ export default function Navbar({
             Features
           </a>
           <a
-            href="#use-cases"
+            href="/#use-cases"
             onClick={(e) => {
-              e.preventDefault();
-              scrollToUseCases();
+              handleNavClick(e, "use-cases", scrollToUseCases);
               setIsMenuOpen(false);
             }}
             className="text-left text-sm font-medium text-gray-600"
           >
             Use cases
+          </a>
+          <a
+            href="/#pricing"
+            onClick={(e) => {
+              handleNavClick(e, "pricing", scrollToPricing);
+              setIsMenuOpen(false);
+            }}
+            className="text-left text-sm font-medium text-gray-600"
+          >
+            Pricing
           </a>
           <Link
             href="/login"
@@ -145,15 +172,16 @@ export default function Navbar({
           >
             Login
           </Link>
-          <button
+          <Link
+            href="/create-event"
             onClick={() => {
               setIsMenuOpen(false);
               onGetStarted?.();
             }}
-            className="px-4 py-3 text-center text-sm font-medium text-white bg-[#2563EB] rounded-full transition-colors shadow-sm"
+            className="px-4 py-3 text-center text-sm font-medium text-white bg-[#2563EB] rounded-full transition-colors shadow-sm flex items-center justify-center"
           >
             Get started
-          </button>
+          </Link>
         </div>
       )}
     </nav>
