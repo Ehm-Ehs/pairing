@@ -7,7 +7,25 @@ function getAdminApp() {
       ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
       : undefined;
 
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_DEVELOP_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_STAGING_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const isDevelopEnv = () => {
+      if (typeof window !== "undefined") {
+        const host = window.location.hostname.toLowerCase();
+        if (
+          host.includes("develop") ||
+
+          host.includes("localhost")
+
+        ) {
+          return true;
+        }
+      }
+      return process.env.NEXT_PUBLIC_APP_ENV === "develop" || process.env.NODE_ENV === "development";
+    };
+
+    const isDev = isDevelopEnv();
+    const projectId = (isDev && process.env.NEXT_PUBLIC_FIREBASE_DEVELOP_PROJECT_ID)
+      ? process.env.NEXT_PUBLIC_FIREBASE_DEVELOP_PROJECT_ID
+      : (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_DEVELOP_PROJECT_ID);
 
     if (serviceAccount) {
       return initializeApp({

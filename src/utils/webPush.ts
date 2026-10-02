@@ -50,15 +50,34 @@ export async function subscribeUserToPush(userId?: string): Promise<{
     let subscription = await registration.pushManager.getSubscription();
 
     if (!subscription) {
-      const publicVapidKey =
-        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-        "BEl62iUYgUivxIkv69yViEuiBIa-m9GYv50D-1_d6u0nS6P4b9a_99pGqfF2819_812g19a0-128a10";
-      
+      const isDevelopEnv = () => {
+        if (typeof window !== "undefined") {
+          const host = window.location.hostname.toLowerCase();
+          if (
+            host.includes("develop") ||
+            host.includes("localhost")
+          ) {
+            return true;
+          }
+        }
+        return process.env.NEXT_PUBLIC_APP_ENV === "develop" || process.env.NODE_ENV === "development";
+      };
+
+      const isDev = isDevelopEnv();
+      const publicVapidKey = (isDev && process.env.NEXT_PUBLIC_VAPID_DEVELOP_PUBLIC_KEY)
+        ? process.env.NEXT_PUBLIC_VAPID_DEVELOP_PUBLIC_KEY
+        : process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+      if (!publicVapidKey) {
+        console.warn("No VAPID public key provided in environment variables.");
+        return { success: false, error: "VAPID public key is missing." };
+      }
+
       const convertedVapidKey = urlBase64ToUint8Array(publicVapidKey);
 
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: convertedVapidKey,
+        applicationServerKey: convertedVapidKey as unknown as BufferSource,
       });
     }
 
