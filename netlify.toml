@@ -21,8 +21,14 @@
   publish = ".next"
 
 [build.environment]
-  # The Firebase web API key is public by design; do not fail the build when it appears in the bundle.
-  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_FIREBASE_API_KEY"
+  # Netlify fails a build when the value of a secret appears in the build output.
+  #
+  # Keys that are public by design and shipped to every browser:
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_FIREBASE_API_KEY,NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY"
+  # The Next.js compiler keeps a private build cache that records the build environment,
+  # including secrets. It is never served to visitors, so it is excluded from the scan.
+  # Everything that IS served (.next/server, .next/static) is still scanned.
+  SECRETS_SCAN_OMIT_PATHS = ".netlify/.next/cache/**,.next/cache/**"
 
 # ---------- Production: the live site, Firebase project "pairing-login" ----------
 [context.production.environment]
