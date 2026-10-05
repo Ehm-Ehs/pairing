@@ -116,7 +116,7 @@ Lint treats unused imports, unused variables and `any` as errors. `npm run lint 
 
 Deploy the app before the rules. Older versions of the app wrote to Firestore directly from the browser, and the new rules reject those writes.
 
-Recommended once: enable a Firestore TTL policy on `RateLimits.expiresAt` so old rate-limit windows are deleted automatically.
+Recommended once: enable Firestore TTL policies on `RateLimits.expiresAt` and `PasswordResets.expireTime` so old rate-limit windows and used reset codes are deleted automatically.
 
 ### Legacy events
 
