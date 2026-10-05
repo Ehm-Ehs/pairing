@@ -31,3 +31,15 @@ build
 # Local Planning Artifacts
 implementation_plan.md
 task.md
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Firebase emulator logs
+firebase-debug.log
+firestore-debug.log
+
+# Firebase service account keys (never commit)
+*service-account*.json
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
