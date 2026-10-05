@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { useWorkspace } from "../context/WorkspaceContext";
-import { Workspace } from "../types/orgTypes";
 import { FaUser, FaBuilding, FaChevronDown, FaPlus, FaCog, FaCheck } from "react-icons/fa";
 import Link from "next/link";
 import { auth } from "../services/firebase";

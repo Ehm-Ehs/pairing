@@ -2,8 +2,8 @@
 
 import { Suspense } from "react";
 import CreateParing from "../home/_components/createParing";
-import Layout from "../../src/components/layout/layout";
-import { useAuthListener } from "../../src/hooks/useAuthListener";
+import Layout from "@/components/layout/layout";
+import { useAuthListener } from "@/hooks/useAuthListener";
 
 export default function CreateEventPage() {
   const { user } = useAuthListener();

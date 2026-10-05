@@ -1,9 +1,40 @@
+import { logger } from "@/utils/logger";
 import { useState, useEffect } from "react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, collection, query, where, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
+import Auth from "../services/auth.module";
+import { completeSignIn } from "../services/session";
 import { GroupingsPageProps, Pairing } from "../types";
 
+const SETUP_KEY = "pairform_account_ready";
+
+/**
+ * Makes sure the server has finished setting up this account: profile, token ledger and
+ * any events still in the old format. Accounts created before those existed are repaired
+ * here. Runs once per browser session; the server call itself is safe to repeat.
+ */
+function ensureAccountSetup(user: User) {
+  try {
+    if (sessionStorage.getItem(SETUP_KEY) === user.uid) return;
+    sessionStorage.setItem(SETUP_KEY, user.uid);
+  } catch {
+    // No session storage: fall through and run it.
+  }
+  completeSignIn(user).catch((err) => {
+    logger.error("Could not finish account setup:", err);
+    try {
+      sessionStorage.removeItem(SETUP_KEY); // try again on the next page load
+    } catch {
+      // ignore
+    }
+  });
+}
+
+/**
+ * Live view of the signed-in user: their profile plus the events they own personally.
+ * Firebase Auth is the only source of truth for the session.
+ */
 export const useAuthListener = () => {
   const [user, setUser] = useState<GroupingsPageProps | null>(null);
   const [loading, setLoading] = useState(true);
@@ -12,102 +43,74 @@ export const useAuthListener = () => {
     let unsubscribeUser: (() => void) | undefined;
     let unsubscribePairings: (() => void) | undefined;
 
-    let latestUserData: any = null;
-    let latestCollectionPairings: Pairing[] = [];
+    let profile: (Omit<GroupingsPageProps, "pairings" | "userId"> & { uid: string }) | null = null;
+    let pairings: Pairing[] = [];
 
-    const combineData = () => {
-      if (!latestUserData) {
+    const publish = () => {
+      if (!profile) {
         setUser(null);
         return;
       }
-
-      const legacyPairings: Pairing[] = latestUserData.pairings || [];
-      const mergedMap = new Map<string, Pairing>();
-      legacyPairings.forEach((p) => {
-        if (p && p.id) mergedMap.set(p.id, p);
-      });
-      latestCollectionPairings.forEach((p) => {
-        if (p && p.id) mergedMap.set(p.id, p);
-      });
-
-      const allPairings = Array.from(mergedMap.values()).sort(
-        (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
-      );
-
       setUser({
-        ...latestUserData,
-        userId: latestUserData.uid || latestUserData.id,
-        pairings: allPairings,
+        ...profile,
+        userId: profile.uid,
+        pairings: [...pairings].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
       });
     };
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+    const stop = () => {
       if (unsubscribeUser) unsubscribeUser();
       if (unsubscribePairings) unsubscribePairings();
+    };
 
-      if (currentUser) {
-        // 1. Listen to Users/{uid}
-        const userDocRef = doc(db, "Users", currentUser.uid);
-        unsubscribeUser = onSnapshot(
-          userDocRef,
-          (docSnap) => {
-            if (docSnap.exists()) {
-              latestUserData = {
-                ...(docSnap.data() as GroupingsPageProps),
-                uid: docSnap.id,
-                userId: docSnap.id,
-              };
-            } else {
-              latestUserData = {
-                uid: currentUser.uid,
-                userId: currentUser.uid,
-                firstName: currentUser.displayName || "",
-                email: currentUser.email || "",
-                pairings: [],
-              };
-            }
-            combineData();
-            setLoading(false);
-          },
-          (error) => {
-            console.error("Error listening to user document:", error);
-            setLoading(false);
-          }
-        );
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      stop();
 
-        // 2. Listen to Pairings collection where ownerId == currentUser.uid
-        try {
-          const pairingsQuery = query(
-            collection(db, "Pairings"),
-            where("ownerId", "==", currentUser.uid)
-          );
-          unsubscribePairings = onSnapshot(
-            pairingsQuery,
-            (snapshot) => {
-              latestCollectionPairings = snapshot.docs.map(
-                (d) => d.data() as Pairing
-              );
-              combineData();
-            },
-            (error) => {
-              console.warn("Error listening to Pairings collection:", error);
-            }
-          );
-        } catch (e) {
-          console.warn("Pairings collection snapshot failed:", e);
-        }
-      } else {
-        latestUserData = null;
-        latestCollectionPairings = [];
+      if (!currentUser) {
+        profile = null;
+        pairings = [];
+        Auth.deAuthenticateUser();
         setUser(null);
         setLoading(false);
+        return;
       }
+
+      ensureAccountSetup(currentUser);
+
+      unsubscribeUser = onSnapshot(
+        doc(db, "Users", currentUser.uid),
+        (docSnap) => {
+          const data = docSnap.exists() ? (docSnap.data() as Partial<GroupingsPageProps>) : null;
+
+          profile = {
+            firstName: currentUser.displayName || "",
+            lastName: "",
+            email: currentUser.email || "",
+            ...data,
+            uid: docSnap.id,
+          };
+          publish();
+          setLoading(false);
+        },
+        (error) => {
+          logger.error("Error listening to user document:", error);
+          setLoading(false);
+        }
+      );
+
+      unsubscribePairings = onSnapshot(
+        query(collection(db, "Pairings"), where("ownerId", "==", currentUser.uid)),
+        (snapshot) => {
+          pairings = snapshot.docs.map((d) => d.data() as Pairing);
+          publish();
+        },
+        (error) => logger.warn("Error listening to Pairings collection:", error)
+      );
     });
 
     return () => {
       unsubscribeAuth();
-      if (unsubscribeUser) unsubscribeUser();
-      if (unsubscribePairings) unsubscribePairings();
+      stop();
     };
   }, []);
 

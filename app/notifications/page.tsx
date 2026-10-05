@@ -1,35 +1,22 @@
 "use client";
 
+import { TimeLike, formatTimeAgo, toDate } from "@/utils/timeUtils";
+import type { GroupingsPageProps } from "@/types";
 import React, { Suspense, useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import NextProtectedRoute from "../../src/components/routes/NextProtectedRoute";
+import NextProtectedRoute from "@/components/routes/NextProtectedRoute";
 import {
   subscribeToNotifications,
   markNotificationAsRead,
   markAllNotificationsAsRead,
   Notification,
-} from "../../src/services/notifications";
+} from "@/services/notifications";
 
 // ─── Time helpers ─────────────────────────────────────────────────────────────
-function formatTimeAgo(timestamp: any): string {
-  if (!timestamp) return "Just now";
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return "Just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-
-function getGroupLabel(timestamp: any): string {
-  if (!timestamp) return "Just now";
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000);
+function getGroupLabel(timestamp: TimeLike): string {
+  const date = toDate(timestamp);
+  if (!date) return "Just now";
+  const diffDays = Math.floor((Date.now() - date.getTime()) / 86400000);
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Yesterday";
   if (diffDays < 7) return "This Week";
@@ -199,10 +186,10 @@ const NotifCard = ({
   );
 };
 
-import { subscribeUserToPush, isPushNotificationSupported } from "../../src/utils/webPush";
+import { subscribeUserToPush } from "@/utils/webPush";
 
 // ─── Main content component ───────────────────────────────────────────────────
-const NotificationsContent = ({ user }: { user: any }) => {
+const NotificationsContent = ({ user }: { user: GroupingsPageProps }) => {
   const router = useRouter();
   const userId = user?.uid || user?.userId || "";
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -213,12 +200,7 @@ const NotificationsContent = ({ user }: { user: any }) => {
   useEffect(() => {
     if (!userId) return;
     const unsub = subscribeToNotifications(userId, (data) => {
-      const sorted = [...data].sort((a, b) => {
-        const tA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : Date.now();
-        const tB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : Date.now();
-        return tB - tA;
-      });
-      setNotifications(sorted);
+      setNotifications(data);
       setLoading(false);
     });
     return () => unsub();
@@ -226,7 +208,7 @@ const NotificationsContent = ({ user }: { user: any }) => {
 
   const handleEnablePush = async () => {
     setPushStatus("subscribing");
-    const result = await subscribeUserToPush(userId);
+    const result = await subscribeUserToPush();
     if (result.success) {
       setPushStatus("subscribed");
     } else {

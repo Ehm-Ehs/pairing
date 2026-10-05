@@ -1,15 +1,15 @@
 "use client";
 
+import { PasswordInput } from "@/components/ui/PasswordInput";
+import { logger } from "@/utils/logger";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "../../../src/services/firebase";
-import Link from "next/link";
-import Logo from "../../../src/assets/logo";
+import { auth } from "@/services/firebase";
+import Logo from "@/assets/logo";
 import { toast } from "react-toastify";
-import { Button } from "../../../src/components/ui/button";
-import { getFriendlyFirebaseErrorMessage } from "../../../src/utils/firebaseErrorUtils";
-import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { Button } from "@/components/ui/button";
+import { getFriendlyFirebaseErrorMessage } from "@/utils/firebaseErrorUtils";
 
 type StepType = "email" | "phone" | "code" | "change-password" | "success";
 
@@ -21,8 +21,6 @@ const ForgotPasswordForm = () => {
   const [codeValues, setCodeValues] = useState<string[]>(["", "", "", "", "", ""]);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Timer state for Code verification screen
@@ -83,8 +81,8 @@ const ForgotPasswordForm = () => {
       toast.success("Password reset email sent! Check your inbox.");
       // Move to success screen or code verification screen
       setStep("code");
-    } catch (error: any) {
-      console.error("Error sending reset email:", error);
+    } catch (error) {
+      logger.error("Error sending reset email:", error);
       toast.error(getFriendlyFirebaseErrorMessage(error));
     } finally {
       setLoading(false);
@@ -294,46 +292,22 @@ const ForgotPasswordForm = () => {
               <label className="block text-sm font-semibold text-gray-500 mb-1.5">
                 Password
               </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  placeholder=""
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white text-black border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1449b2] placeholder-gray-300 transition-colors pr-10"
-                />
-                <button
-                  type="button"
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
-                </button>
-              </div>
+              <PasswordInput
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
 
             <div>
               <label className="block text-sm font-semibold text-gray-500 mb-1.5">
                 Confirm Password
               </label>
-              <div className="relative">
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  required
-                  placeholder=""
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full bg-white text-black border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1449b2] placeholder-gray-300 transition-colors pr-10"
-                />
-                <button
-                  type="button"
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  {showConfirmPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
-                </button>
-              </div>
+              <PasswordInput
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
             </div>
 
             <Button

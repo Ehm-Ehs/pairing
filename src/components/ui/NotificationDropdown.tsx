@@ -1,9 +1,7 @@
+import { toDate } from "../../utils/timeUtils";
 import React, { useEffect, useState, useRef } from "react";
 import {
   FaBell,
-  FaCheckCircle,
-  FaInfoCircle,
-  FaExclamationCircle,
 } from "react-icons/fa";
 
 import Link from "next/link";
@@ -58,9 +56,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         if (!n.readAt) return true; // Keep if read but no timestamp (legacy or just happened)
 
         // Check if read more than 3 days ago
-        const readDate = n.readAt.seconds
-          ? new Date(n.readAt.seconds * 1000)
-          : new Date(); // Fallback if local serverTimestamp hasn't synced
+        const readDate = toDate(n.readAt) ?? new Date(); // Fallback if local serverTimestamp hasn't synced
         const timeSinceRead = now.getTime() - readDate.getTime();
 
         return timeSinceRead < threeDaysInMs;
@@ -209,11 +205,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                   {notification.message}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {notification.createdAt?.seconds
-                    ? new Date(
-                      notification.createdAt.seconds * 1000
-                    ).toLocaleDateString()
-                    : "Just now"}
+                  {toDate(notification.createdAt)?.toLocaleDateString() ?? "Just now"}
                 </p>
               </div>
               {!notification.read && (

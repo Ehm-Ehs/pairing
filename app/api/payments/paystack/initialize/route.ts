@@ -1,97 +1,82 @@
+import { logger } from "@/utils/logger";
 import { NextResponse } from "next/server";
-import { TOKEN_PACKS } from "../../../../../src/types/tokenTypes";
+import { TOKEN_PACKS } from "@/types/tokenTypes";
+import { isAnonymous, requireUser } from "@/server/auth";
+import { HttpError, appOrigin, readJson, route, str } from "@/server/http";
+import { orgRole } from "@/server/events";
+import { paystackSecret, simulationAllowed } from "@/server/paystack";
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const { packId, email, accountId, accountType = "user", redirectUrl } = body;
+/**
+ * Starts a Paystack checkout for the signed-in user. The account to credit comes
+ * from the verified session (or an org the user belongs to), never from the request body.
+ */
+export const POST = route("payments/initialize", async (request) => {
+  const user = await requireUser(request);
+  if (isAnonymous(user) || !user.email) {
+    throw new HttpError(403, "Please create an account before buying tokens.", "ACCOUNT_REQUIRED");
+  }
 
-    if (!packId || !email || !accountId) {
-      return NextResponse.json(
-        { error: "Missing required fields: packId, email, accountId" },
-        { status: 400 }
-      );
+  const body = await readJson<Record<string, unknown>>(request);
+  const pack = TOKEN_PACKS.find((p) => p.id === body.packId);
+  if (!pack) throw new HttpError(400, "Invalid token pack selected");
+
+  let ownerType: "personal" | "org" = "personal";
+  let ownerId = user.uid;
+  if (body.accountType === "org") {
+    const orgId = str(body.accountId, 200);
+    if (!orgId || !(await orgRole(orgId, user.uid))) {
+      throw new HttpError(403, "You are not a member of that organization.", "FORBIDDEN");
     }
+    ownerType = "org";
+    ownerId = orgId;
+  }
 
-    const pack = TOKEN_PACKS.find((p) => p.id === packId);
-    if (!pack) {
-      return NextResponse.json({ error: "Invalid token pack selected" }, { status: 400 });
+  const callbackUrl = `${appOrigin(request)}/pricing?payment=success`;
+  const secret = paystackSecret();
+
+  if (!secret) {
+    if (!simulationAllowed()) {
+      throw new HttpError(503, "Payments are not available right now.", "PAYMENTS_NOT_CONFIGURED");
     }
-
-    const protocol = request.headers.get("x-forwarded-proto") || "http";
-    const host = request.headers.get("host") || "localhost:3000";
-    const origin = `${protocol}://${host}`;
-
-    const callbackUrl = redirectUrl || `${origin}/pricing?payment=success`;
-
-    const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
-    if (!paystackSecretKey) {
-      console.log("[Paystack Test Mode]: Simulating Paystack checkout session (add PAYSTACK_SECRET_KEY in .env.local to use real Paystack Test Mode).");
-      const testRef = `test_ref_${Date.now()}`;
-      const simUrl = `${callbackUrl}${callbackUrl.includes("?") ? "&" : "?"}reference=${testRef}&tokens=${pack.tokens}&packId=${pack.id}`;
-      
-      return NextResponse.json({
-        success: true,
-        authorizationUrl: simUrl,
-        accessCode: "mock_access_code",
-        reference: testRef,
-        simulated: true,
-      });
-    }
-
-    // Paystack API v1 initialize
-    const paystackRes = await fetch("https://api.paystack.co/transaction/initialize", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${paystackSecretKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email,
-        amount: pack.priceNGN * 100, // Paystack requires amount in kobo
-        callback_url: callbackUrl,
-        metadata: {
-          accountId,
-          accountType,
-          packId: pack.id,
-          tokens: pack.tokens,
-          custom_fields: [
-            {
-              display_name: "Token Pack",
-              variable_name: "token_pack",
-              value: pack.name,
-            },
-            {
-              display_name: "Tokens Granted",
-              variable_name: "tokens_granted",
-              value: pack.tokens,
-            },
-          ],
-        },
-      }),
-    });
-
-    const data = await paystackRes.json();
-
-    if (!paystackRes.ok || !data.status) {
-      console.error("[Paystack Initialize Error]:", data);
-      return NextResponse.json(
-        { error: data.message || "Failed to initialize Paystack transaction" },
-        { status: 400 }
-      );
-    }
-
+    // Local development without a Paystack key: no money moves and no tokens are credited.
     return NextResponse.json({
       success: true,
-      authorizationUrl: data.data.authorization_url,
-      accessCode: data.data.access_code,
-      reference: data.data.reference,
+      simulated: true,
+      authorizationUrl: `${callbackUrl}&simulated=1`,
+      reference: `sim_${Date.now()}`,
     });
-  } catch (error: any) {
-    console.error("Error initializing Paystack payment:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to initialize payment" },
-      { status: 500 }
-    );
   }
-}
+
+  const paystackRes = await fetch("https://api.paystack.co/transaction/initialize", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: user.email,
+      amount: pack.priceNGN * 100, // kobo
+      currency: "NGN",
+      callback_url: callbackUrl,
+      metadata: {
+        uid: user.uid,
+        ownerType,
+        ownerId,
+        packId: pack.id,
+        custom_fields: [
+          { display_name: "Token Pack", variable_name: "token_pack", value: pack.name },
+          { display_name: "Tokens Granted", variable_name: "tokens_granted", value: pack.tokens },
+        ],
+      },
+    }),
+  });
+  const data = await paystackRes.json();
+  if (!paystackRes.ok || !data.status) {
+    logger.error("[payments/initialize] Paystack error:", data?.message);
+    throw new HttpError(502, data?.message || "Failed to initialize Paystack transaction");
+  }
+
+  return NextResponse.json({
+    success: true,
+    authorizationUrl: data.data.authorization_url,
+    accessCode: data.data.access_code,
+    reference: data.data.reference,
+  });
+});

@@ -1,17 +1,20 @@
 "use client";
+import { ImportCsvButton, ExportCsvButton } from "@/components/ui/CsvButtons";
+import { downloadCsv, fileStem } from "@/utils/csv";
 import React, { useState, useMemo } from "react";
 import { FaSearch, FaTrashAlt } from "react-icons/fa";
-import { SecretSantaPairing } from "../../../src/types";
-import { usePagination } from "../../../src/hooks/usePagination";
-import { useBulkSelection } from "../../../src/hooks/useBulkSelection";
-import { useSecretSantaActions } from "../../../src/hooks/useSecretSantaActions";
-import { PaginationBar } from "../../../src/components/ui/PaginationBar";
-import { EmptyState } from "../../../src/components/ui/EmptyState";
-import { ParticipantTable } from "../../../src/components/ui/ParticipantTable";
+import { SecretSantaPairing } from "@/types";
+import { usePagination } from "@/hooks/usePagination";
+import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { useSecretSantaActions } from "@/hooks/useSecretSantaActions";
+import { PaginationBar } from "@/components/ui/PaginationBar";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ParticipantTable } from "@/components/ui/ParticipantTable";
 import { PairsGrid } from "./PairsGrid";
-import { formatTimeAgo } from "../../../src/utils/timeUtils";
-import { ConfirmationModal } from "../../../src/components/ui/ConfirmationModal";
+import { formatTimeAgo } from "@/utils/timeUtils";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { toast } from "react-toastify";
+import { ExclusionsEditor } from "./ExclusionsEditor";
 
 interface SecretSantaListProps {
   pairing: SecretSantaPairing;
@@ -23,84 +26,33 @@ const SecretSantaList: React.FC<SecretSantaListProps> = ({ pairing, userId, isPu
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handleBulkImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !userId) return;
 
-    try {
-      const { parseParticipantsCsv } = await import("../../../src/utils/csvImport");
-      const { addParticipantToSecretSanta } = await import("../../../src/services/endpoints");
-      const parsed = await parseParticipantsCsv(file);
-      if (parsed.length === 0) {
-        toast.error("No valid participants found in CSV file.");
-        return;
-      }
-
-      let count = 0;
-      for (const p of parsed) {
-        if (p.name || p.email) {
-          await addParticipantToSecretSanta(userId, pairing.id, {
-            name: p.name || (p.email ? p.email.split("@")[0] : "Participant"),
-            email: p.email || "",
-            wishlist: p.wishlist || "",
-          });
-          count++;
-        }
-      }
-
-      toast.success(`Successfully imported ${count} participants from CSV!`);
-    } catch (err: any) {
-      console.error("CSV import error:", err);
-      toast.error("Failed to import CSV: " + err.message);
-    } finally {
-      e.target.value = "";
+  const assignmentFor = (p: SecretSantaPairing["participants"][number], pending: string) => {
+    if (pairing.config?.allowWishlist === false) {
+      const partner = pairing.participants.find((other) => other.pairIndex === p.pairIndex && other.id !== p.id);
+      return partner ? `Paired with ${partner.name}` : "Awaiting partner";
     }
+    const pair = pairing.status === "locked" ? pairing.pairs?.find((x) => x.santaId === p.id) : undefined;
+    const receiver = pair && pairing.participants.find((r) => r.id === pair.receiverId);
+    return receiver ? `Gifting to ${receiver.name}` : pending;
   };
 
   const handleExportParticipantsCSV = () => {
-    const participantsList = pairing.participants || [];
-    if (participantsList.length === 0) {
+    const list = pairing.participants || [];
+    if (list.length === 0) {
       toast.info("No participants to export.");
       return;
     }
-    try {
-      let csvContent = "data:text/csv;charset=utf-8,";
-      csvContent += "Name,Email,Wishlist,Assignment\n";
-
-      participantsList.forEach((p) => {
-        let assignmentName = "Not Assigned Yet";
-        if (pairing.config?.allowWishlist === false) {
-          const partner = pairing.participants.find(
-            (other) => other.pairIndex === p.pairIndex && other.id !== p.id
-          );
-          assignmentName = partner 
-            ? `Paired with ${partner.name} (Pair ${(p.pairIndex ?? 0) + 1})` 
-            : `Awaiting partner (Pair ${(p.pairIndex ?? 0) + 1})`;
-        } else if (pairing.status === "locked" && pairing.pairs) {
-          const pair = pairing.pairs.find(pair => pair.santaId === p.id);
-          const receiver = pair && pairing.participants.find(r => r.id === pair.receiverId);
-          if (receiver) {
-            assignmentName = receiver.name || "";
-          }
-        }
-        csvContent += `"${p.name}","${p.email || ""}","${p.wishlist || ""}","${assignmentName}"\n`;
-      });
-
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `${pairing.groupingPurpose.replace(/\s+/g, "_")}_participants.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success("Participants list exported!");
-    } catch {
-      toast.error("Failed to export participants.");
-    }
+    downloadCsv(
+      `${fileStem(pairing.groupingPurpose)}_participants.csv`,
+      ["Name", "Email", "Wishlist", "Assignment"],
+      list.map((p) => [p.name, p.email, p.wishlist, assignmentFor(p, "Not Assigned Yet")])
+    );
+    toast.success("Participants list exported!");
   };
 
   // Compile all participants
-  const participantsList = pairing.participants || [];
+  const participantsList = useMemo(() => pairing.participants || [], [pairing.participants]);
   const filteredParticipants = useMemo(() => participantsList.filter(p =>
     (p.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
     (p.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -117,6 +69,10 @@ const SecretSantaList: React.FC<SecretSantaListProps> = ({ pairing, userId, isPu
     <div className="flex flex-col gap-8">
       <PairsGrid pairing={pairing} />
       
+      {!isPublicView && pairing.config?.allowWishlist && pairing.status !== "locked" && participantsList.length >= 2 && (
+        <ExclusionsEditor pairing={pairing} />
+      )}
+
       {!isPublicView && (
         <div className="flex flex-col gap-4 text-left border-t border-gray-100 pt-8">
           <h3 className="text-2xl font-bold text-gray-900 font-heading">All Participants</h3>
@@ -132,37 +88,8 @@ const SecretSantaList: React.FC<SecretSantaListProps> = ({ pairing, userId, isPu
                   <button onClick={() => setIsModalOpen(true)} className="bg-[#047857] text-white text-xs font-bold rounded-xl px-5 py-2.5">Generate pairs</button>
                 )}
 
-                {/* Import CSV Button */}
-                {pairing.status !== "locked" && (
-                  <label className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-xl px-4 py-2.5 shadow-sm hover:shadow transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 flex-shrink-0 select-none">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                      <polyline points="7 10 12 15 17 10"></polyline>
-                      <line x1="12" y1="15" x2="12" y2="3"></line>
-                    </svg>
-                    <span>Import CSV</span>
-                    <input
-                      type="file"
-                      accept=".csv"
-                      onChange={handleBulkImportCSV}
-                      className="hidden"
-                    />
-                  </label>
-                )}
-
-                {/* Export CSV button */}
-                <button
-                  type="button"
-                  onClick={handleExportParticipantsCSV}
-                  className="bg-gradient-to-b from-[#3A76F0] to-[#012A7D] hover:opacity-95 text-white text-xs font-bold rounded-xl px-5 py-2.5 flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer flex-shrink-0"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-0.5">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="17 8 12 3 7 8"></polyline>
-                    <line x1="12" y1="3" x2="12" y2="15"></line>
-                  </svg>
-                  Export
-                </button>
+                {pairing.status !== "locked" && <ImportCsvButton eventId={pairing.id} />}
+                <ExportCsvButton onClick={handleExportParticipantsCSV} />
               </div>
             </div>
 
@@ -182,15 +109,7 @@ const SecretSantaList: React.FC<SecretSantaListProps> = ({ pairing, userId, isPu
                 selectedIds={Array.from(selectedIds)}
                 onSelectOneToggle={handleSelectRow}
                 rows={paginatedItems.map((p) => {
-                  let assignmentText = "-";
-                  if (pairing.config?.allowWishlist === false) {
-                    const partner = pairing.participants.find(other => other.pairIndex === p.pairIndex && other.id !== p.id);
-                    assignmentText = partner ? `Paired with ${partner.name}` : "Awaiting partner";
-                  } else if (pairing.status === "locked" && pairing.pairs) {
-                    const pair = pairing.pairs.find(pair => pair.santaId === p.id);
-                    const receiver = pair && pairing.participants.find(r => r.id === pair.receiverId);
-                    if (receiver) assignmentText = `Gifting to ${receiver.name}`;
-                  }
+                  const assignmentText = assignmentFor(p, "-");
 
                   return {
                     id: p.id,
@@ -198,7 +117,7 @@ const SecretSantaList: React.FC<SecretSantaListProps> = ({ pairing, userId, isPu
                       <div key="name" className="flex flex-col"><span className="font-bold text-gray-900">{p.name}</span><span className="text-[10px] text-gray-400">{p.email}</span></div>,
                       ...(pairing.config?.allowWishlist !== false ? [<span key="wishlist" className="text-xs text-gray-600 max-w-xs truncate">{p.wishlist || "No wishlist"}</span>] : []),
                       <span key="assign" className="text-xs font-semibold text-blue-600">{assignmentText}</span>,
-                      <span key="time" className="text-[10px] text-gray-400">{formatTimeAgo((p as any).createdAt)}</span>,
+                      <span key="time" className="text-[10px] text-gray-400">{formatTimeAgo(p.joinedAt)}</span>,
                       ...(pairing.status !== "locked" ? [
                         <button key="action" onClick={() => handleClearSlot(p.id, p.name)} disabled={isDeleting === p.id} className="text-red-500 text-xs font-bold hover:text-red-700">Remove</button>
                       ] : [])
@@ -213,7 +132,7 @@ const SecretSantaList: React.FC<SecretSantaListProps> = ({ pairing, userId, isPu
         </div>
       )}
 
-      <ConfirmationModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onConfirm={handleGenerateClick} title="Generate Secret Santa Pairs" message="Are you sure? This will pair all participants and send email notifications." confirmText="Generate & Send" />
+      <ConfirmationModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onConfirm={handleGenerateClick} title="Generate Secret Santa Pairs" message="Are you sure? This will pair all participants and send each person their match privately." confirmText="Generate & Send" />
     </div>
   );
 };

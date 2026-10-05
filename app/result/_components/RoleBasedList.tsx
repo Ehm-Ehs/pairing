@@ -1,15 +1,18 @@
 "use client";
+import { ImportCsvButton, ExportCsvButton } from "@/components/ui/CsvButtons";
+import { downloadCsv, fileStem } from "@/utils/csv";
+import { auth } from "@/services/firebase";
 import React, { useState } from "react";
 import { FaSearch, FaTrashAlt, FaUsers } from "react-icons/fa";
-import { RoleBasedPairing } from "../../../src/types";
-import { usePagination } from "../../../src/hooks/usePagination";
-import { useBulkSelection } from "../../../src/hooks/useBulkSelection";
-import { useRoleBasedActions } from "../../../src/hooks/useRoleBasedActions";
-import { PaginationBar } from "../../../src/components/ui/PaginationBar";
-import { EmptyState } from "../../../src/components/ui/EmptyState";
-import { ParticipantTable } from "../../../src/components/ui/ParticipantTable";
+import { RoleBasedPairing } from "@/types";
+import { usePagination } from "@/hooks/usePagination";
+import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { useRoleBasedActions } from "@/hooks/useRoleBasedActions";
+import { PaginationBar } from "@/components/ui/PaginationBar";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ParticipantTable } from "@/components/ui/ParticipantTable";
 import RoleGrid, { getRoleBadgeStyle } from "./RoleGrid";
-import { capitalizeWords, formatGroupName } from "../../../src/utils/stringUtils";
+import { capitalizeWords, formatGroupName } from "@/utils/stringUtils";
 import { toast } from "react-toastify";
 
 interface RoleBasedListProps {
@@ -21,16 +24,7 @@ const RoleBasedList: React.FC<RoleBasedListProps> = ({ pairing, isPublicView = f
   const [activeTab, setActiveTab] = useState<"grid" | "list">("grid");
   const [searchTerm, setSearchTerm] = useState("");
 
-  let userId = "";
-  try {
-    const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null;
-    if (userStr && userStr !== "null") {
-      const parsed = JSON.parse(userStr);
-      userId = parsed.uid || "";
-    }
-  } catch {
-    // ignored
-  }
+  const userId = auth.currentUser?.uid || "";
 
   let unblurredGroupKey: string | null = null;
   if (typeof window !== "undefined") {
@@ -95,84 +89,14 @@ const RoleBasedList: React.FC<RoleBasedListProps> = ({ pairing, isPublicView = f
       toast.info("No participants to export.");
       return;
     }
-    try {
-      let csvContent = "data:text/csv;charset=utf-8,";
-      csvContent += "Name,Email,Role,Assigned Group\n";
-
-      filledParticipants.forEach((p) => {
-        csvContent += `"${p.name}","${p.email}","${p.role}","Group ${p.groupNum}"\n`;
-      });
-
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `${pairing.groupingPurpose.replace(/\s+/g, "_")}_participants.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success("Participants list exported!");
-    } catch {
-      toast.error("Failed to export participants.");
-    }
+    downloadCsv(
+      `${fileStem(pairing.groupingPurpose)}_participants.csv`,
+      ["Name", "Email", "Role", "Assigned Group"],
+      filledParticipants.map((p) => [p.name, p.email, p.role, `Group ${p.groupNum}`])
+    );
+    toast.success("Participants list exported!");
   };
 
-  const handleBulkImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !userId) return;
-
-    try {
-      const { parseParticipantsCsv } = await import("../../../src/utils/csvImport");
-      const { editPairingValue } = await import("../../../src/services/endpoints");
-      const parsed = await parseParticipantsCsv(file);
-      if (parsed.length === 0) {
-        toast.error("No valid participants found in CSV file.");
-        return;
-      }
-
-      let count = 0;
-      const groupsObj = pairing.groups as Record<string, any[]>;
-      const groupKeys = Object.keys(groupsObj);
-      for (const p of parsed) {
-        if (!p.name && !p.email) continue;
-        let filled = false;
-
-        for (const groupKey of groupKeys) {
-          const group = groupsObj[groupKey];
-          const emptySlotIndex = group.findIndex((slot: any) => !slot.name || slot.name.trim() === "");
-          if (emptySlotIndex !== -1) {
-            const slot = group[emptySlotIndex];
-            await editPairingValue(
-              userId,
-              pairing.groupingPurpose,
-              groupKey,
-              emptySlotIndex,
-              slot.id,
-              {
-                name: p.name || (p.email ? p.email.split("@")[0] : "Participant"),
-                email: p.email || "",
-                track: p.role || slot.role || "",
-              }
-            );
-            count++;
-            filled = true;
-            break;
-          }
-        }
-        if (!filled) break;
-      }
-
-      if (count > 0) {
-        toast.success(`Successfully imported ${count} participants from CSV!`);
-      } else {
-        toast.info("All group slots are already filled or no empty slots available.");
-      }
-    } catch (err: any) {
-      console.error("CSV import error:", err);
-      toast.error("Failed to import CSV: " + err.message);
-    } finally {
-      e.target.value = "";
-    }
-  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -246,37 +170,8 @@ const RoleBasedList: React.FC<RoleBasedListProps> = ({ pairing, isPublicView = f
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Import CSV Button */}
-              {!isPublicView && pairing.status !== "locked" && (
-                <label className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-xl px-4 py-2.5 shadow-sm hover:shadow transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 flex-shrink-0 select-none">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7 10 12 15 17 10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                  </svg>
-                  <span>Import CSV</span>
-                  <input
-                    type="file"
-                    accept=".csv"
-                    onChange={handleBulkImportCSV}
-                    className="hidden"
-                  />
-                </label>
-              )}
-
-              {/* Export CSV Button */}
-              <button
-                type="button"
-                onClick={handleExportParticipantsCSV}
-                className="bg-gradient-to-b from-[#3A76F0] to-[#012A7D] hover:opacity-95 text-white text-xs font-bold rounded-xl px-4 py-2.5 flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="17 8 12 3 7 8"></polyline>
-                  <line x1="12" y1="3" x2="12" y2="15"></line>
-                </svg>
-                Export CSV
-              </button>
+              {!isPublicView && pairing.status !== "locked" && <ImportCsvButton eventId={pairing.id} />}
+              <ExportCsvButton onClick={handleExportParticipantsCSV} />
             </div>
           </div>
 
@@ -337,7 +232,7 @@ const RoleBasedList: React.FC<RoleBasedListProps> = ({ pairing, isPublicView = f
                       key="action"
                       type="button"
                       disabled={isDeleting === p.id}
-                      onClick={() => handleClearSlot(p.groupKey, p as any)}
+                      onClick={() => handleClearSlot(p.groupKey, p)}
                       className="text-red-500 hover:text-red-700 text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
                     >
                       {isDeleting === p.id ? "Clearing..." : "Clear Slot"}

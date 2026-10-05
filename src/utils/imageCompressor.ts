@@ -1,3 +1,4 @@
+import { logger } from "@/utils/logger";
 import { toast } from "react-toastify";
 
 /**
@@ -93,7 +94,7 @@ export const compressImage = (
 
           resolve(dataUrl);
         } catch (err) {
-          console.error("Error during canvas image compression:", err);
+          logger.error("Error during canvas image compression:", err);
           if (rawResult.length > 900000) {
             toast.error("Image size exceeds maximum storage limit. Please select a smaller image.");
             resolve("");
@@ -104,7 +105,7 @@ export const compressImage = (
       };
 
       img.onerror = (err) => {
-        console.error("Error loading image object for compression:", err);
+        logger.error("Error loading image object for compression:", err);
         if (rawResult.length > 900000) {
           toast.error("Image size exceeds maximum storage limit. Please select a smaller image.");
           resolve("");

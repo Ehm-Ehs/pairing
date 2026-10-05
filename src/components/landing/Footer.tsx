@@ -15,6 +15,22 @@ interface FooterLink {
   onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
 }
 
+/** One titled column of links in the footer. */
+const FooterLinks = ({ title, links }: { title: string; links: FooterLink[] }) => (
+  <div className="md:col-span-3 text-center md:text-left">
+    <h3 className="text-white font-bold mb-6 text-lg">{title}</h3>
+    <ul className="space-y-4 text-[15px] text-blue-50 font-medium">
+      {links.map((link) => (
+        <li key={link.label}>
+          <a href={link.href} onClick={link.onClick} className="hover:text-white transition-colors cursor-pointer block">
+            {link.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </div>
+);
+
 export default function Footer({
   scrollToHowItWorks,
   scrollToUseCases,
@@ -87,41 +103,8 @@ export default function Footer({
             </p>
           </div>
 
-          {/* Product Links Col */}
-          <div className="md:col-span-3 text-center md:text-left">
-            <h3 className="text-white font-bold mb-6 text-lg">Product</h3>
-            <ul className="space-y-4 text-[15px] text-blue-50 font-medium">
-              {productLinks.map((link, idx) => (
-                <li key={idx}>
-                  <a
-                    href={link.href}
-                    onClick={link.onClick}
-                    className="hover:text-white transition-colors cursor-pointer block"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Use Cases Col */}
-          <div className="md:col-span-3 text-center md:text-left">
-            <h3 className="text-white font-bold mb-6 text-lg">Use Cases</h3>
-            <ul className="space-y-4 text-[15px] text-blue-50 font-medium">
-              {useCaseLinks.map((link, idx) => (
-                <li key={idx}>
-                  <a
-                    href={link.href}
-                    onClick={link.onClick}
-                    className="hover:text-white transition-colors cursor-pointer block"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <FooterLinks title="Product" links={productLinks} />
+          <FooterLinks title="Use Cases" links={useCaseLinks} />
         </div>
 
         <div className="border-t border-[#3b82f6] pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">

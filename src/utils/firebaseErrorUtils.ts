@@ -1,44 +1,38 @@
+import { errorCode, errorMessage } from "./errors";
+
+const GENERIC = "An unexpected error occurred. Please try again.";
+
+/** Friendly text for the Firebase Auth error codes users can actually run into. */
+const MESSAGES: Record<string, string> = {
+  "auth/invalid-credential": "Invalid email or password. Please try again.",
+  "auth/user-not-found": "No account found with this email. Please sign up.",
+  "auth/wrong-password": "Incorrect password. Please try again.",
+  "auth/email-already-in-use": "An account with this email already exists. Please log in.",
+  "auth/weak-password": "Password should be at least 6 characters.",
+  "auth/invalid-email": "Please enter a valid email address.",
+  "auth/popup-closed-by-user": "Sign-in popup was closed. Please try again.",
+  "auth/popup-blocked": "Your browser blocked the sign-in popup. Please allow popups for this site and try again.",
+  "auth/unauthorized-domain":
+    "Google sign-in is not available on this site right now. Please use your email and password, or contact support.",
+  "auth/account-exists-with-different-credential":
+    "An account already exists with the same email using a different sign-in method.",
+  "auth/network-request-failed": "Network error. Please check your internet connection and try again.",
+  "auth/too-many-requests": "Too many failed attempts. Please try again later.",
+  "auth/user-disabled": "This account has been disabled. Please contact support.",
+  "auth/operation-not-allowed": "This sign-in method is not available right now. Please try another way to sign in.",
+};
+
 /**
- * Maps Firebase auth error codes to user-friendly messages.
- * @param error - The error object from Firebase
- * @returns A user-friendly error string
+ * Maps a Firebase error to a message that is safe to show a user.
+ * Raw Firebase codes are never shown; callers log the original error for debugging.
  */
-export const getFriendlyFirebaseErrorMessage = (error: any): string => {
-  if (!error) return "An unexpected error occurred. Please try again.";
+export const getFriendlyFirebaseErrorMessage = (error: unknown): string => {
+  if (!error) return GENERIC;
 
-  // Handle Firebase Auth errors
-  const errorCode = error.code;
-  const errorMessage = error.message;
+  const code = errorCode(error);
+  if (code && MESSAGES[code]) return MESSAGES[code];
 
-  switch (errorCode) {
-    case "auth/invalid-credential":
-      return "Invalid email or password. Please try again.";
-    case "auth/user-not-found":
-      return "No account found with this email. Please sign up.";
-    case "auth/wrong-password":
-      return "Incorrect password. Please try again.";
-    case "auth/email-already-in-use":
-      return "An account with this email already exists. Please log in.";
-    case "auth/weak-password":
-      return "Password should be at least 6 characters.";
-    case "auth/invalid-email":
-      return "Please enter a valid email address.";
-    case "auth/popup-closed-by-user":
-      return "Sign-in popup was closed. Please try again.";
-    case "auth/network-request-failed":
-      return "Network error. Please check your internet connection and try again.";
-    case "auth/too-many-requests":
-      return "Too many failed attempts. Please try again later.";
-    case "auth/user-disabled":
-      return "This account has been disabled. Please contact support.";
-    case "auth/operation-not-allowed":
-      return "Anonymous sign-in is not enabled in Firebase Console.";
-    default:
-      // Fallback: If no specific code matches, try to use the message but clean it up if it looks like a raw firebase error
-      if (errorMessage && errorMessage.includes("Firebase:")) {
-        // If we really can't map it, return a generic message to avoid showing code
-        return "Authentication failed. Please try again.";
-      }
-      return errorMessage || "An unexpected error occurred. Please try again.";
-  }
+  const message = errorMessage(error);
+  if (code || message.includes("Firebase")) return "Authentication failed. Please try again.";
+  return message || GENERIC;
 };

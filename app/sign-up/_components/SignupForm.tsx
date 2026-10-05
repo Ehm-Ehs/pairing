@@ -1,11 +1,12 @@
 "use client";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import Link from "next/link";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
-import { FaEye, FaEyeSlash, FaGoogle } from "react-icons/fa";
+import { FaGoogle } from "react-icons/fa";
 import { useSearchParams } from "next/navigation";
-import { useSignup } from "../../../src/hooks/useSignup";
-import { Button } from "../../../src/components/ui/button";
+import { useSignup } from "@/hooks/useSignup";
+import { Button } from "@/components/ui/button";
 
 interface SignupFormProps {
   initialEmail?: string;
@@ -15,6 +16,8 @@ interface SignupFormProps {
 const SignupForm = ({ initialEmail = "", initialName = "" }: SignupFormProps) => {
   const searchParams = useSearchParams();
   const emailParam = initialEmail || searchParams?.get("email") || "";
+  // Carry "where to go next" (and any invite) across to the login page.
+  const queryToKeep = searchParams?.toString() ? `?${searchParams.toString()}` : "";
   const nameParam = initialName || searchParams?.get("name") || "";
 
   const nameParts = nameParam.trim().split(/\s+/);
@@ -22,10 +25,6 @@ const SignupForm = ({ initialEmail = "", initialName = "" }: SignupFormProps) =>
   const lastNameParam = nameParts.slice(1).join(" ") || "";
 
   const {
-    showPassword,
-    setShowPassword,
-    showConfirmPassword,
-    setShowConfirmPassword,
     handleGoogleSignUp,
     handleSubmit,
     isGoogleSigningUp,
@@ -69,7 +68,7 @@ const SignupForm = ({ initialEmail = "", initialName = "" }: SignupFormProps) =>
               <h1 className="text-3xl font-bold tracking-tight mb-2">Create Account</h1>
               <p className="text-sm text-gray-500">
                 Already have an account?{" "}
-                <Link href="/login" className="text-[#1449b2] font-semibold hover:underline">
+                <Link href={`/login${queryToKeep}`} className="text-[#1449b2] font-semibold hover:underline">
                   Login
                 </Link>
               </p>
@@ -139,24 +138,12 @@ const SignupForm = ({ initialEmail = "", initialName = "" }: SignupFormProps) =>
               <label className="block text-sm font-semibold text-gray-500 mb-1.5">
                 Password
               </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  placeholder=""
-                  className="w-full bg-white text-black border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1449b2] placeholder-gray-300 transition-colors pr-10"
-                  value={values.password}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                />
-                <button
-                  type="button"
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
-                </button>
-              </div>
+              <PasswordInput
+                name="password"
+                value={values.password}
+                onChange={handleChange}
+                onBlur={handleBlur}
+              />
               {errors.password && touched.password && (
                 <div className="text-red-500 text-xs mt-1">
                   {errors.password}
@@ -168,24 +155,12 @@ const SignupForm = ({ initialEmail = "", initialName = "" }: SignupFormProps) =>
               <label className="block text-sm font-semibold text-gray-500 mb-1.5">
                 Confirm Password
               </label>
-              <div className="relative">
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  name="confirmPassword"
-                  placeholder=""
-                  className="w-full bg-white text-black border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1449b2] placeholder-gray-300 transition-colors pr-10"
-                  value={values.confirmPassword}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                />
-                <button
-                  type="button"
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  {showConfirmPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
-                </button>
-              </div>
+              <PasswordInput
+                name="confirmPassword"
+                value={values.confirmPassword}
+                onChange={handleChange}
+                onBlur={handleBlur}
+              />
               {errors.confirmPassword && touched.confirmPassword && (
                 <div className="text-red-500 text-xs mt-1">
                   {errors.confirmPassword}

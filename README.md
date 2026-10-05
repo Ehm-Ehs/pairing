@@ -1,85 +1,135 @@
-# PairForm - Intelligent Team Formation & Pairing Platform
+# PairForm
 
-PairForm is an enterprise-ready, high-performance web application built for creating balanced teams, role-capped project groups, breakout rooms, speed networking schedules, and Secret Santa gift exchanges.
+PairForm is a Next.js web app for forming balanced teams, role-capped project groups, breakout rooms, speed-networking schedules and Secret Santa exchanges.
 
----
+## What it does
 
-## 💡 Overview of What We Have Built
+- **Events.** Three event types: role-based groups, Secret Santa (or simple pairs), and random positioning. Optional multi-round speed-networking schedule with CSV export.
+- **Joining.** Participants join from a share link. They do not need an account.
+- **Private results.** Each participant gets a private link to their own assignment. Secret Santa matches are never shown publicly; they are delivered by email or WhatsApp according to the event's notification channel.
+- **Exclusion rules.** Organizers can mark pairs of people who must not draw each other in a Secret Santa.
+- **Workspaces.** Personal space plus organizations with admin and member roles and email invites.
+- **Tokens.** One token per participant who joins. Free grant on sign-up, token packs bought through Paystack.
+- **Notifications.** Email through Resend, WhatsApp through the Meta Cloud API, in-app notifications, and Web Push.
 
-### 1. Authentication & Role-Based Access Control
-* **Firebase Authentication**: Email and password signup, login, and password reset flows (`/login`, `/sign-up`, `/forgot-password`).
-* **Dynamic Super Admin System**: Super admins are dynamically assigned via Firestore (`Users` collection with `role: "super_admin"` or `isSuperAdmin: true`). Configured with fallback defaults in `src/config/admin.ts`.
-* **Guest Flow & Interactive Auth Guard**: Guest users can configure events directly on the landing page form. Clicking "Create Event" prompts sign-in/sign-up and automatically restores their event payload from `sessionStorage` post-auth.
-* **Guest Adaptive Header**: Context-aware navigation bar hiding "Create Org" and disabling account settings for guest users.
+## Stack
 
-### 2. Event & Pairing Engine (`src/utils/pairing.ts`)
-* **Secret Santa Exchange**:
-  * 100% secret random partner draws.
-  * Custom exclusion rules (e.g. spouses/couples cannot draw each other).
-  * Wishlist creation and private budget tracking.
-* **Role-Based & Skill-Balanced Pairing**:
-  * Strict role caps per team (e.g. maximum 2 Developers, 1 Designer, 1 PM).
-  * Skill distribution algorithm equalizing experience levels across competing teams.
-* **Random Positioning & Breakout Rooms**:
-  * Instant group division for speed networking rounds or Zoom/Teams workshops.
-* **Participant Results & Share Links**:
-  * Unique share links (`/event/[id]`, `/your-pairing/[id]`) for participants to view their assignments securely.
+Next.js (App Router), React, TypeScript, Tailwind CSS, Firebase Auth, Firestore, Firebase Admin SDK, Paystack, Resend, Vitest. Deployed on Netlify.
 
-### 3. Monetization & Token Ledger System
-* **Paystack Payment Integration**:
-  * Payment initialization and verification via `/api/payments/paystack/verify` and `/api/payments/paystack/webhook`.
-* **Token Ledger Architecture**:
-  * Credit balance tracking recorded in Firestore collections (`TokenLedgers` & `TokenLedgerEntries`).
-* **Pricing Plans**:
-  * Interactive subscription and credit top-up page (`/pricing`).
+## How it is put together
 
-### 4. Automated Notifications
-* **Email Dispatch**: Resend integration via `/api/send-email` for match notifications, invites, and wishlists.
-* **WhatsApp Dispatch**: WhatsApp notification endpoint (`/api/send-whatsapp`) for instant mobile delivery.
+```
+app/                 Pages and API routes
+  api/               Server routes (the only code that can change sensitive data)
+src/
+  server/            Server-only modules used by the API routes
+    auth.ts          Verifies the Firebase ID token on a request
+    ledger.ts        The single place token balances change
+    events.ts        Loading events, permissions, public sanitizing, private assignments
+    paystack.ts      Validates and credits a Paystack transaction
+    messaging.ts     Email and WhatsApp delivery
+    rateLimit.ts     Firestore-backed rate limiter
+  services/          Browser data access (Firestore reads, calls to /api)
+  hooks/             React hooks (auth, token ledger, checkout, public event loading)
+  components/
+    join/            Shared participant screens: card frame, closed/full, reveal, success
+    events/          Shared event form parts: image upload, speed networking, private link
+    ui/              Generic UI: buttons, modals, CSV buttons, confirmation toast
+  utils/             Pure helpers shared by browser and server (draw, csv, tokens, links, time)
+  types/
+firestore.rules      What the browser may read and write
+tests/unit/          Unit tests (no emulator needed)
+tests/rules/         Firestore rules tests (need the emulator)
+scripts/             One-off scripts
+```
 
-### 5. Security & Testing
-* **Firestore Security Rules (`firestore.rules`)**:
-  * Locked down collection rules enforcing authentication, organization boundaries, token ledger security, and default deny policies.
-* **Automated Vitest Security Suite (`tests/firestore-rules.test.ts`)**:
-  * 11 automated security unit tests covering rule syntax, auth checks, and data isolation.
-* **TypeScript Integrity**:
-  * Strict compilation check with 0 type errors (`npx tsc --noEmit`).
+### Security model
 
-### 6. SEO & Modern UI Architecture
-* **Single-Page Landing**: Clean navigation targeting smooth scroll sections (`#how-it-works`, `#features`, `#use-cases`).
-* **Structured JSON-LD Schema**: Embedded `SoftwareApplication` metadata in `app/layout.tsx` for optimal organic search visibility without thin content sub-pages.
-* **Responsive Stack**: Next.js App Router, Tailwind CSS, Framer Motion, and React Icons.
+The browser is not trusted with anything that involves money, roles, membership, participants or draw results.
 
----
+- **Sign-in** happens between the browser and Firebase Auth. After it, the browser calls `/api/users/bootstrap`, and the server creates the profile and free token grant.
+- **API routes** read the Firebase ID token from the `Authorization` header and verify it. Organizer actions check that the caller owns the event or has the right role in its organization.
+- **Joining an event** is public, but runs in one server transaction: closed check, capacity, duplicate email, slot choice, token charge and write. Joins are rate limited per network.
+- **Token balances** live only in `TokenLedgers`. Every change goes through `src/server/ledger.ts` together with a `TokenLedgerEntries` record.
+- **Payments** are credited by `settleTransaction`. The token count comes from the pack table and the amount Paystack reports, and the transaction reference is an idempotency key, so the webhook and the return-page verification can both run without double crediting. The webhook requires a valid signature.
+- **Public pages** get a sanitized copy of an event from `/api/events/public`: names and slots, no emails, phone numbers, wishlists, tokens or draw results.
+- **Firestore rules** deny everything by default. See the comments in `firestore.rules`.
 
-## 🛠️ What Is Missing & Future Enhancements
-
-1. **Production Webhook Signature Verification**
-   * Ensure `PAYSTACK_SECRET_KEY` is set in production environment variables (Vercel/Netlify) to sign and verify incoming payment webhooks securely.
-
-2. **Full WhatsApp Business API Integration**
-   * Connect `/api/send-whatsapp` to an active Twilio or Meta WhatsApp Business account for automated production delivery.
-
-3. **CSV / Excel Export for Workshop Hosts**
-   * Add a 1-click **Export to CSV / Excel** button formatted for Zoom & MS Teams pre-assigned breakout room imports.
-
-4. **Multi-Round Speed Networking Matrix**
-   * Visual schedule matrix generator ensuring zero duplicate pairings across multiple continuous networking rounds.
-
-5. **Advanced Organization Analytics Dashboard**
-   * Enhanced admin panel in `/settings` for tracking organization credits, historical team formations, and bulk member CSV uploads.
-
----
-
-## 🧪 Running Tests & Checks
+## Setup
 
 ```bash
-# Run TypeScript type check
-npx tsc --noEmit
-
-# Run Security & Firestore Rules Tests
-npx vitest run tests/firestore-rules.test.ts
-
-# Start Development Server
+npm install
+cp .env.example .env.local   # then fill it in
 npm run dev
 ```
+
+### Environment variables
+
+Every setting has one name. Its value depends on where the app runs: your machine and the develop site use the staging Firebase project, production uses the production project. The code never chooses between projects.
+
+| Where | Public settings | Firebase API key and secrets |
+|---|---|---|
+| Your machine | `.env.local` (staging values) | `.env.local` |
+| Develop site and previews | `netlify.toml` | Netlify dashboard, non-production value |
+| Production | `netlify.toml` | Netlify dashboard, Production value |
+
+Values in `netlify.toml` win over values with the same name in the Netlify dashboard. The repository is public, so the Firebase API key and all secrets stay out of it.
+
+Secrets must not use the `NEXT_PUBLIC_` prefix. That prefix ships a variable to the browser.
+
+### Firebase service account
+
+A Firebase service account is required. Every API route uses the Admin SDK, so sign-up, joining events, organizations and payments all fail without it (routes answer `503 SERVER_NOT_CONFIGURED`).
+
+1. In the Firebase console open Project settings, Service accounts, and click "Generate new private key".
+2. Save the file in the project folder as `service-account.json` (this name is git-ignored).
+3. Add `FIREBASE_SERVICE_ACCOUNT_KEY=./service-account.json` to `.env.local` and restart `npm run dev`.
+
+The key must come from the same project as `NEXT_PUBLIC_FIREBASE_PROJECT_ID`. If it does not, the server refuses to use it and says which two projects disagree. On Netlify the value is the JSON content (base64 is accepted), with a different value for Production and for the other deploy contexts.
+
+## Checks
+
+```bash
+npm run typecheck    # TypeScript
+npm run lint         # ESLint
+npm test             # unit tests
+npm run test:rules   # Firestore rules tests; needs Java for the Firestore emulator
+npm run check        # typecheck + lint + unit tests
+```
+
+CI (`.github/workflows/ci.yml`) runs all of these on every push and pull request.
+
+Lint treats unused imports, unused variables and `any` as errors. `npm run lint -- --fix` removes unused imports.
+
+### Conventions
+
+- One source for each rule. Token rules live in `src/utils/tokens.ts`, share links in `src/utils/eventLinks.ts`, CSV output in `src/utils/csv.ts`, dates in `src/utils/timeUtils.ts`.
+- Read caught errors with `errorMessage`, `errorCode` and `errorStatus` from `src/utils/errors.ts` instead of typing them as `any`.
+- Log through `src/utils/logger.ts`, not `console`.
+- Import from `src` with the `@/` alias.
+
+## Deploying
+
+1. Set the environment variables from `.env.example` in Netlify, including `FIREBASE_SERVICE_ACCOUNT_KEY` (staging key for the develop context, production key for production).
+2. Deploy the app.
+3. Then deploy the rules: `npx firebase-tools deploy --only firestore:rules --project <project-id>`.
+
+Deploy the app before the rules. Older versions of the app wrote to Firestore directly from the browser, and the new rules reject those writes.
+
+Recommended once: enable a Firestore TTL policy on `RateLimits.expiresAt` so old rate-limit windows are deleted automatically.
+
+### Legacy events
+
+Events used to be stored in an array on the user document. They are moved to the `Pairings` collection automatically when the organizer signs in or when someone opens one of their share links. To move everything at once:
+
+```bash
+FIREBASE_SERVICE_ACCOUNT_KEY='...' npm run migrate:legacy-pairings            # dry run
+FIREBASE_SERVICE_ACCOUNT_KEY='...' npm run migrate:legacy-pairings -- --apply
+```
+
+## Webhooks
+
+| Service | URL | Requirement |
+|---|---|---|
+| Paystack | `/api/payments/paystack/webhook` | `PAYSTACK_SECRET_KEY` |
+| WhatsApp | `/api/webhook/whatsapp` | `WHATSAPP_VERIFY_TOKEN` and `WHATSAPP_APP_SECRET` |

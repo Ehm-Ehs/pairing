@@ -1,6 +1,6 @@
 "use client";
 
-import NextProtectedRoute from "../../../src/components/routes/NextProtectedRoute";
+import NextProtectedRoute from "@/components/routes/NextProtectedRoute";
 import Home from "./home";
 
 export default function HomePageClient() {

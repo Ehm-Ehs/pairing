@@ -1,4 +1,5 @@
-import { ReactNode, useEffect } from "react";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { ReactNode } from "react";
 import { FaTimes } from "react-icons/fa";
 
 interface ConfirmationModalProps {
@@ -31,17 +32,7 @@ export function ConfirmationModal({
   const handleDismiss = onCancel || onClose || (() => {});
   const modalDescription = description || message;
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "Esc") {
-        handleDismiss();
-      }
-    };
-    if (isOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-    }
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, handleDismiss]);
+  useEscapeKey(isOpen, handleDismiss);
 
   if (!isOpen) return null;
 

@@ -1,19 +1,22 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import Logo from "../../../src/assets/logo";
-import { useParams, useRouter } from "next/navigation";
+import { ASSIGNMENT_NOT_READY } from "@/utils/messages";
+import { errorMessage } from "@/utils/errors";
+import { JoinFormFooter, JoinTextField, WhatsAppPhoneField } from "@/components/join/JoinFormParts";
+import { logger } from "@/utils/logger";
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Formik, Form, ErrorMessage } from "formik";
 import * as Yup from "yup";
-import { getDoc, doc } from "firebase/firestore";
-import { db } from "../../../src/services/firebase";
-import { Pairing, RandomPositioningPairing } from "../../../src/types";
-import { addParticipantToRandomPositioning } from "../../../src/services/endpoints";
+import { RandomPositioningPairing } from "@/types";
+import { joinEvent, lookupAssignment } from "@/services/endpoints";
+import { usePublicEvent } from "@/hooks/usePublicEvent";
+import { EventNotFound, JoinCard } from "@/components/join/JoinCard";
+import { EventUnavailable } from "@/components/join/EventUnavailable";
+import { RevealByEmail } from "@/components/join/RevealByEmail";
+import { rememberPrivateLink } from "@/components/events/PrivateLinkCard";
 import { toast } from "react-toastify";
-import { v4 as uuidv4 } from "uuid";
-import { Loading } from "../../../src/components/ui/loading";
-import { FaRandom, FaCalendarAlt, FaInfoCircle, FaWhatsapp } from "react-icons/fa";
-import { Button } from "../../../src/components/ui/button";
-import PhoneInputWithCountry from "../../../src/components/ui/PhoneInputWithCountry";
+import { Loading } from "@/components/ui/loading";
+import { FaRandom, FaCalendarAlt, FaInfoCircle } from "react-icons/fa";
 
 interface JoinFormValues {
   fullName: string;
@@ -25,119 +28,32 @@ interface JoinFormValues {
 
 
 const JoinRandomPositioning: React.FC = () => {
-  const { userId, eventId } = useParams();
   const router = useRouter();
-  const [event, setEvent] = useState<RandomPositioningPairing | null>(null);
-  const [closedMessage, setClosedMessage] = useState("");
-  const [fullMessage, setFullMessage] = useState("");
+  const { event, messages, loading, ownerId: validUserId } =
+    usePublicEvent<RandomPositioningPairing>("random-positioning");
   const [showReveal, setShowReveal] = useState(false);
-
-  const validUserId = Array.isArray(userId) ? userId[0] : userId;
-  const validEventId = Array.isArray(eventId) ? eventId[0] : eventId;
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    const fetchEvent = async () => {
-      if (!validUserId || !validEventId) return;
-      try {
-        const userDoc = await getDoc(doc(db, "Users", validUserId));
-        const userData = userDoc.exists() ? userDoc.data() : {};
-        setClosedMessage(userData.settings?.defaults?.closedEventMessage || "");
-        setFullMessage(userData.settings?.defaults?.fullEventMessage || "");
-
-        // 1. Try Pairings collection
-        const pairingDoc = await getDoc(doc(db, "Pairings", validEventId));
-        if (pairingDoc.exists()) {
-          setEvent(pairingDoc.data() as RandomPositioningPairing);
-        } else if (userDoc.exists()) {
-          // 2. Legacy fallback
-          const foundEvent = userData.pairings?.find(
-            (p: Pairing) =>
-              p.id === validEventId && p.type === "random-positioning"
-          );
-          if (foundEvent) {
-            setEvent(foundEvent as RandomPositioningPairing);
-          } else {
-            toast.error("Event not found");
-          }
-        } else {
-          toast.error("Event not found");
-        }
-      } catch (error) {
-        console.error("Error fetching event:", error);
-        toast.error("Failed to load event");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEvent();
-  }, [validUserId, validEventId]);
 
   const handleSubmit = async (values: JoinFormValues) => {
     if (!validUserId || !event) return;
 
     setSubmitting(true);
     try {
-      const mode = (event as any).assignmentMode || "participants-pick";
-      const totalPositions = event.expectedParticipants || 25;
-      const takenNumbers = event.participants.map((p) => p.assignedNumber).filter(Boolean) as number[];
+      const mode = event.assignmentMode || "participants-pick";
 
-      let finalAssignedNumber = values.assignedNumber;
-
-      if (mode === "participants-pick") {
-        if (takenNumbers.includes(values.assignedNumber)) {
-          toast.error("This position is already taken! Please select another one.");
-          setSubmitting(false);
-          return;
-        }
-      } else if (mode === "fcfs") {
-        let nextNumber = 1;
-        while (takenNumbers.includes(nextNumber)) {
-          nextNumber++;
-        }
-        finalAssignedNumber = nextNumber;
-      } else {
-        // Mode is random
-        const availableNumbers = [];
-        for (let i = 1; i <= totalPositions; i++) {
-          if (!takenNumbers.includes(i)) {
-            availableNumbers.push(i);
-          }
-        }
-        finalAssignedNumber =
-          availableNumbers.length > 0
-            ? availableNumbers[Math.floor(Math.random() * availableNumbers.length)]
-            : takenNumbers.length + 1;
-      }
-
-      const newParticipant = {
-        id: uuidv4(),
-        name: values.fullName.trim(),
-        email: values.email.trim(),
-        phone: values.phone?.trim() || "",
-        assignedNumber: finalAssignedNumber,
-        joinedAt: Date.now(),
-      };
-
-      await addParticipantToRandomPositioning(
-        validUserId,
-        event.id,
-        newParticipant
-      );
-
-      if (values.email) {
-        import("../../../src/services/email").then(({ sendRoleAssignedEmail }) => {
-          sendRoleAssignedEmail(
-            values.email.trim(),
-            values.fullName.trim(),
-            event.title,
-            `Position #${finalAssignedNumber}`,
-            "Participant"
-          );
-        });
-      }
+      // The server assigns the position (or validates the chosen one) so two people can never take the same spot.
+      const result = await joinEvent({
+        ownerId: validUserId,
+        eventId: event.id,
+        participant: {
+          name: values.fullName.trim(),
+          email: values.email.trim(),
+          phone: values.phone?.trim() || "",
+          ...(mode === "participants-pick" ? { assignedNumber: values.assignedNumber } : {}),
+        },
+      });
+      rememberPrivateLink(result.revealUrl);
+      const finalAssignedNumber = result.participant.assignedNumber ?? values.assignedNumber;
 
       const queryParams = new URLSearchParams({
         eventName: event.title,
@@ -147,9 +63,9 @@ const JoinRandomPositioning: React.FC = () => {
       }).toString();
 
       router.push(`/event/success?${queryParams}`);
-    } catch (error: any) {
-      console.error("Error joining:", error);
-      toast.error(error.message || "Failed to join event");
+    } catch (error) {
+      logger.error("Error joining:", error);
+      toast.error(errorMessage(error) || "Failed to join event");
     } finally {
       setSubmitting(false);
     }
@@ -173,256 +89,76 @@ const JoinRandomPositioning: React.FC = () => {
 
   if (loading) return <Loading message="Loading event details..." />;
 
-  if (!event) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
-        <div className="text-center max-w-sm">
-          <h1 className="text-2xl font-bold mb-2 text-gray-800">Event Not Found</h1>
-          <p className="text-gray-550 text-sm text-gray-500">
-            The link may be invalid or the event has been deleted.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (!event) return <EventNotFound />;
 
-  const assignmentMode = (event as any).assignmentMode || "participants-pick";
+  const assignmentMode = event.assignmentMode || "participants-pick";
   const totalPositions = event.expectedParticipants || 25;
   const takenNumbers = event.participants.map((p) => p.assignedNumber).filter(Boolean) as number[];
 
   const isClosed = event.status === "locked";
   const isFull = totalPositions > 0 && event.participants.length >= totalPositions;
 
-  if (isClosed && !showReveal) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-start items-center px-4 py-12 text-left font-medium text-gray-700">
-        <Logo className="h-9 w-auto mb-10" />
-
-        <div className="bg-white rounded-[2rem] border-t-4 border-t-red-500 border-x border-b border-gray-200/60 shadow-sm w-full max-w-xl flex flex-col overflow-hidden">
-          <div className="bg-[#F5F6F8] p-6 md:p-8 flex flex-col items-center border-b border-gray-200/60 w-full relative">
-            <div className="w-12 h-12 bg-red-100 text-red-650 rounded-xl flex items-center justify-center shadow-md mb-4 flex-shrink-0">
-              <span className="text-xl font-bold text-red-600">×</span>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight text-center capitalize">
-              {event.title}
-            </h2>
-            <span className="bg-red-50 text-red-750 text-xs font-semibold px-4 py-1.5 rounded-full mt-1.5">
-              Closed
-            </span>
-          </div>
-
-          <div className="p-8 md:p-10 flex flex-col items-center text-center gap-6 w-full">
-            <p className="text-sm text-gray-500 leading-relaxed max-w-md">
-              {closedMessage || "Sorry, this event is closed. No further registrations are allowed."}
-            </p>
-
-            <div className="flex flex-col gap-3 w-full max-w-xs mt-2">
-              <button
-                onClick={() => setShowReveal(true)}
-                className="bg-gradient-to-b from-[#3A76F0] to-[#012A7D] hover:opacity-95 text-white font-bold px-4 sm:px-8 py-2.5 sm:py-3.5 rounded-full text-xs sm:text-sm transition-all shadow-md cursor-pointer text-center whitespace-nowrap"
-              >
-                Already registered? Reveal assignment
-              </button>
-
-              <button
-                onClick={() => router.push("/")}
-                className="bg-[#e5e7eb] hover:bg-gray-300 text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all cursor-pointer text-center"
-              >
-                Go home
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isFull) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-start items-center px-4 py-12 text-left font-medium text-gray-700">
-        <Logo className="h-9 w-auto mb-10" />
-
-        <div className="bg-white rounded-[2rem] border-t-4 border-t-amber-500 border-x border-b border-gray-200/60 shadow-sm w-full max-w-xl flex flex-col overflow-hidden">
-          <div className="bg-[#F5F6F8] p-6 md:p-8 flex flex-col items-center border-b border-gray-200/60 w-full relative">
-            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center shadow-md mb-4 flex-shrink-0">
-              <span className="text-xl font-bold text-amber-600">!</span>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight text-center capitalize">
-              {event.title}
-            </h2>
-            <span className="bg-amber-50 text-amber-700 text-xs font-semibold px-4 py-1.5 rounded-full mt-1.5">
-              Event Full
-            </span>
-          </div>
-
-          <div className="p-8 md:p-10 flex flex-col items-center text-center gap-6 w-full">
-            <p className="text-sm text-gray-500 leading-relaxed max-w-md">
-              {fullMessage || "Sorry, this event is full. All available slots have been taken."}
-            </p>
-
-            <div className="flex flex-col gap-3 w-full max-w-xs mt-2">
-              <button
-                onClick={() => setShowReveal(true)}
-                className="bg-gradient-to-b from-[#3A76F0] to-[#012A7D] hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-full text-xs transition-all shadow-md cursor-pointer text-center"
-              >
-                Already registered? Reveal assignment
-              </button>
-
-              <button
-                onClick={() => router.push("/")}
-                className="bg-[#e5e7eb] hover:bg-gray-300 text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all cursor-pointer text-center"
-              >
-                Go home
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (showReveal) {
-    // REVEAL MODE
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-start items-center px-4 py-12 text-left">
-        <Logo className="h-9 w-auto mb-10" />
-
-        <div className="bg-white rounded-[2rem] border-t-4 border-t-[#8338EC] border-x border-b border-gray-200/60 shadow-sm w-full max-w-xl flex flex-col overflow-hidden">
-          <div className="bg-[#F5F6F8] p-6 md:p-8 flex flex-col items-center border-b border-gray-200/60 w-full relative">
-            <div className="w-12 h-12 bg-[#8338EC] text-white rounded-xl flex items-center justify-center shadow-md mb-4 flex-shrink-0">
-              <FaRandom className="w-5 h-5" />
+      <RevealByEmail
+        accent="purple"
+        icon={<FaRandom className="w-5 h-5" />}
+        title={event.title}
+        badge="Random Position • Revealed"
+        prompt="Enter your email to find your position!"
+        submitLabel="Check Position"
+        notFoundMessage={ASSIGNMENT_NOT_READY}
+        onClose={() => setShowReveal(false)}
+        lookup={async (email) => {
+          const res = await lookupAssignment({ ownerId: validUserId, eventId: event.id, email });
+          if (res.assignment?.kind !== "position" || !res.assignment.assignedNumber) return null;
+          return (
+            <div className="text-center w-full flex flex-col items-center p-4">
+              <p className="text-sm font-bold text-gray-500">You are assigned position:</p>
+              <div className="w-24 h-24 rounded-full bg-purple-50 border border-purple-100 flex items-center justify-center text-5xl font-extrabold text-[#8338EC] font-heading my-4 shadow-md">
+                {res.assignment.assignedNumber}
+              </div>
+              <p className="text-gray-400 text-xs font-medium">
+                Out of {event.participants.length} total participants
+              </p>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight text-center">
-              {event.title}
-            </h2>
-            <span className="bg-[#F3E8FF] text-[#6B21A8] text-xs font-semibold px-4 py-1.5 rounded-full mt-1.5">
-              Random Position • Revealed
-            </span>
-          </div>
-          <Formik
-            initialValues={{ email: "" }}
-            validationSchema={Yup.object({
-              email: Yup.string()
-                .email("Invalid email")
-                .required("Email is required"),
-            })}
-            onSubmit={(values, { setSubmitting, setStatus }) => {
-              const participant = event.participants.find(
-                (p) => p.email?.toLowerCase() === values.email.toLowerCase()
-              );
-              if (participant && participant.assignedNumber) {
-                setStatus({ revealed: true, participant });
-              } else {
-                toast.error("Email not found or no position assigned yet.");
-              }
-              setSubmitting(false);
-            }}
-          >
-            {({ status, isSubmitting, values, handleChange, handleBlur }) => (
-              <Form className="flex flex-col w-full">
-                <div className="p-6 md:p-8 flex flex-col gap-6 w-full">
-                  {!status?.revealed ? (
-                    <>
-                      <p className="text-gray-500 text-sm leading-relaxed">
-                        Enter your email to find your position!
-                      </p>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-600 mb-1">
-                          Email Address
-                        </label>
-                        <input
-                          name="email"
-                          type="email"
-                          value={values.email}
-                          onChange={handleChange}
-                          onBlur={handleBlur}
-                          className="px-4 py-3 w-full bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm placeholder:text-gray-400 text-gray-700 font-medium"
-                          placeholder="Your registered email"
-                        />
-                        <ErrorMessage name="email" component="div" className="text-red-500 text-xs mt-1 font-semibold" />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center animate-in fade-in zoom-in duration-300 w-full flex flex-col items-center p-4">
-                      <p className="text-sm font-bold text-gray-500">You are assigned position:</p>
-                      <div className="w-24 h-24 rounded-full bg-purple-50 border border-purple-100 flex items-center justify-center text-5xl font-extrabold text-[#8338EC] font-heading my-4 shadow-md">
-                        {status.participant.assignedNumber}
-                      </div>
-                      <p className="text-gray-400 text-xs font-medium">
-                        Out of {event.participants.length} total participants
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {!status?.revealed ? (
-                  <div className="bg-[#F5F6F8] p-6 flex flex-col sm:flex-row items-center justify-center gap-3 border-t border-gray-200 w-full rounded-b-[2rem]">
-                    <button
-                      type="button"
-                      onClick={() => setShowReveal(false)}
-                      className="bg-[#e5e7eb] hover:bg-gray-300 text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all cursor-pointer w-full h-auto text-center"
-                    >
-                      Back
-                    </button>
-                    <Button
-                      type="submit"
-                      disabled={isSubmitting}
-                      isLoading={isSubmitting}
-                      className="bg-gradient-to-b from-[#8338EC] to-[#6f2ec9] hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-full text-xs shadow-md transition-all cursor-pointer w-full h-auto"
-                    >
-                      Check Position
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="bg-[#F5F6F8] p-6 flex items-center justify-center border-t border-gray-200 w-full rounded-b-[2rem]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowReveal(false);
-                      }}
-                      className="bg-[#e5e7eb] hover:bg-gray-300 text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all cursor-pointer w-full h-auto text-center"
-                    >
-                      Done
-                    </button>
-                  </div>
-                )}
-              </Form>
-            )}
-          </Formik>
-        </div>
-      </div>
+          );
+        }}
+      />
     );
   }
 
-  // JOIN VIEW
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-start items-center px-4 py-12 text-left">
-      <div className="bg-white rounded-[2rem] border-t-4 border-t-[#8338EC] border-x border-b border-gray-200/60 shadow-sm w-full max-w-xl flex flex-col overflow-hidden">
-        <div className="bg-[#F5F6F8] p-6 md:p-8 flex flex-col items-center border-b border-gray-200/60 w-full relative">
-          <div className="w-12 h-12 bg-[#8338EC] text-white rounded-xl flex items-center justify-center shadow-md mb-4 flex-shrink-0">
-            <FaRandom className="w-5 h-5" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight text-center">
-            {event.title}
-          </h2>
-          <div className="flex flex-wrap items-center justify-center gap-2 mt-1.5">
-            <span className="bg-[#F3E8FF] text-[#6B21A8] text-xs font-semibold px-4 py-1.5 rounded-full">
-              Random Position
-            </span>
-            {event.deadline && (
-              <span className="bg-gray-200/60 text-gray-600 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1">
-                <FaCalendarAlt className="w-2.5 h-2.5" />
-                Until {getFriendlyDeadline(event.deadline)}
-              </span>
-            )}
-          </div>
-          {event.description && (
-            <p className="text-gray-550 text-xs text-center max-w-md mt-3 leading-relaxed">
-              {event.description}
-            </p>
-          )}
-        </div>
+  if (isClosed || isFull) {
+    return (
+      <EventUnavailable
+        reason={isClosed ? "closed" : "full"}
+        title={event.title}
+        message={isClosed ? messages.closed : messages.full}
+        onReveal={() => setShowReveal(true)}
+      />
+    );
+  }
 
+  return (
+    <JoinCard
+      accent="purple"
+      icon={<FaRandom className="w-5 h-5" />}
+      title={event.title}
+      badge="Random Position"
+      badgeExtra={
+        event.deadline && (
+          <span className="bg-gray-200/60 text-gray-600 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1">
+            <FaCalendarAlt className="w-2.5 h-2.5" />
+            Until {getFriendlyDeadline(event.deadline)}
+          </span>
+        )
+      }
+      headerExtra={
+        event.description && (
+          <p className="text-gray-500 text-xs text-center max-w-md mt-3 leading-relaxed">{event.description}</p>
+        )
+      }
+    >
         <Formik
           initialValues={{ fullName: "", email: "", assignedNumber: -1 }}
           validationSchema={Yup.object({
@@ -439,7 +175,7 @@ const JoinRandomPositioning: React.FC = () => {
           })}
           onSubmit={handleSubmit}
         >
-          {({ errors, touched, handleChange, handleBlur, values, setFieldValue }) => (
+          {({ values, setFieldValue }) => (
             <Form className="flex flex-col w-full">
               <div className="p-6 md:p-8 flex flex-col gap-6 w-full">
                 {/* Assignment Mode Blue Banner */}
@@ -475,76 +211,17 @@ const JoinRandomPositioning: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Full Name */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-600 mb-1.5">
-                    Full Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    name="fullName"
-                    type="text"
-                    className={`px-4 py-3 w-full bg-white border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm placeholder:text-gray-400 text-gray-700 font-medium ${
-                      errors.fullName && touched.fullName ? "border-red-500" : "border-gray-200"
-                    }`}
-                    placeholder="e.g John Sam"
-                    value={values.fullName}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                  />
-                  <ErrorMessage
-                    name="fullName"
-                    component="div"
-                    className="text-red-500 text-xs mt-1 font-semibold"
-                  />
-                </div>
+                <JoinTextField name="fullName" label="Full Name" accent="purple" placeholder="e.g John Sam" />
+                <JoinTextField
+                  name="email"
+                  label="Email Address"
+                  type="email"
+                  accent="purple"
+                  placeholder="e.g John@example.com"
+                  hint="We'll send your position assignment here"
+                />
 
-                {/* Email Address */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-605 mb-1.5">
-                    Email Address <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    name="email"
-                    type="email"
-                    className={`px-4 py-3 w-full bg-white border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm placeholder:text-gray-400 text-gray-700 font-medium ${
-                      errors.email && touched.email ? "border-red-500" : "border-gray-200"
-                    }`}
-                    placeholder="e.g John@example.com"
-                    value={values.email}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                  />
-                  <ErrorMessage
-                    name="email"
-                    component="div"
-                    className="text-red-500 text-xs mt-1 font-semibold"
-                  />
-                  <p className="text-gray-400 text-[11px] mt-1.5 pl-1">
-                    We'll send your position assignment here
-                  </p>
-                </div>
-
-                {/* WhatsApp Phone Number */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
-                    <FaWhatsapp className="text-emerald-600 w-4 h-4" />
-                    <span>WhatsApp Phone Number (Optional)</span>
-                  </label>
-                  <PhoneInputWithCountry
-                    id="phone"
-                    name="phone"
-                    value={values.phone}
-                    onChange={(val) => setFieldValue("phone", val)}
-                  />
-                  <ErrorMessage
-                    name="phone"
-                    component="div"
-                    className="text-red-500 text-xs mt-1 font-semibold"
-                  />
-                  <p className="text-gray-400 text-[11px] mt-1.5 pl-1">
-                    Select your country code and enter your WhatsApp phone number
-                  </p>
-                </div>
+                <WhatsAppPhoneField />
 
                 {/* Choose Your Position Grid Selector - ONLY for Participants Pick mode */}
                 {assignmentMode === "participants-pick" && (
@@ -600,29 +277,11 @@ const JoinRandomPositioning: React.FC = () => {
                 )}
               </div>
 
-              {/* Action Buttons */}
-              <div className="bg-[#F5F6F8] p-6 flex items-center justify-center gap-4 border-t border-gray-200 w-full rounded-b-[2rem]">
-                <button
-                  type="button"
-                  onClick={() => router.push("/")}
-                  className="bg-[#E5E7EB] hover:bg-[#D1D5DB] text-gray-700 font-bold px-4 sm:px-8 py-2.5 sm:py-3.5 rounded-full text-xs sm:text-sm transition-all shadow-sm flex-1 cursor-pointer whitespace-nowrap text-center"
-                >
-                  Cancel
-                </button>
-                <Button
-                  type="submit"
-                  disabled={submitting}
-                  isLoading={submitting}
-                  className="bg-gradient-to-b from-[#8338EC] to-[#6f2ec9] hover:opacity-95 text-white font-bold px-4 sm:px-8 py-2.5 sm:py-3.5 rounded-full text-xs sm:text-sm transition-all shadow-md flex-1 cursor-pointer flex items-center justify-center gap-1.5 h-auto whitespace-nowrap"
-                >
-                  {submitting ? "Joining..." : "Claim my position >"}
-                </Button>
-              </div>
+              <JoinFormFooter accent="purple" submitting={submitting} label="Claim my position >" />
             </Form>
           )}
         </Formik>
-      </div>
-    </div>
+    </JoinCard>
   );
 };
 

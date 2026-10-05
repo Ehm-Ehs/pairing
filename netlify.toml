@@ -1,15 +1,73 @@
+# Netlify build configuration.
+#
+# Environment variables: every setting has ONE name. Its value depends on where the site runs.
+#
+#   - Public, non-sensitive settings (Firebase project ids, analytics id, site address) are set
+#     below, per deploy context. They are shipped to every visitor's browser anyway.
+#   - The Firebase web API key and all secrets are NOT stored here, because this repository is
+#     public. Set them in the Netlify dashboard (Site configuration > Environment variables),
+#     with a different value for Production and for the other deploy contexts:
+#
+#       NEXT_PUBLIC_FIREBASE_API_KEY     production project key  /  staging project key
+#       FIREBASE_SERVICE_ACCOUNT_KEY     production service account  /  staging service account
+#       PAYSTACK_SECRET_KEY              live key  /  test key
+#       RESEND_API_KEY, WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID,
+#       WHATSAPP_VERIFY_TOKEN, WHATSAPP_APP_SECRET
+#
+# Values in this file win over values with the same name in the Netlify dashboard.
+
 [build]
   command = "npm run build"
   publish = ".next"
 
 [build.environment]
-  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_FIREBASE_DEVELOP_API_KEY,NEXT_PUBLIC_FIREBASE_API_KEY"
+  # The Firebase web API key is public by design; do not fail the build when it appears in the bundle.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_FIREBASE_API_KEY"
 
-[context.develop]
-  command = "npm run build"
-  [context.develop.environment]
+# ---------- Production: the live site, Firebase project "pairing-login" ----------
+[context.production.environment]
+    # These are the values the live site uses today.
+    NEXT_PUBLIC_APP_URL = "https://pair-form.com"
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "pairing-login.firebaseapp.com"
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID = "pairing-login"
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = "pairing-login.appspot.com"
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "903704917637"
+    NEXT_PUBLIC_FIREBASE_APP_ID = "1:903704917637:web:13cdadbee90deb0cc95bec"
+    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID = "G-BBZJ01DP7V"
+    NEXT_PUBLIC_MICROSOFT_CLARITY_ID = "uye3yeumg"
+
+# ---------- Develop branch: develop.pair-form.com, Firebase project "pairform-staging" ----------
+[context.develop.environment]
     NEXT_PUBLIC_APP_ENV = "develop"
-    SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_FIREBASE_DEVELOP_API_KEY,NEXT_PUBLIC_FIREBASE_API_KEY"
+    NEXT_PUBLIC_APP_URL = "https://develop.pair-form.com"
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "pairform-staging.firebaseapp.com"
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID = "pairform-staging"
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = "pairform-staging.firebasestorage.app"
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "750839066291"
+    NEXT_PUBLIC_FIREBASE_APP_ID = "1:750839066291:web:ddf777d8a89747fe114ac6"
+    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID = "G-JFKHYGDEB5"
+    NEXT_PUBLIC_MICROSOFT_CLARITY_ID = "xtzh6n3f1g"
+
+# ---------- Pull request previews and other branches: same staging project ----------
+[context.deploy-preview.environment]
+    NEXT_PUBLIC_APP_ENV = "develop"
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "pairform-staging.firebaseapp.com"
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID = "pairform-staging"
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = "pairform-staging.firebasestorage.app"
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "750839066291"
+    NEXT_PUBLIC_FIREBASE_APP_ID = "1:750839066291:web:ddf777d8a89747fe114ac6"
+    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID = "G-JFKHYGDEB5"
+    NEXT_PUBLIC_MICROSOFT_CLARITY_ID = "xtzh6n3f1g"
+
+[context.branch-deploy.environment]
+    NEXT_PUBLIC_APP_ENV = "develop"
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "pairform-staging.firebaseapp.com"
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID = "pairform-staging"
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = "pairform-staging.firebasestorage.app"
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "750839066291"
+    NEXT_PUBLIC_FIREBASE_APP_ID = "1:750839066291:web:ddf777d8a89747fe114ac6"
+    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID = "G-JFKHYGDEB5"
+    NEXT_PUBLIC_MICROSOFT_CLARITY_ID = "xtzh6n3f1g"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

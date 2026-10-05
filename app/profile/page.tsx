@@ -1,31 +1,27 @@
 "use client";
 
+import type { GroupingsPageProps } from "@/types";
 import React, { useState, useEffect } from "react";
-import NextProtectedRoute from "../../src/components/routes/NextProtectedRoute";
-import Avatar from "../../src/components/ui/avatar";
-import { TokenBadge } from "../../src/components/tokens/TokenBadge";
-import { TokenPurchaseModal } from "../../src/components/tokens/TokenPurchaseModal";
-import { useWorkspace } from "../../src/context/WorkspaceContext";
-import { capitalizeWords } from "../../src/utils/stringUtils";
-import { db } from "../../src/services/firebase";
-import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
-import { TokenLedgerEntry } from "../../src/types/tokenTypes";
+import NextProtectedRoute from "@/components/routes/NextProtectedRoute";
+import Avatar from "@/components/ui/avatar";
+import { TokenPurchaseModal } from "@/components/tokens/TokenPurchaseModal";
+import { useWorkspace } from "@/context/WorkspaceContext";
+import { capitalizeWords } from "@/utils/stringUtils";
+import { TokenLedgerEntry } from "@/types/tokenTypes";
 import Link from "next/link";
 import {
   LuCoins,
-  LuSparkles,
   LuUser,
   LuMail,
   LuBuilding,
-  LuShieldCheck,
   LuHistory,
   LuArrowUpRight,
   LuCog,
   LuPlus,
 } from "react-icons/lu";
 
-import { fetchTokenLedger, fetchLedgerEntries } from "../../src/services/tokenLedgerService";
-import { TokenLedger } from "../../src/types/tokenTypes";
+import { fetchLedgerEntries } from "@/services/tokenLedgerService";
+import { useTokenLedger } from "@/hooks/useTokenLedger";
 
 export default function ProfilePage() {
   return (
@@ -35,47 +31,33 @@ export default function ProfilePage() {
   );
 }
 
-function ProfileContent({ user }: { user: any }) {
+function ProfileContent({ user }: { user: GroupingsPageProps }) {
   const { activeWorkspace } = useWorkspace();
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
-  const [activeLedger, setActiveLedger] = useState<TokenLedger | null>(null);
-  const [ledgerEntries, setLedgerEntries] = useState<TokenLedgerEntry[]>([]);
-  const [loadingLedger, setLoadingLedger] = useState(true);
+  const tokens = useTokenLedger(user);
+  const [history, setHistory] = useState<{ key: string; entries: TokenLedgerEntry[] }>({ key: "", entries: [] });
 
-  const userId = user?.userId || user?.uid || "";
   const isOrgAdmin = activeWorkspace.type === "organization" && activeWorkspace.role === "admin";
   const canViewHistory = activeWorkspace.type === "personal" || isOrgAdmin;
 
+  const { ownerId, balance: currentBalance, tier: currentTier } = tokens;
+
+  // Purchase and usage history for the active workspace (org history is for admins only).
+  // Results are stored with the account they belong to, so switching workspace never shows stale rows.
+  const historyKey = ownerId && canViewHistory ? ownerId : "";
   useEffect(() => {
-    async function loadLedgerData() {
-      if (!userId) return;
-      setLoadingLedger(true);
-      const ownerType: "personal" | "org" = activeWorkspace.type === "organization" ? "org" : "personal";
-      const ownerId = activeWorkspace.type === "personal" ? userId : activeWorkspace.id;
+    if (!historyKey) return;
+    let cancelled = false;
+    fetchLedgerEntries(historyKey, 15).then((entries) => {
+      if (!cancelled) setHistory({ key: historyKey, entries });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [historyKey]);
 
-      try {
-        const ledger = await fetchTokenLedger(ownerType, ownerId);
-        setActiveLedger(ledger);
-
-        if (canViewHistory) {
-          const entries = await fetchLedgerEntries(ownerId, 15);
-          setLedgerEntries(entries);
-        } else {
-          setLedgerEntries([]);
-        }
-      } catch (err) {
-        console.warn("Could not fetch token ledger data:", err);
-      } finally {
-        setLoadingLedger(false);
-      }
-    }
-
-    loadLedgerData();
-  }, [activeWorkspace, userId, canViewHistory]);
-
-  const currentBalance = activeLedger ? activeLedger.balance : (typeof user?.tokenBalance === "number" ? user.tokenBalance : 50);
-  const currentTier = activeLedger?.tier || user?.tier || "free";
-  const hasEverPaid = activeLedger ? activeLedger.hasEverPaid : user?.hasEverPaid === true;
+  const loadingLedger = historyKey !== "" && history.key !== historyKey;
+  const ledgerEntries = history.key === historyKey ? history.entries : [];
 
   return (
     <div className="py-10 px-4 max-w-5xl mx-auto font-sans">
@@ -153,17 +135,11 @@ function ProfileContent({ user }: { user: any }) {
             <div className="space-y-3 text-xs font-medium text-gray-600 border-t border-gray-100 pt-5">
               <div className="flex justify-between items-center">
                 <span className="text-gray-500">One-Time Free Grant:</span>
-                <span className="font-bold text-gray-900">{user.freeTokensGranted || 50} tokens</span>
+                <span className="font-bold text-gray-900">{tokens.ledger?.freeGrantAmount ?? 0} tokens</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-500">Paid Tokens Purchased:</span>
-                <span className="font-bold text-indigo-600">{user.paidTokensPurchased || 0} tokens</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500">Overdraft Buffer:</span>
-                <span className="font-bold text-emerald-600">
-                  {hasEverPaid ? "-20 Buffer Enabled" : "None (Free Tier)"}
-                </span>
+                <span className="font-bold text-indigo-600">{tokens.ledger?.purchasedTokens ?? 0} tokens</span>
               </div>
             </div>
           </div>
@@ -247,9 +223,9 @@ function ProfileContent({ user }: { user: any }) {
               </div>
             ) : (
               <div className="space-y-2">
-                {ledgerEntries.map((entry) => (
+                {ledgerEntries.map((entry, index) => (
                   <div
-                    key={entry.id || Math.random().toString()}
+                    key={entry.id || index}
                     className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 hover:bg-gray-100/80 transition-colors text-xs"
                   >
                     <div>

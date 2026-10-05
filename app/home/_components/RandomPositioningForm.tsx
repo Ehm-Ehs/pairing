@@ -1,9 +1,9 @@
-import React, { useState, useRef } from "react";
+import type { RandomPositioningFormValues } from "@/hooks/useCreateEvent";
+import React from "react";
 import { Formik, Form, ErrorMessage } from "formik";
 import * as Yup from "yup";
-import { Button } from "../../../src/components/ui/button";
-import { FaImage, FaCheck } from "react-icons/fa";
-import { compressImage } from "../../../src/utils/imageCompressor";
+import { FaCheck } from "react-icons/fa";
+import { EventImageUpload } from "@/components/events/EventImageUpload";
 
 interface RandomPositioningFormProps {
   initialValues: {
@@ -14,7 +14,7 @@ interface RandomPositioningFormProps {
     assignmentMode?: "participants-pick" | "fcfs" | "random";
     imageUrl?: string;
   };
-  onSubmit: (values: any) => void;
+  onSubmit: (values: RandomPositioningFormValues) => void;
   loading?: boolean;
   onCancel?: () => void;
 }
@@ -25,53 +25,12 @@ const RandomPositioningForm: React.FC<RandomPositioningFormProps> = ({
   loading = false,
   onCancel,
 }) => {
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const validationSchema = Yup.object({
     title: Yup.string().required("Event name is required"),
     deadline: Yup.string().required("Join deadline is required"),
     description: Yup.string().optional(),
   });
-
-  const handleFileChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    setFieldValue: (field: string, value: any) => void
-  ) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setImageFile(file);
-      compressImage(file)
-        .then((compressedUrl) => {
-          setFieldValue("imageUrl", compressedUrl);
-        })
-        .catch((err) => {
-          console.error("Compression failed:", err);
-        });
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (
-    e: React.DragEvent<HTMLDivElement>,
-    setFieldValue: (field: string, value: any) => void
-  ) => {
-    e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      setImageFile(file);
-      compressImage(file)
-        .then((compressedUrl) => {
-          setFieldValue("imageUrl", compressedUrl);
-        })
-        .catch((err) => {
-          console.error("Compression failed:", err);
-        });
-    }
-  };
 
   return (
     <div className="w-full max-w-2xl mx-auto">
@@ -248,79 +207,11 @@ const RandomPositioningForm: React.FC<RandomPositioningFormProps> = ({
                   </div>
                 </div>
 
-                {/* Upload Event Image (optional) */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold text-gray-600">
-                    Upload Event Image (optional)
-                  </label>
-                  <div
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, setFieldValue)}
-                    onClick={() => {
-                      if (!values.imageUrl) {
-                        fileInputRef.current?.click();
-                      }
-                    }}
-                    className={`relative bg-white border-2 border-dashed border-gray-250/50 rounded-2xl flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-colors shadow-sm ${
-                      values.imageUrl ? "h-64 border-solid" : "p-6 hover:bg-gray-50/55"
-                    }`}
-                  >
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={(e) => handleFileChange(e, setFieldValue)}
-                      accept="image/*"
-                      className="hidden"
-                    />
-                    {values.imageUrl ? (
-                      <div className="relative w-full h-full group">
-                        <img
-                          src={values.imageUrl}
-                          alt="Event Preview"
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              fileInputRef.current?.click();
-                            }}
-                            className="bg-white/95 hover:bg-white text-gray-800 text-xs font-bold px-4 py-2 rounded-full shadow transition-all active:scale-95 cursor-pointer"
-                          >
-                            Change Image
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setImageFile(null);
-                              setFieldValue("imageUrl", "");
-                            }}
-                            className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-full shadow transition-all active:scale-95 cursor-pointer"
-                          >
-                            Remove Image
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center mb-3">
-                          <FaImage className="w-6 h-6 text-[#CB30E0]" />
-                        </div>
-                        <p className="text-sm font-semibold text-gray-700">
-                          Drag and drop image file, or{" "}
-                          <span className="text-[#CB30E0] hover:underline">
-                            Upload File
-                          </span>
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1 font-medium">
-                          Supports PNG, JPG, JPEG (Max file size: 5MB)
-                        </p>
-                      </>
-                    )}
-                  </div>
-                </div>
+                <EventImageUpload
+                  value={values.imageUrl}
+                  onChange={(url) => setFieldValue("imageUrl", url)}
+                  accent="purple"
+                />
               </div>
 
               {/* Form Action Buttons */}

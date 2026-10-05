@@ -8,29 +8,26 @@ import {
   ParticipantItem,
   SpeedNetworkingMatrixResult,
 } from "../../utils/speedNetworking";
-import { FaDownload, FaUsers, FaArrowRight, FaHashtag, FaPaperPlane } from "react-icons/fa6";
+import { FaDownload, FaUsers, FaArrowRight, FaHashtag } from "react-icons/fa6";
 import { FaSearch } from "react-icons/fa";
-import { toast } from "react-toastify";
 
 interface SpeedNetworkingMatrixProps {
   participants: ParticipantItem[];
   eventName?: string;
   initialRounds?: number;
-  eventId?: string;
-  userId?: string;
+  /** True on the public page participants see. Wording is then written for them, not the organizer. */
+  isPublicView?: boolean;
 }
 
 export default function SpeedNetworkingMatrix({
   participants,
   eventName = "Speed Networking Event",
   initialRounds = 3,
-  eventId,
-  userId,
+  isPublicView = false,
 }: SpeedNetworkingMatrixProps) {
   const [tableSize, setTableSize] = useState<number>(2);
   const [activeRoundTab, setActiveRoundTab] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [notifying, setNotifying] = useState<boolean>(false);
 
   const numberOfRounds = initialRounds || 3;
 
@@ -58,13 +55,22 @@ export default function SpeedNetworkingMatrix({
   }, [currentRound, searchQuery]);
 
   if (!participants || participants.length < 2) {
+    // Organizers are told what to do next; participants are told what to expect.
+    const empty = isPublicView
+      ? {
+          title: "Networking rounds have not started yet",
+          text: "Your round-by-round schedule will appear here once more people have joined. Check back soon.",
+        }
+      : {
+          title: "Multi-Round Networking Matrix",
+          text: "Add at least 2 participants to automatically generate zero-repeat multi-round schedules.",
+        };
+
     return (
       <div className="p-8 text-center bg-slate-50 border border-slate-200 rounded-2xl">
         <FaUsers className="w-10 h-10 text-slate-400 mx-auto mb-3" />
-        <h4 className="text-base font-semibold text-slate-700">Multi-Round Networking Matrix</h4>
-        <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-          Add at least 2 participants to automatically generate zero-repeat multi-round schedules.
-        </p>
+        <h4 className="text-base font-semibold text-slate-700">{empty.title}</h4>
+        <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">{empty.text}</p>
       </div>
     );
   }

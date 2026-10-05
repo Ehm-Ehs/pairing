@@ -2,7 +2,7 @@ import {
   LogoCirclesIcon,
   SinglePairingIcon,
   CircleXFilledPinkIcon,
-} from "../../../src/components/ui/icons";
+} from "@/components/ui/icons";
 
 interface ModeSelectionProps {
   onSelect: (

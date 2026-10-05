@@ -3,11 +3,11 @@ import Logo from "../../assets/logo";
 import { ReactNode, useState, useRef, useEffect } from "react";
 import Avatar from "../ui/avatar";
 import NotificationDropdown from "../ui/NotificationDropdown";
-import { signOut } from "firebase/auth";
-import { auth } from "../../services/firebase";
+import { signOutAndGoHome } from "../../services/session";
 import { capitalizeWords } from "../../utils/stringUtils";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { TokenBadge } from "../tokens/TokenBadge";
+import { useTokenLedger } from "../../hooks/useTokenLedger";
 import { FaCog, FaBuilding, FaUser, FaCoins } from "react-icons/fa";
 
 import { GroupingsPageProps } from "../../types";
@@ -21,6 +21,7 @@ function Header({ children, user }: HeaderProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { activeWorkspace } = useWorkspace();
+  const tokens = useTokenLedger(user);
 
   const isOrgAdmin = activeWorkspace.type === "organization" && activeWorkspace.role === "admin";
 
@@ -40,14 +41,7 @@ function Header({ children, user }: HeaderProps) {
     };
   }, []);
 
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      window.location.href = "/"; // Redirect to home/login after sign out
-    } catch (error) {
-      console.error("Error signing out:", error);
-    }
-  };
+  const handleSignOut = signOutAndGoHome;
 
   return (
     <div className="bg-white border-b border-gray-100 relative z-50">
@@ -73,9 +67,9 @@ function Header({ children, user }: HeaderProps) {
             {/* Token Badge Display */}
             <div className="hidden xs:block">
               <TokenBadge
-                balance={typeof user.tokenBalance === "number" ? user.tokenBalance : 50}
-                tier={user.tier || "free"}
-                hasEverPaid={user.hasEverPaid === true}
+                balance={tokens.balance}
+                tier={tokens.tier}
+                hasEverPaid={tokens.hasEverPaid}
               />
             </div>
 
@@ -144,7 +138,7 @@ function Header({ children, user }: HeaderProps) {
                         <span>Pricing & Tokens</span>
                       </div>
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
-                        {user.tokenBalance ?? 50}
+                        {tokens.isSuperAdmin ? "∞" : tokens.balance}
                       </span>
                     </Link>
 

@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
+import { shuffle } from "../utils/draw";
 
 interface Characteristic {
   name: string;
@@ -51,9 +52,7 @@ export const generateGroupings = (
     const allParticipants = Object.values(characteristicPools).flat();
 
     // Shuffle participants to ensure random distribution
-    const shuffledParticipants = allParticipants.sort(
-      () => Math.random() - 0.5
-    );
+    const shuffledParticipants = shuffle(allParticipants);
 
     // Ensure each group has at least one characteristic from each type
     const participantsPerGroup: {

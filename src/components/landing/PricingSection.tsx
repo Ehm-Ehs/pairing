@@ -1,8 +1,10 @@
 "use client";
 
+import { FREE_GRANT } from "@/utils/tokens";
+import { PackFeatures, PackPrice, PopularBadge } from "@/components/tokens/TokenPackParts";
 import React from "react";
 import Link from "next/link";
-import { LuCheck, LuCoins, LuSparkles, LuZap } from "react-icons/lu";
+import { LuCheck, LuCoins } from "react-icons/lu";
 import { TOKEN_PACKS } from "../../types/tokenTypes";
 
 interface PricingSectionProps {
@@ -45,11 +47,11 @@ export default function PricingSection({ onGetStarted }: PricingSectionProps) {
               <ul className="space-y-3 text-xs text-gray-600 font-medium my-6 border-t border-gray-100 pt-6">
                 <li className="flex items-center gap-2.5">
                   <LuCheck className="w-4 h-4 text-emerald-500 font-bold flex-shrink-0" />
-                  <span><strong>50 Tokens</strong> (Personal Account)</span>
+                  <span><strong>{FREE_GRANT.personal} Tokens</strong> (Personal Account)</span>
                 </li>
                 <li className="flex items-center gap-2.5">
                   <LuCheck className="w-4 h-4 text-emerald-500 font-bold flex-shrink-0" />
-                  <span><strong>75 Tokens</strong> (Organization Account)</span>
+                  <span><strong>{FREE_GRANT.org} Tokens</strong> (Organization Account)</span>
                 </li>
                 <li className="flex items-center gap-2.5">
                   <LuCheck className="w-4 h-4 text-emerald-500 font-bold flex-shrink-0" />
@@ -81,9 +83,7 @@ export default function PricingSection({ onGetStarted }: PricingSectionProps) {
                 }`}
             >
               {pack.popular && (
-                <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-extrabold uppercase px-4 py-1.5 rounded-full shadow-md tracking-wider flex items-center gap-1.5">
-                  Most Popular
-                </span>
+                <PopularBadge />
               )}
 
               <div>
@@ -93,33 +93,9 @@ export default function PricingSection({ onGetStarted }: PricingSectionProps) {
                 <h3 className="text-2xl font-bold text-gray-900 mb-1">{pack.name}</h3>
                 <p className="text-xs text-gray-500 font-medium mb-4">Standalone Pack</p>
 
-                <div className="flex items-baseline gap-1 my-4">
-                  <span className="text-4xl font-extrabold text-gray-900">
-                    ₦{pack.priceNGN.toLocaleString()}
-                  </span>
-                  <span className="text-xs text-gray-400 font-semibold">
-                    (₦{pack.ratePerToken}/token)
-                  </span>
-                </div>
+                <PackPrice pack={pack} />
 
-                <ul className="space-y-3 text-xs text-gray-600 font-medium my-6 border-t border-gray-100 pt-6">
-                  <li className="flex items-center gap-2.5">
-                    <LuCheck className="w-4 h-4 text-emerald-500 font-bold flex-shrink-0" />
-                    <span><strong>{pack.tokens}</strong> Participant Tokens</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <LuCheck className="w-4 h-4 text-emerald-500 font-bold flex-shrink-0" />
-                    <span><strong>No Expiry</strong> (Infinite Rollover)</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <LuCheck className="w-4 h-4 text-emerald-500 font-bold flex-shrink-0" />
-                    <span>Converts Free Account → <strong>Paid Pro</strong></span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <LuCheck className="w-4 h-4 text-emerald-500 font-bold flex-shrink-0" />
-                    <span>Unlocks <strong>-20 Overdraft Buffer</strong></span>
-                  </li>
-                </ul>
+                <PackFeatures pack={pack} className="my-6 border-t border-gray-100 pt-6" />
               </div>
 
               <Link
@@ -143,7 +119,7 @@ export default function PricingSection({ onGetStarted }: PricingSectionProps) {
             </div>
             <div>
               <h4 className="text-sm font-bold text-gray-900">Need 2,000+ Tokens or Custom Enterprise Setup?</h4>
-              <p className="text-xs text-gray-500 font-medium">Get custom volume rates down to ₦32–35 per token with dedicated onboarding support.</p>
+              <p className="text-xs text-gray-500 font-medium">Get custom volume rates down to ₦65–75 per token with dedicated onboarding support.</p>
             </div>
           </div>
           <Link

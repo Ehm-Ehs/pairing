@@ -1,19 +1,22 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import Logo from "../../../src/assets/logo";
-import { useParams, useRouter } from "next/navigation";
+import { ASSIGNMENT_NOT_READY } from "@/utils/messages";
+import { errorMessage } from "@/utils/errors";
+import { JoinFormFooter, JoinTextField, WhatsAppPhoneField } from "@/components/join/JoinFormParts";
+import { logger } from "@/utils/logger";
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Formik, Form, ErrorMessage } from "formik";
 import * as Yup from "yup";
-import { getDoc, doc } from "firebase/firestore";
-import { db } from "../../../src/services/firebase";
-import { Pairing, SecretSantaPairing } from "../../../src/types";
-import { addParticipantToSecretSanta } from "../../../src/services/endpoints";
+import { SecretSantaPairing } from "@/types";
+import { joinEvent, lookupAssignment } from "@/services/endpoints";
+import { usePublicEvent } from "@/hooks/usePublicEvent";
+import { EventNotFound, JoinCard } from "@/components/join/JoinCard";
+import { EventUnavailable } from "@/components/join/EventUnavailable";
+import { RevealByEmail } from "@/components/join/RevealByEmail";
+import { rememberPrivateLink } from "@/components/events/PrivateLinkCard";
 import { toast } from "react-toastify";
-import { v4 as uuidv4 } from "uuid";
-import { Loading } from "../../../src/components/ui/loading";
-import { FaGift, FaWhatsapp } from "react-icons/fa";
-import { Button } from "../../../src/components/ui/button";
-import PhoneInputWithCountry from "../../../src/components/ui/PhoneInputWithCountry";
+import { Loading } from "@/components/ui/loading";
+import { FaGift } from "react-icons/fa";
 
 interface JoinFormValues {
   fullName: string;
@@ -27,54 +30,10 @@ interface JoinFormValues {
 
 
 const JoinSecretSanta: React.FC = () => {
-  const { userId, eventId } = useParams();
   const router = useRouter();
-  const [event, setEvent] = useState<SecretSantaPairing | null>(null);
-  const [closedMessage, setClosedMessage] = useState("");
-  const [fullMessage, setFullMessage] = useState("");
+  const { event, messages, loading, ownerId: validUserId } = usePublicEvent<SecretSantaPairing>("secret-santa");
   const [showReveal, setShowReveal] = useState(false);
-
-  const validUserId = Array.isArray(userId) ? userId[0] : userId;
-  const validEventId = Array.isArray(eventId) ? eventId[0] : eventId;
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    const fetchEvent = async () => {
-      if (!validUserId || !validEventId) return;
-      try {
-        const userDoc = await getDoc(doc(db, "Users", validUserId));
-        const userData = userDoc.exists() ? userDoc.data() : {};
-        setClosedMessage(userData.settings?.defaults?.closedEventMessage || "");
-        setFullMessage(userData.settings?.defaults?.fullEventMessage || "");
-
-        // 1. Try Pairings collection
-        const pairingDoc = await getDoc(doc(db, "Pairings", validEventId));
-        if (pairingDoc.exists()) {
-          setEvent(pairingDoc.data() as SecretSantaPairing);
-        } else if (userDoc.exists()) {
-          // 2. Legacy fallback
-          const foundEvent = userData.pairings?.find(
-            (p: Pairing) => p.id === validEventId && p.type === "secret-santa"
-          );
-          if (foundEvent) {
-            setEvent(foundEvent as SecretSantaPairing);
-          } else {
-            toast.error("Event not found");
-          }
-        } else {
-          toast.error("Event not found");
-        }
-      } catch (error) {
-        console.error("Error fetching event:", error);
-        toast.error("Failed to load event");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEvent();
-  }, [validUserId, validEventId]);
 
   const handleSubmit = async (values: JoinFormValues) => {
     if (!validUserId || !event) return;
@@ -99,37 +58,19 @@ const JoinSecretSanta: React.FC = () => {
         return;
       }
 
-      const newParticipant = {
-        id: uuidv4(),
-        name: values.fullName.trim(),
-        email: values.email.trim(),
-        phone: values.phone?.trim() || "",
-        wishlist: isSecretSanta ? values.wishlist.trim() : "",
-        pairIndex: isSecretSanta ? -1 : values.pairIndex,
-        positionLetter: isSecretSanta ? "" : values.positionLetter,
-      };
-
-      await addParticipantToSecretSanta(validUserId, event.id, newParticipant);
-
-      if (values.email) {
-        const isWishlistEvent = event.config?.allowWishlist;
-        const groupLabel = isWishlistEvent
-          ? "Secret Santa Participant Pool"
-          : `Pair ${values.pairIndex + 1}`;
-        const roleLabel = isWishlistEvent
-          ? "Gift Giver"
-          : `Side ${values.positionLetter}`;
-
-        import("../../../src/services/email").then(({ sendRoleAssignedEmail }) => {
-          sendRoleAssignedEmail(
-            values.email.trim(),
-            values.fullName.trim(),
-            event.title,
-            groupLabel,
-            roleLabel
-          );
-        });
-      }
+      // The server validates the slot, rejects duplicates and sends the confirmation message.
+      const result = await joinEvent({
+        ownerId: validUserId,
+        eventId: event.id,
+        participant: {
+          name: values.fullName.trim(),
+          email: values.email.trim(),
+          phone: values.phone?.trim() || "",
+          wishlist: isSecretSanta ? values.wishlist.trim() : "",
+          ...(isSecretSanta ? {} : { pairIndex: values.pairIndex, positionLetter: values.positionLetter }),
+        },
+      });
+      rememberPrivateLink(result.revealUrl);
 
       const queryParams = new URLSearchParams({
         eventName: event.title,
@@ -140,9 +81,9 @@ const JoinSecretSanta: React.FC = () => {
       }).toString();
 
       router.push(`/event/success?${queryParams}`);
-    } catch (error: any) {
-      console.error("Error joining:", error);
-      toast.error(error.message || "Failed to join event");
+    } catch (error) {
+      logger.error("Error joining:", error);
+      toast.error(errorMessage(error) || "Failed to join event");
     } finally {
       setSubmitting(false);
     }
@@ -150,18 +91,7 @@ const JoinSecretSanta: React.FC = () => {
 
   if (loading) return <Loading message="Loading event details..." />;
 
-  if (!event) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
-        <div className="text-center max-w-sm">
-          <h1 className="text-2xl font-bold mb-2 text-gray-800">Event Not Found</h1>
-          <p className="text-gray-505 text-sm text-gray-500">
-            The link may be invalid or the event has been deleted.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (!event) return <EventNotFound />;
 
   const isSecretSanta = event.config?.allowWishlist;
   const expectedCount = Number(event.config.expectedParticipants || 12);
@@ -169,293 +99,79 @@ const JoinSecretSanta: React.FC = () => {
   const isClosed = event.status === "locked";
   const isFull = expectedCount > 0 && event.participants.length >= expectedCount;
 
-  if (isClosed && !showReveal) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-start items-center px-4 py-12 text-left font-medium text-gray-700">
-        <Logo className="h-9 w-auto mb-10" />
-
-        <div className="bg-white rounded-[2rem] border-t-4 border-t-red-500 border-x border-b border-gray-200/60 shadow-sm w-full max-w-xl flex flex-col overflow-hidden">
-          <div className="bg-[#F5F6F8] p-6 md:p-8 flex flex-col items-center border-b border-gray-200/60 w-full relative">
-            <div className="w-12 h-12 bg-red-100 text-red-650 rounded-xl flex items-center justify-center shadow-md mb-4 flex-shrink-0">
-              <span className="text-xl font-bold text-red-600">×</span>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight text-center capitalize">
-              {event.title}
-            </h2>
-            <span className="bg-red-50 text-red-750 text-xs font-semibold px-4 py-1.5 rounded-full mt-1.5">
-              Closed
-            </span>
-          </div>
-
-          <div className="p-8 md:p-10 flex flex-col items-center text-center gap-6 w-full">
-            <p className="text-sm text-gray-500 leading-relaxed max-w-md">
-              {closedMessage || "Sorry, this event is closed. No further registrations are allowed."}
-            </p>
-
-            <div className="flex flex-col gap-3 w-full max-w-xs mt-2">
-              <button
-                onClick={() => setShowReveal(true)}
-                className="bg-gradient-to-b from-[#3A76F0] to-[#012A7D] hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-full text-xs transition-all shadow-md cursor-pointer text-center"
-              >
-                Already registered? Reveal assignment
-              </button>
-
-              <button
-                onClick={() => router.push("/")}
-                className="bg-[#e5e7eb] hover:bg-gray-300 text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all cursor-pointer text-center"
-              >
-                Go home
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isFull) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-start items-center px-4 py-12 text-left font-medium text-gray-700">
-        <Logo className="h-9 w-auto mb-10" />
-
-        <div className="bg-white rounded-[2rem] border-t-4 border-t-amber-500 border-x border-b border-gray-200/60 shadow-sm w-full max-w-xl flex flex-col overflow-hidden">
-          <div className="bg-[#F5F6F8] p-6 md:p-8 flex flex-col items-center border-b border-gray-200/60 w-full relative">
-            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center shadow-md mb-4 flex-shrink-0">
-              <span className="text-xl font-bold text-amber-600">!</span>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight text-center capitalize">
-              {event.title}
-            </h2>
-            <span className="bg-amber-50 text-amber-700 text-xs font-semibold px-4 py-1.5 rounded-full mt-1.5">
-              Event Full
-            </span>
-          </div>
-
-          <div className="p-8 md:p-10 flex flex-col items-center text-center gap-6 w-full">
-            <p className="text-sm text-gray-500 leading-relaxed max-w-md">
-              {fullMessage || "Sorry, this event is full. All available slots have been taken."}
-            </p>
-
-            <div className="flex flex-col gap-3 w-full max-w-xs mt-2">
-              <button
-                onClick={() => setShowReveal(true)}
-                className="bg-gradient-to-b from-[#3A76F0] to-[#012A7D] hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-full text-xs transition-all shadow-md cursor-pointer text-center"
-              >
-                Already registered? Reveal assignment
-              </button>
-
-              <button
-                onClick={() => router.push("/")}
-                className="bg-[#e5e7eb] hover:bg-gray-300 text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all cursor-pointer text-center"
-              >
-                Go home
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (showReveal) {
-    // REVEAL MODE
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-start items-center px-4 py-12 text-left">
-        <Logo className="h-9 w-auto mb-10" />
-
-        <div className="bg-white rounded-[2rem] border-t-4 border-t-[#10B981] border-x border-b border-gray-200/60 shadow-sm w-full max-w-xl flex flex-col overflow-hidden">
-          <div className="bg-[#F5F6F8] p-6 md:p-8 flex flex-col items-center border-b border-gray-200/60 w-full relative">
-            <div className="w-12 h-12 bg-[#10B981] text-white rounded-xl flex items-center justify-center shadow-md mb-4 flex-shrink-0">
-              <FaGift className="w-6 h-6" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight text-center capitalize">
-              {event.title}
-            </h2>
-            <span className="bg-[#D1FAE5] text-[#065F46] text-xs font-semibold px-4 py-1.5 rounded-full mt-1.5">
-              {isSecretSanta ? "Secret Santa • Revealed" : "Just Pair • Revealed"}
-            </span>
-          </div>
-          <Formik
-            initialValues={{ email: "" }}
-            validationSchema={Yup.object({
-              email: Yup.string()
-                .email("Invalid email")
-                .required("Email is required"),
-            })}
-            onSubmit={(values, { setSubmitting, setStatus }) => {
-              const participant = event.participants.find(
-                (p) => p.email?.toLowerCase() === values.email.toLowerCase()
-              );
-              if (!participant) {
-                toast.error("Email not found in participant list");
-                setSubmitting(false);
-                return;
-              }
-
-              // Find receiver in Secret Santa pairings
-              const pair = event.pairs?.find(
-                (p) => p.santaId === participant.id
-              );
-              if (!pair) {
-                // If it is just a simple pair, find the partner in the same pairIndex
-                const partner = event.participants.find(
-                  (p) => p.pairIndex === participant.pairIndex && p.id !== participant.id
-                );
-                setStatus({
-                  revealed: true,
-                  receiver: partner || null,
-                  pairIndex: participant.pairIndex,
-                  positionLetter: participant.positionLetter,
-                });
-                setSubmitting(false);
-                return;
-              }
-
-              const receiver = event.participants.find(
-                (p) => p.id === pair.receiverId
-              );
-              if (receiver) {
-                setStatus({
-                  revealed: true,
-                  receiver,
-                  pairIndex: participant.pairIndex,
-                  positionLetter: participant.positionLetter,
-                });
-              } else {
-                toast.error("Pairing receiver not found.");
-              }
-              setSubmitting(false);
-            }}
-          >
-            {({ isSubmitting, status, values, handleChange, handleBlur }) => (
-              <Form className="flex flex-col w-full">
-                <div className="p-6 md:p-8 flex flex-col gap-6 w-full">
-                  {!status?.revealed ? (
-                    <>
-                      <p className="text-gray-500 text-sm leading-relaxed">
-                        Enter your email to reveal your pair assignment!
-                      </p>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-600 mb-1">
-                          Email Address
-                        </label>
-                        <input
-                          name="email"
-                          type="email"
-                          value={values.email}
-                          onChange={handleChange}
-                          onBlur={handleBlur}
-                          className="px-4 py-3 w-full bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all text-sm placeholder:text-gray-400 text-gray-700 font-medium"
-                          placeholder="Your registered email"
-                        />
-                        <ErrorMessage name="email" component="div" className="text-red-500 text-xs mt-1 font-semibold" />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="bg-[#E6F4EA] border border-emerald-100 rounded-3xl p-6 text-center animate-in fade-in zoom-in duration-300 w-full">
-                      {event.config?.allowWishlist === false ? (
-                        <>
-                          <p className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider mb-2">
-                            Your Selection
-                          </p>
-                          <p className="text-base font-bold text-gray-900 mb-1 font-heading">
-                            Pair {(status.pairIndex ?? -1) + 1} (Slot {status.positionLetter})
-                          </p>
-                          <div className="mt-4 pt-4 border-t border-emerald-100 flex flex-col items-center">
-                            <p className="text-xs text-emerald-700 font-semibold mb-2">
-                              Status:
-                            </p>
-                            {status.receiver ? (
-                              <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-4 py-1.5 rounded-full border border-emerald-200 capitalize">
-                                Paired with {status.receiver.name}
-                              </span>
-                            ) : (
-                              <span className="bg-amber-100 text-amber-800 text-xs font-bold px-4 py-1.5 rounded-full border border-amber-200">
-                                Awaiting pair
-                              </span>
-                            )}
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-sm text-emerald-800 font-bold mb-2">
-                            You are the Secret Santa for:
-                          </p>
-                          <h2 className="text-3xl font-extrabold text-[#065F46] mb-4 font-heading tracking-tight capitalize">
-                            {status.receiver?.name}
-                          </h2>
-                          {status.receiver?.wishlist && (
-                            <div className="bg-white p-4 rounded-2xl border border-emerald-100">
-                              <p className="text-[10px] font-bold text-gray-450 uppercase tracking-wider mb-1">
-                                Their Wishlist
-                              </p>
-                              <p className="text-gray-700 italic text-sm">
-                                "{status.receiver.wishlist}"
-                              </p>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {!status?.revealed ? (
-                  <div className="bg-[#F5F6F8] p-6 flex flex-col sm:flex-row items-center justify-center gap-3 border-t border-gray-200 w-full rounded-b-[2rem]">
-                    <button
-                      type="button"
-                      onClick={() => setShowReveal(false)}
-                      className="bg-[#e5e7eb] hover:bg-gray-300 text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all cursor-pointer w-full h-auto text-center"
-                    >
-                      Back
-                    </button>
-                    <Button
-                      type="submit"
-                      disabled={isSubmitting}
-                      isLoading={isSubmitting}
-                      className="bg-gradient-to-b from-[#10B981] to-[#059669] hover:opacity-95 text-white font-bold px-8 py-3.5 rounded-full text-xs shadow-md transition-all cursor-pointer w-full h-auto"
-                    >
-                      Reveal Match
-                    </Button>
-                  </div>
+      <RevealByEmail
+        accent="emerald"
+        icon={<FaGift className="w-6 h-6" />}
+        title={event.title}
+        badge={isSecretSanta ? "Secret Santa • Revealed" : "Just Pair • Revealed"}
+        prompt={
+          isSecretSanta
+            ? "Enter your email and we will send your private link to your registered contact."
+            : "Enter your email to reveal your pair assignment!"
+        }
+        submitLabel={isSecretSanta ? "Send My Link" : "Reveal Match"}
+        notFoundMessage={ASSIGNMENT_NOT_READY}
+        onClose={() => setShowReveal(false)}
+        lookup={async (email) => {
+          const res = await lookupAssignment({ ownerId: validUserId, eventId: event.id, email });
+          if (res.sent) {
+            // Secret Santa matches are never shown here: the private link goes to the registered contact.
+            return (
+              <div className="bg-[#E6F4EA] border border-emerald-100 rounded-3xl p-6 text-center w-full">
+                <p className="text-sm text-emerald-800 font-bold mb-2">Check your inbox</p>
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  {res.message || "We sent your private link to your registered contact. Open it to see your match."}
+                </p>
+              </div>
+            );
+          }
+          if (res.assignment?.kind !== "pair") return null;
+          const { pairIndex, positionLetter, partner } = res.assignment;
+          return (
+            <div className="bg-[#E6F4EA] border border-emerald-100 rounded-3xl p-6 text-center w-full">
+              <p className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider mb-2">Your Selection</p>
+              <p className="text-base font-bold text-gray-900 mb-1 font-heading">
+                Pair {(pairIndex ?? -1) + 1} (Slot {positionLetter})
+              </p>
+              <div className="mt-4 pt-4 border-t border-emerald-100 flex flex-col items-center">
+                <p className="text-xs text-emerald-700 font-semibold mb-2">Status:</p>
+                {partner ? (
+                  <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-4 py-1.5 rounded-full border border-emerald-200 capitalize">
+                    Paired with {partner.name}
+                  </span>
                 ) : (
-                  <div className="bg-[#F5F6F8] p-6 flex items-center justify-center border-t border-gray-200 w-full rounded-b-[2rem]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowReveal(false);
-                      }}
-                      className="bg-[#e5e7eb] hover:bg-gray-300 text-gray-700 font-bold px-8 py-3.5 rounded-full text-xs transition-all cursor-pointer w-full h-auto text-center"
-                    >
-                      Done
-                    </button>
-                  </div>
+                  <span className="bg-amber-100 text-amber-800 text-xs font-bold px-4 py-1.5 rounded-full border border-amber-200">
+                    Awaiting pair
+                  </span>
                 )}
-              </Form>
-            )}
-          </Formik>
-        </div>
-      </div>
+              </div>
+            </div>
+          );
+        }}
+      />
+    );
+  }
+
+  if (isClosed || isFull) {
+    return (
+      <EventUnavailable
+        reason={isClosed ? "closed" : "full"}
+        title={event.title}
+        message={isClosed ? messages.closed : messages.full}
+        onReveal={() => setShowReveal(true)}
+      />
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-start items-center px-4 py-12 text-left">
-      <Logo className="h-9 w-auto mb-10" />
-
-      <div className="bg-white rounded-[2rem] border-t-4 border-t-[#10B981] border-x border-b border-gray-200/60 shadow-sm w-full max-w-xl flex flex-col overflow-hidden">
-        <div className="bg-[#F5F6F8] p-6 md:p-8 flex flex-col items-center border-b border-gray-200/60 w-full relative">
-          <div className="w-12 h-12 bg-[#10B981] text-white rounded-xl flex items-center justify-center shadow-md mb-4 flex-shrink-0">
-            <FaGift className="w-6 h-6" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight text-center capitalize">
-            {event.title}
-          </h2>
-          <span className="bg-[#D1FAE5] text-[#065F46] text-xs font-semibold px-4 py-1.5 rounded-full mt-1.5">
-            {isSecretSanta ? "Secret Santa" : "Just Pair"}
-          </span>
-        </div>
-
+    <JoinCard
+      accent="emerald"
+      icon={<FaGift className="w-6 h-6" />}
+      title={event.title}
+      badge={isSecretSanta ? "Secret Santa" : "Just Pair"}
+    >
         <Formik
           initialValues={{
             fullName: "",
@@ -484,7 +200,7 @@ const JoinSecretSanta: React.FC = () => {
           })}
           onSubmit={handleSubmit}
         >
-          {({ values, errors, touched, setFieldValue, handleChange, handleBlur }) => (
+          {({ values, setFieldValue, handleChange, handleBlur }) => (
             <Form className="flex flex-col w-full">
               <div className="p-6 md:p-8 flex flex-col gap-6 w-full">
                 {/* Details & Info Block */}
@@ -500,76 +216,17 @@ const JoinSecretSanta: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Full Name */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-600 mb-1.5">
-                    Full Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    name="fullName"
-                    type="text"
-                    className={`px-4 py-3 w-full bg-white border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all text-sm placeholder:text-gray-400 text-gray-700 font-medium ${
-                      errors.fullName && touched.fullName ? "border-red-500" : "border-gray-200"
-                    }`}
-                    placeholder="e.g John Sam"
-                    value={values.fullName}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                  />
-                  <ErrorMessage
-                    name="fullName"
-                    component="div"
-                    className="text-red-500 text-xs mt-1 font-semibold"
-                  />
-                </div>
+                <JoinTextField name="fullName" label="Full Name" accent="emerald" placeholder="e.g John Sam" />
+                <JoinTextField
+                  name="email"
+                  label="Email Address"
+                  type="email"
+                  accent="emerald"
+                  placeholder="e.g John@example.com"
+                  hint="We'll send your partner assignment here"
+                />
 
-                {/* Email Address */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-600 mb-1.5">
-                    Email Address <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    name="email"
-                    type="email"
-                    className={`px-4 py-3 w-full bg-white border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all text-sm placeholder:text-gray-400 text-gray-700 font-medium ${
-                      errors.email && touched.email ? "border-red-500" : "border-gray-200"
-                    }`}
-                    placeholder="e.g John@example.com"
-                    value={values.email}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                  />
-                  <ErrorMessage
-                    name="email"
-                    component="div"
-                    className="text-red-500 text-xs mt-1 font-semibold"
-                  />
-                  <p className="text-gray-400 text-[11px] mt-1.5 pl-1">
-                    We'll send your partner assignment here
-                  </p>
-                </div>
-
-                {/* WhatsApp Phone Number */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
-                    <FaWhatsapp className="text-emerald-600 w-4 h-4" />
-                    <span>WhatsApp Phone Number (Optional)</span>
-                  </label>
-                  <PhoneInputWithCountry
-                    id="phone"
-                    name="phone"
-                    value={values.phone}
-                    onChange={(val) => setFieldValue("phone", val)}
-                  />
-                  <ErrorMessage
-                    name="phone"
-                    component="div"
-                    className="text-red-500 text-xs mt-1 font-semibold"
-                  />
-                  <p className="text-gray-400 text-[11px] mt-1.5 pl-1">
-                    Select your country code and enter your WhatsApp phone number
-                  </p>
-                </div>
+                <WhatsAppPhoneField />
 
                 {/* Add Wishlist (Optional) - ONLY for Secret Santa */}
                 {isSecretSanta && (
@@ -715,29 +372,11 @@ const JoinSecretSanta: React.FC = () => {
                 )}
               </div>
 
-              {/* Action Buttons */}
-              <div className="bg-[#F5F6F8] p-6 flex items-center justify-center gap-4 border-t border-gray-200 w-full rounded-b-[2rem]">
-                <button
-                  type="button"
-                  onClick={() => router.push("/")}
-                  className="bg-[#E5E7EB] hover:bg-[#D1D5DB] text-gray-700 font-bold px-4 sm:px-8 py-2.5 sm:py-3.5 rounded-full text-xs sm:text-sm transition-all shadow-sm flex-1 cursor-pointer whitespace-nowrap text-center"
-                >
-                  Cancel
-                </button>
-                <Button
-                  type="submit"
-                  disabled={submitting}
-                  isLoading={submitting}
-                  className="bg-gradient-to-b from-[#10B981] to-[#059669] hover:opacity-95 text-white font-bold px-4 sm:px-8 py-2.5 sm:py-3.5 rounded-full text-xs sm:text-sm transition-all shadow-md flex-1 cursor-pointer flex items-center justify-center gap-1.5 h-auto whitespace-nowrap"
-                >
-                  {submitting ? "Joining..." : "Join event >"}
-                </Button>
-              </div>
+              <JoinFormFooter accent="emerald" submitting={submitting} label="Join event >" />
             </Form>
           )}
         </Formik>
-      </div>
-    </div>
+    </JoinCard>
   );
 };
 

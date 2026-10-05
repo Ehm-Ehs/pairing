@@ -1,5 +1,7 @@
 "use client";
 
+import { errorMessage } from "@/utils/errors";
+import { logger } from "@/utils/logger";
 import React, { useEffect, useState } from "react";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { OrgMember, OrgInvite, Organization } from "../types/orgTypes";
@@ -15,9 +17,7 @@ import {
 } from "../services/orgService";
 import { auth, db } from "../services/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import { useRouter } from "next/navigation";
 import {
-  FaBuilding,
   FaUsers,
   FaUserPlus,
   FaTrash,
@@ -31,14 +31,12 @@ import {
 
 export const InlineOrgSettings: React.FC = () => {
   const { activeWorkspace, switchWorkspace, refreshWorkspaces } = useWorkspace();
-  const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<"members" | "integrations" | "danger">("members");
 
   // State for members and invites
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [invites, setInvites] = useState<OrgInvite[]>([]);
-  const [loadingData, setLoadingData] = useState<boolean>(true);
 
   // Invite form
   const [inviteEmail, setInviteEmail] = useState("");
@@ -67,7 +65,6 @@ export const InlineOrgSettings: React.FC = () => {
 
   const loadOrgData = async () => {
     if (activeWorkspace.type !== "organization") return;
-    setLoadingData(true);
     try {
       const [mList, iList, orgSnap] = await Promise.all([
         fetchOrgMembers(orgId),
@@ -85,9 +82,7 @@ export const InlineOrgSettings: React.FC = () => {
         setWhatsappPhoneId(data.integrations?.whatsappPhoneNumberId || "");
       }
     } catch (err) {
-      console.error("Error loading org data:", err);
-    } finally {
-      setLoadingData(false);
+      logger.error("Error loading org data:", err);
     }
   };
 
@@ -155,8 +150,8 @@ export const InlineOrgSettings: React.FC = () => {
 
       setInviteSuccessMsg(`Bulk upload success! Sent ${count} organization invitations.`);
       loadOrgData();
-    } catch (err: any) {
-      alert("Failed to parse CSV: " + err.message);
+    } catch (err) {
+      alert("Failed to parse CSV: " + errorMessage(err));
     } finally {
       setInviting(false);
       e.target.value = "";

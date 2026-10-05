@@ -1,9 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
-import { TOKEN_PACKS, TokenPack } from "../../types/tokenTypes";
-import { LuCheck, LuCoins, LuLock, LuSparkles, LuX } from "react-icons/lu";
-import { toast } from "react-toastify";
+import { PackFeatures } from "@/components/tokens/TokenPackParts";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useTokenCheckout } from "@/hooks/useTokenCheckout";
+import { LoginPromptModal } from "@/components/auth/LoginPromptModal";
+import React from "react";
+import { TOKEN_PACKS } from "../../types/tokenTypes";
+import { LuCoins, LuLock, LuX } from "react-icons/lu";
 
 interface TokenPurchaseModalProps {
   isOpen: boolean;
@@ -20,62 +23,16 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
   accountId,
   accountType = "user",
 }) => {
-  const [loadingPackId, setLoadingPackId] = useState<string | null>(null);
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "Esc") {
-        if (showLoginPrompt) {
-          setShowLoginPrompt(false);
-        } else {
-          onClose();
-        }
-      }
-    };
-    if (isOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-    }
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose, showLoginPrompt]);
+  const { loadingPackId, buyPack: handleBuyPack, showLoginPrompt, closeLoginPrompt } = useTokenCheckout({
+    canPurchase: !!accountId && !!userEmail,
+    accountType,
+    accountId,
+  });
+  // The login prompt handles Escape itself while it is open.
+  useEscapeKey(isOpen && !showLoginPrompt, onClose);
 
   if (!isOpen) return null;
 
-  const handleBuyPack = async (pack: TokenPack) => {
-    if (!accountId || !userEmail) {
-      setShowLoginPrompt(true);
-      return;
-    }
-
-    setLoadingPackId(pack.id);
-    try {
-      const res = await fetch("/api/payments/paystack/initialize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          packId: pack.id,
-          email: userEmail,
-          accountId,
-          accountType,
-          redirectUrl: `${window.location.origin}/pricing?payment=success`,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.authorizationUrl) {
-        throw new Error(data.error || "Failed to initialize checkout session");
-      }
-
-      // Redirect to Paystack Checkout URL
-      window.location.href = data.authorizationUrl;
-    } catch (error: any) {
-      console.error("Paystack Checkout Error:", error);
-      toast.error(error.message || "Could not launch checkout");
-    } finally {
-      setLoadingPackId(null);
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto">
@@ -126,20 +83,7 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
                   </p>
                 </div>
 
-                <ul className="space-y-2 text-xs text-gray-600 my-4">
-                  <li className="flex items-center gap-2">
-                    <LuCheck className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                    <span>{pack.tokens} Participant Tokens</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <LuCheck className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                    <span>Never expires (Infinite rollover)</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <LuCheck className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                    <span>Converts Free Account → Paid Pro</span>
-                  </li>
-                </ul>
+                <PackFeatures pack={pack} className="my-4" />
               </div>
 
               <button
@@ -165,49 +109,13 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
         </div>
       </div>
 
-      {/* Interactive Login Prompt Overlay */}
-      {showLoginPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 max-w-md w-full shadow-2xl relative flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
-            <button
-              onClick={() => setShowLoginPrompt(false)}
-              className="absolute top-6 right-6 text-gray-400 hover:text-gray-700 bg-gray-100 p-2 rounded-full transition-colors"
-            >
-              <LuX className="w-4 h-4" />
-            </button>
-
-            <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
-              <LuLock className="w-6 h-6" />
-            </div>
-
-            <h3 className="text-2xl font-bold text-gray-900 mb-2 font-heading tracking-tight">
-              Log In to Buy Tokens
-            </h3>
-            <p className="text-xs text-gray-500 mb-6 font-medium leading-relaxed">
-              You need a registered user account to purchase and store token packs. Would you like to log in or create an account now?
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-3 w-full">
-              <button
-                type="button"
-                onClick={() => setShowLoginPrompt(false)}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-full text-xs font-bold transition-all flex-1 cursor-pointer whitespace-nowrap"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.href = `/login?redirect=${encodeURIComponent("/pricing")}`;
-                }}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-full text-xs font-bold transition-all shadow-md flex-1 cursor-pointer whitespace-nowrap"
-              >
-                Log In / Sign Up
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <LoginPromptModal
+        isOpen={showLoginPrompt}
+        onClose={closeLoginPrompt}
+        title="Log in to buy tokens"
+        message="You need an account to buy and keep token packs. Create one for free, or log in if you already have one."
+        returnTo="/pricing"
+      />
     </div>
   );
 };

@@ -3,8 +3,7 @@ import { GroupingsPageProps } from "../../types";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { FaChevronDown, FaSignOutAlt, FaBars, FaTimes, FaUser } from "react-icons/fa";
-import { signOut } from "firebase/auth";
-import { auth } from "../../services/firebase";
+import { signOutAndGoHome } from "../../services/session";
 import Logo from "../../assets/logo";
 import NotificationDropdown from "../ui/NotificationDropdown";
 import { WorkspaceSwitcher } from "../WorkspaceSwitcher";
@@ -42,14 +41,7 @@ function Layout({ children, user }: LayoutProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      window.location.href = "/";
-    } catch (error) {
-      console.error("Error signing out:", error);
-    }
-  };
+  const handleSignOut = signOutAndGoHome;
 
   const isGuest = !user;
 

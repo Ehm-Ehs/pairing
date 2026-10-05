@@ -4,6 +4,17 @@ import {
   CircleXFilledPinkIcon,
 } from "../../components/ui/icons";
 
+/** The manual chore on the left, what PairForm does instead on the right. */
+const BEFORE_AFTER: [string, string][] = [
+  ["Sorting names in a spreadsheet for 2 hours", "Event structure generated in seconds"],
+  ["Manually emailing group assignments", "Participants self-assign via shared link"],
+  ["Reshuffling when someone drops out", "Slot opens instantly, next person fills it"],
+  ["Messy Secret Santa name draw", "Pairs generated randomly in one click"],
+];
+
+const WORKFLOW_CELL =
+  "flex-1 rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center";
+
 export default function ProblemSection() {
   return (
     <section className="py-20 lg:py-28 bg-[#f8f9fb] relative overflow-hidden">
@@ -85,65 +96,17 @@ export default function ProblemSection() {
           {/* Right Column: Before/After Workflow */}
           <div className="bg-white rounded-[2rem] p-4 sm:p-6 lg:p-8 shadow-sm border border-gray-100">
             <div className="flex flex-col gap-4">
-              {/* Row 1 */}
-              <div className="flex flex-row items-stretch gap-2 sm:gap-4">
-                <div className="flex-1 bg-[#fef2f2] text-[#b91c1c] line-through rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center">
-                  Sorting names in a spreadsheet for 2 hours
+              {BEFORE_AFTER.map(([before, after]) => (
+                <div key={before} className="flex flex-row items-stretch gap-2 sm:gap-4">
+                  <div className={`${WORKFLOW_CELL} bg-[#fef2f2] text-[#b91c1c] line-through`}>{before}</div>
+                  <div className="flex items-center justify-center">
+                    <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                  <div className={`${WORKFLOW_CELL} bg-[#f0fdf4] text-[#15803d]`}>{after}</div>
                 </div>
-                <div className="flex items-center justify-center">
-                  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
-                </div>
-                <div className="flex-1 bg-[#f0fdf4] text-[#15803d] rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center">
-                  Event structure generated in seconds
-                </div>
-              </div>
-
-              {/* Row 2 */}
-              <div className="flex flex-row items-stretch gap-2 sm:gap-4">
-                <div className="flex-1 bg-[#fef2f2] text-[#b91c1c] line-through rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center">
-                  Manually emailing group assignments
-                </div>
-                <div className="flex items-center justify-center">
-                  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
-                </div>
-                <div className="flex-1 bg-[#f0fdf4] text-[#15803d] rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center">
-                  Participants self-assign via shared link
-                </div>
-              </div>
-
-              {/* Row 3 */}
-              <div className="flex flex-row items-stretch gap-2 sm:gap-4">
-                <div className="flex-1 bg-[#fef2f2] text-[#b91c1c] line-through rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center">
-                  Reshuffling when someone drops out
-                </div>
-                <div className="flex items-center justify-center">
-                  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
-                </div>
-                <div className="flex-1 bg-[#f0fdf4] text-[#15803d] rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center">
-                  Slot opens instantly, next person fills it
-                </div>
-              </div>
-
-              {/* Row 4 */}
-              <div className="flex flex-row items-stretch gap-2 sm:gap-4">
-                <div className="flex-1 bg-[#fef2f2] text-[#b91c1c] line-through rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center">
-                  Messy Secret Santa name draw
-                </div>
-                <div className="flex items-center justify-center">
-                  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
-                </div>
-                <div className="flex-1 bg-[#f0fdf4] text-[#15803d] rounded-xl p-3 sm:p-4 text-[10px] sm:text-[13px] font-semibold text-left font-sans leading-snug flex items-center">
-                  Pairs generated randomly in one click
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>

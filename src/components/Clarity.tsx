@@ -3,23 +3,7 @@
 import Script from "next/script";
 
 const Clarity = () => {
-  const isDevelopEnv = () => {
-    if (typeof window !== "undefined") {
-      const host = window.location.hostname.toLowerCase();
-      if (
-        host.includes("develop") ||
-        host.includes("localhost")
-      ) {
-        return true;
-      }
-    }
-    return process.env.NEXT_PUBLIC_APP_ENV === "develop" || process.env.NODE_ENV === "development";
-  };
-
-  const isDev = isDevelopEnv();
-  const clarityId = (isDev && process.env.NEXT_PUBLIC_MICROSOFT_CLARITY_DEVELOP_ID)
-    ? process.env.NEXT_PUBLIC_MICROSOFT_CLARITY_DEVELOP_ID
-    : process.env.NEXT_PUBLIC_MICROSOFT_CLARITY_ID;
+  const clarityId = process.env.NEXT_PUBLIC_MICROSOFT_CLARITY_ID;
 
   if (!clarityId) {
     return null;

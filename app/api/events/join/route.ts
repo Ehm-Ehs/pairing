@@ -1,209 +1,178 @@
 import { NextResponse } from "next/server";
-import { adminDb } from "../../../../src/services/firebaseAdmin";
-import { FieldValue } from "firebase-admin/firestore";
-import { v4 as uuidv4 } from "uuid";
+import { adminDb } from "@/services/firebaseAdmin";
+import { getUser } from "@/server/auth";
+import { HttpError, appOrigin, clientIp, obj, readJson, route, str } from "@/server/http";
+import { rateLimit } from "@/server/rateLimit";
+import { applyCharge, planCharge, prepareCharge } from "@/server/ledger";
+import {
+  EventDoc,
+  canManageEvent,
+  eventOwner,
+  eventTitle,
+  isSecretDraw,
+  eventLocator,
+  loadEvent,
+  notifyOrganizer,
+  revealUrl,
+} from "@/server/events";
+import { Placement, placeParticipant } from "@/server/join";
+import { deliver } from "@/server/messaging";
+import { getGroupCompleteEmail, getRoleAssignedEmail } from "@/services/emailTemplates";
+import { isEmail } from "@/utils/validation";
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const {
-      userId,          // Event owner user ID
-      eventId,         // Event ID (optional if groupingPurpose is provided)
-      eventType,       // "role-based" | "secret-santa" | "random-positioning"
-      participant,     // Participant data object (name, email, phone, etc.)
-      groupKey,        // For role-based pairings
-      slotId,          // For role-based slot ID
-      groupingPurpose, // Event title/purpose for legacy lookup
-      orgId,           // Optional organization ID
-    } = body;
 
-    let eventRef;
-    let eventData: any = {};
-    let remainingTokens = 50;
-
-    try {
-      if (eventId) {
-        eventRef = adminDb.collection("Pairings").doc(eventId);
-      } else if (groupingPurpose) {
-        const q = await adminDb
-          .collection("Pairings")
-          .where("ownerId", "==", userId)
-          .where("groupingPurpose", "==", groupingPurpose)
-          .limit(1)
-          .get();
-        if (!q.empty) {
-          eventRef = q.docs[0].ref;
-        }
-      }
-
-      if (eventRef) {
-        const eventDoc = await eventRef.get();
-        if (eventDoc.exists) {
-          eventData = eventDoc.data() || {};
-          if (eventData.status === "locked") {
-            return NextResponse.json(
-              { error: "This event is closed. No further registrations are allowed." },
-              { status: 400 }
-            );
-          }
-        }
-      }
-
-      // Determine target TokenLedger from Event owner fields (Spec §6)
-      const targetOwnerType: "personal" | "org" = eventData.ownerType || (orgId ? "org" : "personal");
-      const targetOwnerId: string = eventData.ownerId || orgId || userId;
-      const ledgerDocId = targetOwnerType === "personal" ? `ledger_user_${targetOwnerId}` : `ledger_org_${targetOwnerId}`;
-      const ledgerRef = adminDb.collection("TokenLedgers").doc(ledgerDocId);
-
-      // Check if event owner is Super Admin in Firestore
-      let isSuperAdmin = false;
-      if (targetOwnerType === "personal" && targetOwnerId) {
-        const ownerSnap = await adminDb.collection("Users").doc(targetOwnerId).get();
-        if (ownerSnap.exists) {
-          const ownerData = ownerSnap.data() || {};
-          if (ownerData.role === "super_admin" || ownerData.isSuperAdmin === true) {
-            isSuperAdmin = true;
-          }
-        }
-      }
-
-      // 2. Transaction to check token balance limit & deduct 1 token atomically from TokenLedgers
-      try {
-        await adminDb.runTransaction(async (transaction) => {
-          const ledgerSnap = await transaction.get(ledgerRef);
-
-          let currentBalance = targetOwnerType === "personal" ? 50 : 75;
-          let isPaid = false;
-
-          if (ledgerSnap.exists) {
-            const ledgerData = ledgerSnap.data() || {};
-            currentBalance = typeof ledgerData.balance === "number" ? ledgerData.balance : currentBalance;
-            isPaid = ledgerData.hasEverPaid === true || ledgerData.tier === "paid";
-          }
-
-          if (!isSuperAdmin) {
-            if (isPaid && currentBalance <= -20) {
-              throw new Error("DEPLETED_PAID_LIMIT");
-            }
-            if (!isPaid && currentBalance <= 0) {
-              throw new Error("DEPLETED_FREE_LIMIT");
-            }
-          }
-
-          remainingTokens = isSuperAdmin ? 999999 : currentBalance - 1;
-          const now = Date.now();
-
-          if (ledgerSnap.exists) {
-            transaction.update(ledgerRef, {
-              balance: FieldValue.increment(-1),
-              updatedAt: now,
-            });
-          } else {
-            transaction.set(ledgerRef, {
-              id: ledgerDocId,
-              ownerType: targetOwnerType,
-              ownerId: targetOwnerId,
-              balance: currentBalance - 1,
-              freeGrantAmount: currentBalance,
-              freeGrantUsed: true,
-              hasEverPaid: false,
-              tier: "free",
-              createdAt: now,
-              updatedAt: now,
-            });
-          }
-
-          const entryRef = adminDb.collection("TokenLedgerEntries").doc();
-          transaction.set(entryRef, {
-            id: entryRef.id,
-            accountId: targetOwnerId,
-            accountType: targetOwnerType === "org" ? "org" : "user",
-            type: "participant_join",
-            amount: -1,
-            eventId: eventId || groupingPurpose || "unknown",
-            participantId: participant?.id || slotId || "unknown",
-            createdAt: now,
-          });
-
-          const legacyAccountRef = targetOwnerType === "org"
-            ? adminDb.collection("Organizations").doc(targetOwnerId)
-            : adminDb.collection("Users").doc(targetOwnerId);
-          transaction.set(legacyAccountRef, { tokenBalance: remainingTokens }, { merge: true });
-        });
-      } catch (txError: any) {
-        if (
-          txError.message === "DEPLETED_FREE_LIMIT" ||
-          txError.message === "DEPLETED_PAID_LIMIT"
-        ) {
-          return NextResponse.json(
-            {
-              error: "This event cannot accept new participants. Contact the organizer.",
-              code: "TOKEN_BALANCE_DEPLETED",
-              isDepleted: true,
-            },
-            { status: 402 }
-          );
-        }
-        throw txError;
-      }
-
-      // 3. Perform Participant Join update on Event document
-      if (eventRef && eventData) {
-        if (eventType === "role-based" && groupKey && slotId) {
-          const groups = eventData.groups || {};
-          if (groups[groupKey]) {
-            const idx = groups[groupKey].findIndex((p: any) => p.id === slotId);
-            if (idx !== -1) {
-              groups[groupKey][idx] = {
-                ...groups[groupKey][idx],
-                ...participant,
-              };
-              await eventRef.update({ groups });
-            }
-          }
-        } else {
-          const existing = eventData.participants || [];
-          await eventRef.update({
-            participants: [...existing, participant],
-          });
-        }
-      }
-    } catch (adminDbError: any) {
-      console.warn("[Admin DB Warning]: Admin Firestore bypassed:", adminDbError.message);
-    }
-
-    // 3. Dispatch WhatsApp Invitation if phone exists
-    const recipientPhone = participant?.phone || participant?.contact;
-    if (recipientPhone) {
-      try {
-        const { sendJoinInviteWhatsApp } = await import(
-          "../../../../src/services/whatsappService"
-        );
-        const protocol = request.headers.get("x-forwarded-proto") || "http";
-        const host = request.headers.get("host") || "localhost:3000";
-        const origin = `${protocol}://${host}`;
-
-        await sendJoinInviteWhatsApp({
-          phone: recipientPhone,
-          participantName: participant.name || "Participant",
-          eventName: groupingPurpose || "PairForm Event",
-          inviteUrl: `${origin}/event?id=${eventId || ""}`,
-        });
-      } catch (waErr) {
-        console.error("Failed to send WhatsApp join invite:", waErr);
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      remainingTokens,
-      message: "Participant joined successfully.",
-    });
-  } catch (error: any) {
-    console.error("Error in POST /api/events/join:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to process participant join" },
-      { status: 500 }
-    );
-  }
+interface JoinOutcome extends Placement {
+  event: EventDoc;
+  remainingTokens: number;
 }
+
+/**
+ * Adds one participant to an event. Public: participants do not need an account.
+ * The whole join (closed check, capacity, duplicate email, slot choice, token charge,
+ * write) happens in one transaction, so concurrent joins cannot overwrite each other
+ * and a token is only charged when the participant is actually added.
+ */
+export const POST = route("events/join", async (request) => {
+  const body = await readJson(request);
+  const input = obj(body.participant);
+
+  const name = str(input.name, 120);
+  const email = str(input.email, 200).toLowerCase();
+  const phone = str(input.phone ?? input.contact, 30);
+  const wishlist = str(input.wishlist, 1000);
+  const track = str(input.track ?? input.role, 120);
+
+  if (!name) throw new HttpError(400, "Name is required.");
+  if (email && !isEmail(email)) throw new HttpError(400, "Please enter a valid email address.");
+
+  const user = await getUser(request);
+  const loaded = await loadEvent(eventLocator(body));
+  const eventId = loaded.ref.id;
+  const isManager = !!user && (await canManageEvent(user.uid, loaded.data));
+
+  if (!isManager) {
+    // Sized so a whole room on one shared network can join, while still bounding abuse.
+    await rateLimit(`join:${clientIp(request)}:${eventId}`, 300, 600);
+  }
+
+  const owner = eventOwner(loaded.data);
+  const { exempt } = await prepareCharge(owner);
+
+  const outcome = await adminDb.runTransaction<JoinOutcome>(async (tx) => {
+    const snap = await tx.get(loaded.ref);
+    if (!snap.exists) throw new HttpError(404, "Event not found.", "EVENT_NOT_FOUND");
+    const event = snap.data() as EventDoc;
+
+    const plan = await planCharge(tx, owner, 1, { exempt }).catch((err) => {
+      if (err instanceof HttpError && err.status === 402) {
+        // Participants are not told about the organizer's balance.
+        throw new HttpError(
+          402,
+          "This event cannot accept new participants. Contact the organizer.",
+          "TOKEN_BALANCE_DEPLETED",
+          { isDepleted: true }
+        );
+      }
+      throw err;
+    });
+
+    // Decide where the person goes. This throws, before anything is written, if they cannot join.
+    const placement = placeParticipant(event, {
+      name,
+      email,
+      phone,
+      wishlist,
+      track,
+      groupKey: str(body.groupKey, 200),
+      slotId: str(body.slotId, 200),
+      pairIndex: Number.isInteger(input.pairIndex) ? (input.pairIndex as number) : undefined,
+      positionLetter: str(input.positionLetter, 1),
+      assignedNumber: Number.isInteger(input.assignedNumber) ? (input.assignedNumber as number) : undefined,
+      isManager,
+    });
+
+    const remainingTokens = applyCharge(tx, plan, 1, {
+      type: "participant_join",
+      eventId,
+      participantId: placement.participant.id,
+    });
+    tx.update(loaded.ref, placement.update);
+    return { ...placement, event, remainingTokens };
+  });
+
+  // The join is committed. Notifications are best effort and never fail the request.
+  const { event, participant } = outcome;
+  const origin = appOrigin(request);
+  const title = eventTitle(event);
+  const link = revealUrl(origin, eventId, participant.accessToken);
+  const channel = event.notificationChannel;
+
+  let groupLabel: string | number = "Participant Pool";
+  let roleLabel = "";
+  if (event.type === "role-based") {
+    groupLabel = outcome.groupKey || "";
+    roleLabel = participant.role || track;
+  } else if (event.type === "random-positioning") {
+    groupLabel = participant.assignedNumber ? `Position #${participant.assignedNumber}` : "Position pending";
+    roleLabel = "Participant";
+  } else if (isSecretDraw(event)) {
+    groupLabel = "Secret Santa Participant Pool";
+    roleLabel = "Gift Giver";
+  } else {
+    groupLabel = `Pair ${participant.pairIndex + 1}`;
+    roleLabel = `Side ${participant.positionLetter}`;
+  }
+
+  const confirmation = getRoleAssignedEmail(title, name, groupLabel, roleLabel, link);
+  const jobs: Promise<unknown>[] = [
+    notifyOrganizer({ ...event, id: eventId }, `${name} joined ${title}`),
+    deliver(
+      channel,
+      { email, phone },
+      {
+        email: confirmation,
+        whatsapp: {
+          templateName: "pairform_invite",
+          participantName: name,
+          eventName: title,
+          buttonParam: link,
+          message: `Hi ${name}! You have joined ${title}. View your assignment: ${link}`,
+        },
+      }
+    ),
+  ];
+
+  if (outcome.isFull) {
+    if (event.type === "role-based" && outcome.groupMembers) {
+      const emails = outcome.groupMembers.map((m) => m.email).filter((e) => typeof e === "string" && e);
+      if (emails.length > 0 && channel !== "whatsapp") {
+        const complete = getGroupCompleteEmail(origin, outcome.groupKey || "", outcome.groupMembers);
+        jobs.push(
+          ...emails.map((to) =>
+            deliver("email", { email: to }, { email: { subject: complete.subject, html: complete.html, from: complete.from } })
+          )
+        );
+      }
+    } else {
+      jobs.push(notifyOrganizer({ ...event, id: eventId }, `${title} is now full.`, "success"));
+    }
+  }
+  await Promise.allSettled(jobs);
+
+  return NextResponse.json({
+    success: true,
+    message: "Participant joined successfully.",
+    participant: {
+      id: participant.id,
+      name,
+      assignedNumber: participant.assignedNumber ?? null,
+      pairIndex: participant.pairIndex ?? null,
+      positionLetter: participant.positionLetter ?? "",
+      role: participant.role ?? "",
+    },
+    groupKey: outcome.groupKey || null,
+    isFull: outcome.isFull,
+    revealUrl: link,
+    ...(isManager ? { remainingTokens: outcome.remainingTokens } : {}),
+  });
+});

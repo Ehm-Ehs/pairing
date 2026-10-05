@@ -1,9 +1,17 @@
 rules_version = '2';
 
+// Security model
+// --------------
+// The browser may read data that belongs to the signed-in user or their organizations,
+// and may make a small set of low-risk edits. Everything that involves money, roles,
+// membership, participants or draw results is written only by the server (Admin SDK,
+// which bypasses these rules) after it has checked permissions. See src/server/.
+//
+// Participants never touch Firestore directly: public pages use /api/events/*.
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper functions for auth & role verification
+
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -12,85 +20,136 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    function isOrgAdmin(orgId) {
-      return isAuthenticated() && (
-        (exists(/databases/$(database)/documents/Organizations/$(orgId)) &&
-         get(/databases/$(database)/documents/Organizations/$(orgId)).data.createdBy == request.auth.uid) ||
-        (exists(/databases/$(database)/documents/OrgMembers/$(orgId + "_" + request.auth.uid)) &&
-         get(/databases/$(database)/documents/OrgMembers/$(orgId + "_" + request.auth.uid)).data.role == "admin")
-      );
+    function memberPath(orgId) {
+      return /databases/$(database)/documents/OrgMembers/$(orgId + "_" + request.auth.uid);
+    }
+
+    function orgPath(orgId) {
+      return /databases/$(database)/documents/Organizations/$(orgId);
+    }
+
+    function isOrgCreator(orgId) {
+      return exists(orgPath(orgId)) && get(orgPath(orgId)).data.createdBy == request.auth.uid;
     }
 
     function isOrgMember(orgId) {
+      return isAuthenticated() && (exists(memberPath(orgId)) || isOrgCreator(orgId));
+    }
+
+    function isOrgAdmin(orgId) {
       return isAuthenticated() && (
-        exists(/databases/$(database)/documents/OrgMembers/$(orgId + "_" + request.auth.uid)) ||
-        (exists(/databases/$(database)/documents/Organizations/$(orgId)) &&
-         get(/databases/$(database)/documents/Organizations/$(orgId)).data.createdBy == request.auth.uid)
+        isOrgCreator(orgId) ||
+        (exists(memberPath(orgId)) && get(memberPath(orgId)).data.role == "admin")
       );
     }
 
-    // Users collection rules
+    // Fields only the server may set on a user profile.
+    function touchesProtectedUserFields() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        "role", "isSuperAdmin", "tokenBalance", "tier", "hasEverPaid",
+        "paidTokensPurchased", "freeTokensGranted", "pairings", "userId"
+      ]);
+    }
+
+    // Users: a private profile. Created by the server at first sign-in.
     match /Users/{userId} {
-      allow read, create, update: if true;
+      allow read: if isOwner(userId);
+      allow create: if false;
+      allow update: if isOwner(userId) && !touchesProtectedUserFields();
       allow delete: if isOwner(userId);
     }
 
-    // Organizations collection rules
+    // Organizations: visible to members. All changes go through /api/orgs.
     match /Organizations/{orgId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isOrgAdmin(orgId);
+      allow read: if isOrgMember(orgId);
+      allow write: if false;
     }
 
-    // OrgMembers collection rules
+    // OrgMembers: a member can see their own memberships and the roster of their orgs.
     match /OrgMembers/{memberId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isOrgMember(resource.data.orgId)
+      );
+      allow write: if false;
     }
 
-    // OrgInvites collection rules
+    // OrgInvites: only org admins can list them. Invitees look theirs up through the API by token.
     match /OrgInvites/{inviteId} {
-      allow read: if true;
-      allow create, update, delete: if isAuthenticated();
+      allow read: if isOrgAdmin(resource.data.orgId);
+      allow write: if false;
     }
 
-    // Pairings collection rules (top-level collection for events)
+    // Pairings (events).
+    function ownsPairing(data) {
+      return data.ownerId == request.auth.uid;
+    }
+
+    function canManagePairing(data) {
+      return isAuthenticated() && (
+        ownsPairing(data) ||
+        (data.ownerType == "org" && (
+          isOrgAdmin(data.ownerId) ||
+          (isOrgMember(data.ownerId) && data.createdBy == request.auth.uid)
+        ))
+      );
+    }
+
     match /Pairings/{pairingId} {
-      allow read: if true; // Public view for event registration / participant links
-      allow create: if isAuthenticated();
-      allow update: if true; // Allows anonymous participant join submissions & owner edits
-      allow delete: if isAuthenticated();
+      // Organizers only. The public sees a sanitized copy through /api/events/public.
+      // (Written so that the list queries "ownerId == me" and "ownerId == my org" both pass.)
+      allow read: if isAuthenticated() && (
+        ownsPairing(resource.data) || isOrgMember(resource.data.ownerId)
+      );
+
+      // An event is created in the caller's personal space or in an org they belong to,
+      // and never arrives with draw results already filled in.
+      allow create: if isAuthenticated()
+        && request.resource.data.id == pairingId
+        && request.resource.data.createdBy == request.auth.uid
+        && !("pairs" in request.resource.data)
+        && (
+          (request.resource.data.ownerType == "personal" && request.resource.data.ownerId == request.auth.uid) ||
+          (request.resource.data.ownerType == "org" && isOrgMember(request.resource.data.ownerId))
+        );
+
+      // Organizers may edit settings (title, status, visibility...). Participants, groups,
+      // draw results and ownership change only through the server, which charges tokens.
+      allow update: if canManagePairing(resource.data)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          "id", "participants", "groups", "pairs", "ownerId", "ownerType", "createdBy"
+        ]);
+
+      allow delete: if canManagePairing(resource.data);
     }
 
-    // Notifications collection rules
+    // Notifications: created by the server; the recipient can read, mark as read and delete.
     match /Notifications/{notificationId} {
-      allow read, create, update, delete: if true;
+      allow read, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["read", "readAt"]);
+      allow create: if false;
     }
 
-    // Push Subscriptions collection rules (PWA Web Push)
-    match /push_subscriptions/{subId} {
-      allow read, create, update, delete: if true;
-    }
-
-    // TokenLedgers & TokenLedgerEntries collection rules (Payment credits / Token tracking)
+    // Token ledgers: read-only for the account they belong to. Balances change only on the server.
+    // The owner is encoded in the document id (ledger_user_<uid> or ledger_org_<orgId>), so the
+    // check also works before the ledger exists.
     match /TokenLedgers/{ledgerId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        ledgerId == "ledger_user_" + request.auth.uid ||
+        (ledgerId.matches("ledger_org_.+") && isOrgMember(ledgerId.replace("^ledger_org_", "")))
+      );
+      allow write: if false;
     }
-    
+
     match /TokenLedgerEntries/{entryId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        resource.data.accountId == request.auth.uid || isOrgMember(resource.data.accountId)
+      );
+      allow write: if false;
     }
 
-    // Mail collection rules for email notifications
-    match /mail/{emailId} {
-      allow create: if true;
-      allow read, update, delete: if isAuthenticated();
-    }
-
-    // Default deny catch-all
+    // Server-only collections (Payments, RateLimits, push_subscriptions, mail, ...).
     match /{document=**} {
       allow read, write: if false;
     }

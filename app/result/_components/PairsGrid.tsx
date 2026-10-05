@@ -1,5 +1,5 @@
-import { SecretSantaPairing } from "../../../src/types";
-import { getGravatarUrl } from "../../../src/utils/avatar";
+import { SecretSantaPairing } from "@/types";
+import { getGravatarUrl } from "@/utils/avatar";
 
 interface PairsGridProps {
   pairing: SecretSantaPairing;

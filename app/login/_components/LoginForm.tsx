@@ -1,134 +1,52 @@
 "use client";
 
+import { PasswordInput } from "@/components/ui/PasswordInput";
+import { errorCode, errorMessage, errorStatus } from "@/utils/errors";
+import { logger } from "@/utils/logger";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
-import {
-  signInWithEmailAndPassword,
-  signInWithPopup,
-} from "firebase/auth";
-import { auth, googleProvider, db } from "../../../src/services/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { signInWithEmailAndPassword, User } from "firebase/auth";
+import { auth } from "@/services/firebase";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import Logo from "../../../src/assets/logo";
-import Auth from "../../../src/services/auth.module";
+import Logo from "@/assets/logo";
 import { toast } from "react-toastify";
-import { FaGoogle, FaEye, FaEyeSlash } from "react-icons/fa";
-import { v4 as uuidv4 } from "uuid";
-import { sendWelcomeEmail } from "../../../src/services/email";
-import { Button } from "../../../src/components/ui/button";
-import { getFriendlyFirebaseErrorMessage } from "../../../src/utils/firebaseErrorUtils";
-import { useState } from "react";
+import { FaGoogle } from "react-icons/fa";
+import { Button } from "@/components/ui/button";
+import { getFriendlyFirebaseErrorMessage } from "@/utils/firebaseErrorUtils";
+import { completeSignIn } from "@/services/session";
+import { useGoogleAuth } from "@/hooks/useGoogleAuth";
 
 const LoginForm = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get("redirect") || "/home";
-  const [showPassword, setShowPassword] = useState(false);
+  const inviteToken = searchParams.get("inviteToken");
+  // Someone following an org invite returns to it after logging in.
+  const redirectUrl = inviteToken ? `/invite/${inviteToken}` : searchParams.get("redirect") || "/home";
+  // Carry "where to go next" (and any invite) across to the sign-up page.
+  const queryToKeep = searchParams.toString() ? `?${searchParams.toString()}` : "";
 
-  const handleGoogleSignIn = async () => {
+  /** Creates the profile on the server if needed, then continues to the app. */
+  const finish = async (user: User) => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-
-      const docRef = doc(db, "Users", user.uid);
-      const docSnap = await getDoc(docRef);
-
-      if (!docSnap.exists()) {
-        const userId = uuidv4();
-        await setDoc(docRef, {
-          userId,
-          email: user.email,
-          firstName: user.displayName?.split(" ")[0] || "",
-          lastName: user.displayName?.split(" ").slice(1).join(" ") || "",
-          tokenBalance: 50,
-          freeTokensGranted: 50,
-          paidTokensPurchased: 0,
-          tier: "free",
-          hasEverPaid: false,
-        });
-
-        if (user.email) {
-          const emailResult = await sendWelcomeEmail(
-            user.email,
-            user.displayName || "User"
-          );
-          if (!emailResult?.success) {
-            console.warn("Failed to send welcome email during Google login");
-          }
-        }
-      }
-
-      const accessToken = await user.getIdToken();
-      if (accessToken && user) {
-        const userToStore = {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-        };
-        Auth.authenticateUser({ accessToken, data: userToStore });
-        toast.success("Login successful!", {
-          position: "top-center",
-          autoClose: 3000,
-        });
-        router.push(redirectUrl);
-      }
-    } catch (error: any) {
-      console.error("Error logging in with Google:", error);
-      toast.error(getFriendlyFirebaseErrorMessage(error), {
-        position: "top-center",
-      });
+      await completeSignIn(user);
+    } catch (error) {
+      // Signing in succeeded; only the profile sync failed. The app retries it once loaded.
+      logger.error("Account setup did not complete:", error);
     }
+    toast.success("Login successful!", { position: "top-center", autoClose: 3000 });
+    router.push(redirectUrl);
   };
 
+  const { signInWithGoogle: handleGoogleSignIn } = useGoogleAuth(finish);
 
   const handleSubmit = async (values: { email: string; password: string }) => {
     try {
-      const response = await signInWithEmailAndPassword(
-        auth,
-        values.email,
-        values.password
-      );
-      const { user } = response;
-
-      const docRef = doc(db, "Users", user.uid);
-      const docSnap = await getDoc(docRef);
-
-      if (!docSnap.exists()) {
-        await auth.signOut();
-        toast.error("Account details not found. Please sign up.", {
-          position: "top-center",
-        });
-        router.push(`/sign-up?redirect=${encodeURIComponent(redirectUrl)}`);
-        return;
-      }
-
-      const accessToken = await user.getIdToken();
-
-      if (accessToken && user) {
-        const userToStore = {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-        };
-        Auth.authenticateUser({ accessToken, data: userToStore });
-
-        toast.success("Login successful!", {
-          position: "top-center",
-          autoClose: 3000,
-        });
-
-        router.push(redirectUrl);
-      } else {
-        toast.error("Failed to retrieve login details. Please try again.", {
-          position: "top-center",
-        });
-      }
-    } catch (error: any) {
-      console.error("Error logging in:", error.message);
-      toast.error(getFriendlyFirebaseErrorMessage(error), {
+      const { user } = await signInWithEmailAndPassword(auth, values.email, values.password);
+      await finish(user);
+    } catch (error) {
+      logger.error("Error logging in:", errorCode(error) || errorMessage(error));
+      toast.error(errorStatus(error) ? errorMessage(error) : getFriendlyFirebaseErrorMessage(error), {
         position: "top-center",
       });
     }
@@ -156,7 +74,7 @@ const LoginForm = () => {
                 <h1 className="text-3xl font-bold tracking-tight mb-2">Login</h1>
                 <p className="text-sm text-gray-500">
                   Don't have an account?{" "}
-                  <Link href="/sign-up" className="text-[#1449b2] font-semibold hover:underline">
+                  <Link href={`/sign-up${queryToKeep}`} className="text-[#1449b2] font-semibold hover:underline">
                     Create an Account
                   </Link>
                 </p>
@@ -186,24 +104,12 @@ const LoginForm = () => {
                 <label className="block text-sm font-semibold text-gray-500 mb-1.5">
                   Password
                 </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    placeholder=""
-                    className="w-full bg-white text-black border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1449b2] placeholder-gray-300 transition-colors pr-10"
-                    value={values.password}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
-                  </button>
-                </div>
+                <PasswordInput
+                  name="password"
+                  value={values.password}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                />
                 {errors.password && touched.password && (
                   <div className="text-red-500 text-xs mt-1">
                     {errors.password}

@@ -83,25 +83,25 @@ const parseCsvString = (text: string): string[][] => {
 };
 
 /**
+ * Reads a CSV file into rows and works out whether the first row is a header.
+ * `headerWords` are the column names that mark a header row.
+ */
+async function readCsv(file: File, headerWords: string[]) {
+  const rows = parseCsvString(await file.text());
+  const headerRow = (rows[0] || []).map((h) => h.toLowerCase().replace(/[^a-z]/g, ""));
+  const hasHeaders = headerWords.some((word) => headerRow.includes(word));
+  return { rows, headerRow, hasHeaders, startIndex: hasHeaders ? 1 : 0 };
+}
+
+/**
  * Reads a File object as text and parses it into structured participant records.
  */
 export const parseParticipantsCsv = async (
   file: File
 ): Promise<ParsedParticipant[]> => {
-  const text = await file.text();
-  const rows = parseCsvString(text);
-
+  const { rows, headerRow, hasHeaders, startIndex } = await readCsv(file, ["name", "email", "role", "phone"]);
   if (rows.length === 0) return [];
 
-  // Inspect first row for headers
-  const headerRow = rows[0].map((h) => h.toLowerCase().replace(/[^a-z]/g, ""));
-  const hasHeaders =
-    headerRow.includes("name") ||
-    headerRow.includes("email") ||
-    headerRow.includes("role") ||
-    headerRow.includes("phone");
-
-  const startIndex = hasHeaders ? 1 : 0;
   const nameIndex = hasHeaders
     ? headerRow.findIndex((h) => h.includes("name"))
     : 0;
@@ -150,14 +150,8 @@ export const parseParticipantsCsv = async (
  * Parses a CSV file containing role definitions (Role, Count).
  */
 export const parseRolesCsv = async (file: File): Promise<ParsedRole[]> => {
-  const text = await file.text();
-  const rows = parseCsvString(text);
-
+  const { rows, startIndex } = await readCsv(file, ["role", "count"]);
   if (rows.length === 0) return [];
-
-  const headerRow = rows[0].map((h) => h.toLowerCase().replace(/[^a-z]/g, ""));
-  const hasHeaders = headerRow.includes("role") || headerRow.includes("count");
-  const startIndex = hasHeaders ? 1 : 0;
 
   const roles: ParsedRole[] = [];
 

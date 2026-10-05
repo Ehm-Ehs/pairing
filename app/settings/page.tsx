@@ -1,16 +1,20 @@
 "use client";
+import type { GroupingsPageProps } from "@/types";
+import { errorMessage } from "@/utils/errors";
+import { signOutAndGoHome } from "@/services/session";
+import { logger } from "@/utils/logger";
 import React, { Suspense, useState, useEffect } from "react";
-import NextProtectedRoute from "../../src/components/routes/NextProtectedRoute";
+import NextProtectedRoute from "@/components/routes/NextProtectedRoute";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { db } from "../../src/services/firebase";
+import { db } from "@/services/firebase";
 import { toast } from "react-toastify";
-import { Button } from "../../src/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { useWorkspace } from "../../src/context/WorkspaceContext";
-import { CreateOrgModal } from "../../src/components/CreateOrgModal";
-import { InlineOrgSettings } from "../../src/components/InlineOrgSettings";
+import { useWorkspace } from "@/context/WorkspaceContext";
+import { CreateOrgModal } from "@/components/CreateOrgModal";
+import { InlineOrgSettings } from "@/components/InlineOrgSettings";
 import { FaWhatsapp } from "react-icons/fa";
-import PhoneInputWithCountry from "../../src/components/ui/PhoneInputWithCountry";
+import PhoneInputWithCountry from "@/components/ui/PhoneInputWithCountry";
 
 const Toggle = ({
   checked,
@@ -40,7 +44,7 @@ const Toggle = ({
   </div>
 );
 
-const SettingsContent = ({ user }: { user: any }) => {
+const SettingsContent = ({ user }: { user: GroupingsPageProps }) => {
   const userId = user?.uid || user?.userId || "";
   const router = useRouter();
   const { activeWorkspace, userOrganizations } = useWorkspace();
@@ -58,6 +62,7 @@ const SettingsContent = ({ user }: { user: any }) => {
   const [defaults, setDefaults] = useState({
     autoClose: true,
     emailConfirmations: true,
+    whatsappConfirmations: true,
     closedEventMessage: "",
     fullEventMessage: "",
     visibilityMode: "public" as "public" | "restricted",
@@ -91,7 +96,7 @@ const SettingsContent = ({ user }: { user: any }) => {
           }
         }
       } catch (err) {
-        console.error("Failed to load user settings:", err);
+        logger.error("Failed to load user settings:", err);
       }
     };
     loadSettings();
@@ -119,9 +124,9 @@ const SettingsContent = ({ user }: { user: any }) => {
       });
       toast.success("Settings updated successfully!");
       return true;
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Failed to update settings: " + err.message);
+    } catch (err) {
+      logger.error(err);
+      toast.error("Failed to update settings: " + errorMessage(err));
       return false;
     } finally {
       setSaving(false);
@@ -178,14 +183,10 @@ const SettingsContent = ({ user }: { user: any }) => {
         const { deleteDoc } = await import("firebase/firestore");
         await deleteDoc(doc(db, "Users", userId));
 
-        const { signOut } = await import("firebase/auth");
-        const { auth } = await import("../../src/services/firebase");
-        await signOut(auth);
-
         toast.success("Account successfully deleted.");
-        window.location.href = "/";
-      } catch (err: any) {
-        toast.error("Failed to delete account: " + err.message);
+        await signOutAndGoHome();
+      } catch (err) {
+        toast.error("Failed to delete account: " + errorMessage(err));
       }
     }
   };
@@ -278,14 +279,7 @@ const SettingsContent = ({ user }: { user: any }) => {
           <hr className="border-gray-100" />
 
           <div className="flex flex-col">
-            <Toggle
-              checked={notifications.eventAssignment}
-              onChange={(val) =>
-                setNotifications((prev) => ({ ...prev, eventAssignment: val }))
-              }
-              label="Event Assignment Notifications"
-              description="Get notified when you're assigned to a group, pair, or position"
-            />
+
             <Toggle
               checked={notifications.whatsappNotifications}
               onChange={(val) =>
@@ -348,112 +342,86 @@ const SettingsContent = ({ user }: { user: any }) => {
               label="Email Confirmations"
               description="Send email confirmations to participants when they join"
             />
-            
-            {/* Public Link Group Visibility Setting */}
-            <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 text-left">
-              <label className="block text-xs font-bold text-gray-550 uppercase tracking-wider">
-                Public Link Group Visibility
-              </label>
-              <div className="bg-white rounded-2xl p-4 flex gap-6 md:gap-12 flex-col sm:flex-row border border-gray-200/80 shadow-sm">
-                <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
-                  <input
-                    type="radio"
-                    name="visibilityMode"
-                    value="public"
-                    checked={defaults.visibilityMode !== "restricted"}
-                    onChange={() => setDefaults((prev) => ({ ...prev, visibilityMode: "public" }))}
-                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <div>
-                    <span className="block font-bold text-gray-900">🌐 Public (Show All Groups)</span>
-                    <span className="text-xs text-gray-400 font-normal">Everyone on public links can view members of all groups</span>
-                  </div>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
-                  <input
-                    type="radio"
-                    name="visibilityMode"
-                    value="restricted"
-                    checked={defaults.visibilityMode === "restricted"}
-                    onChange={() => setDefaults((prev) => ({ ...prev, visibilityMode: "restricted" }))}
-                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <div>
-                    <span className="block font-bold text-gray-900">🔒 Restricted (Blur Other Groups)</span>
-                    <span className="text-xs text-gray-400 font-normal">Participants see only their group (available slots remain visible)</span>
-                  </div>
-                </label>
-              </div>
-            </div>
+            <Toggle
+              checked={defaults.whatsappConfirmations}
+              onChange={(val) =>
+                setDefaults((prev) => ({ ...prev, whatsappConfirmations: val }))
+              }
+              label="WhatsApp Confirmations"
+              description="Send WhatsApp confirmations to participants when they join"
+            />
+
 
             {/* Participant Notification Channel Setting */}
-            <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 text-left">
-              <label className="block text-xs font-bold text-gray-550 uppercase tracking-wider">
-                Participant Notification Channel
-              </label>
-              <div className="bg-white rounded-2xl p-4 flex gap-6 md:gap-8 flex-col sm:flex-row border border-gray-200/80 shadow-sm">
-                <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
-                  <input
-                    type="radio"
-                    name="notificationChannel"
-                    value="email"
-                    checked={defaults.notificationChannel === "email"}
-                    onChange={() => setDefaults((prev) => ({ ...prev, notificationChannel: "email" }))}
-                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <div>
-                    <span className="block font-bold text-gray-900">📧 Email (Resend API)</span>
-                    <span className="text-xs text-gray-400 font-normal">Send alerts via Resend email</span>
-                  </div>
+            {false && (
+              <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 text-left">
+                <label className="block text-xs font-bold text-gray-550 uppercase tracking-wider">
+                  Participant Notification Channel
                 </label>
-                <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
-                  <input
-                    type="radio"
-                    name="notificationChannel"
-                    value="whatsapp"
-                    checked={defaults.notificationChannel === "whatsapp"}
-                    onChange={() => setDefaults((prev) => ({ ...prev, notificationChannel: "whatsapp" }))}
-                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <div>
-                    <span className="block font-bold text-gray-900">💬 WhatsApp API</span>
-                    <span className="text-xs text-gray-400 font-normal">Send alerts via WhatsApp message</span>
-                  </div>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
-                  <input
-                    type="radio"
-                    name="notificationChannel"
-                    value="both"
-                    checked={defaults.notificationChannel === "both" || !defaults.notificationChannel}
-                    onChange={() => setDefaults((prev) => ({ ...prev, notificationChannel: "both" }))}
-                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <div>
-                    <span className="block font-bold text-gray-900">📬 Both (Email & WhatsApp)</span>
-                    <span className="text-xs text-gray-400 font-normal">Send notifications through both channels</span>
-                  </div>
-                </label>
-              </div>
-
-               {(defaults.notificationChannel === "whatsapp" || defaults.notificationChannel === "both") && (
-                <div className="mt-3 p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl animate-in fade-in duration-200">
-                  <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <FaWhatsapp className="w-4 h-4 text-emerald-600" />
-                    <span>Organizer WhatsApp Phone Number</span>
+                <div className="bg-white rounded-2xl p-4 flex gap-6 md:gap-8 flex-col sm:flex-row border border-gray-200/80 shadow-sm">
+                  <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
+                    <input
+                      type="radio"
+                      name="notificationChannel"
+                      value="email"
+                      checked={defaults.notificationChannel === "email"}
+                      onChange={() => setDefaults((prev) => ({ ...prev, notificationChannel: "email" }))}
+                      className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    />
+                    <div>
+                      <span className="block font-bold text-gray-900">📧 Email (Resend API)</span>
+                      <span className="text-xs text-gray-400 font-normal">Send alerts via Resend email</span>
+                    </div>
                   </label>
-                  <PhoneInputWithCountry
-                    id="whatsappNumber"
-                    name="whatsappNumber"
-                    value={defaults.whatsappNumber || ""}
-                    onChange={(val) => setDefaults((prev) => ({ ...prev, whatsappNumber: val }))}
-                  />
-                  <p className="text-[11px] text-emerald-700 mt-1.5 font-medium">
-                    Select your country code and enter your WhatsApp number for organizer notifications.
-                  </p>
+                  <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
+                    <input
+                      type="radio"
+                      name="notificationChannel"
+                      value="whatsapp"
+                      checked={defaults.notificationChannel === "whatsapp"}
+                      onChange={() => setDefaults((prev) => ({ ...prev, notificationChannel: "whatsapp" }))}
+                      className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    />
+                    <div>
+                      <span className="block font-bold text-gray-900">💬 WhatsApp API</span>
+                      <span className="text-xs text-gray-400 font-normal">Send alerts via WhatsApp message</span>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
+                    <input
+                      type="radio"
+                      name="notificationChannel"
+                      value="both"
+                      checked={defaults.notificationChannel === "both" || !defaults.notificationChannel}
+                      onChange={() => setDefaults((prev) => ({ ...prev, notificationChannel: "both" }))}
+                      className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    />
+                    <div>
+                      <span className="block font-bold text-gray-900">📬 Both (Email & WhatsApp)</span>
+                      <span className="text-xs text-gray-400 font-normal">Send notifications through both channels</span>
+                    </div>
+                  </label>
                 </div>
-              )}
-            </div>
+
+                {(defaults.notificationChannel === "whatsapp" || defaults.notificationChannel === "both") && (
+                  <div className="mt-3 p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl animate-in fade-in duration-200">
+                    <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                      <FaWhatsapp className="w-4 h-4 text-emerald-600" />
+                      <span>Organizer WhatsApp Phone Number</span>
+                    </label>
+                    <PhoneInputWithCountry
+                      id="whatsappNumber"
+                      name="whatsappNumber"
+                      value={defaults.whatsappNumber || ""}
+                      onChange={(val) => setDefaults((prev) => ({ ...prev, whatsappNumber: val }))}
+                    />
+                    <p className="text-[11px] text-emerald-700 mt-1.5 font-medium">
+                      Select your country code and enter your WhatsApp number for organizer notifications.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex flex-col gap-4 mt-4 pt-4 border-t border-gray-100 text-left">
               <div>
@@ -513,11 +481,10 @@ const SettingsContent = ({ user }: { user: any }) => {
                         <span className="text-sm font-bold text-gray-900 flex items-center gap-2">
                           🏢 {activeWorkspace.name}
                           <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
-                              isUserAdmin
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${isUserAdmin
                                 ? "bg-amber-100 text-amber-800 border border-amber-200"
                                 : "bg-gray-100 text-gray-700 border border-gray-200"
-                            }`}
+                              }`}
                           >
                             {roleLabel}
                           </span>

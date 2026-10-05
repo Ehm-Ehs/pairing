@@ -1,194 +1,115 @@
 import { NextResponse } from "next/server";
-import { adminDb } from "../../../../src/services/firebaseAdmin";
-import { FieldValue } from "firebase-admin/firestore";
-import { getRoundNotificationEmail } from "../../../../src/services/emailTemplates";
-import { formatWhatsAppPhone } from "../../../../src/services/whatsappService";
+import { adminDb } from "@/services/firebaseAdmin";
+import { requireUser } from "@/server/auth";
+import { HttpError, appOrigin, obj, readJson, route, str } from "@/server/http";
+import { rateLimit } from "@/server/rateLimit";
+import { applyCharge, planCharge, prepareCharge } from "@/server/ledger";
+import { allParticipants, assertCanManage, eventOwner, eventTitle, loadEvent } from "@/server/events";
+import { sendEmail } from "@/server/messaging";
+import { getRoundNotificationEmail } from "@/services/emailTemplates";
+import { formatWhatsAppPhone } from "@/utils/phone";
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const {
-      userId,
-      eventId,
-      roundNumber,
-      eventName = "Speed Networking Event",
-      notifications = [],
-      channel = "email", // "email" | "whatsapp" | "both"
-    } = body;
+const TOKENS_PER_NOTIFICATION = 0.5;
 
-    if (!userId || !notifications || notifications.length === 0) {
-      return NextResponse.json(
-        { error: "Invalid parameters. Missing userId or notifications list." },
-        { status: 400 }
-      );
-    }
+/**
+ * Notifies speed-networking participants of their table for a round.
+ * Organizer only. Recipients must be participants of the event.
+ */
+export const POST = route("events/notify-round", async (request) => {
+  const user = await requireUser(request);
+  const body = await readJson(request);
+  const eventId = str(body.eventId, 200);
+  const roundNumber = Number(body.roundNumber) || 1;
+  const channel = body.channel === "whatsapp" || body.channel === "both" ? body.channel : "email";
+  if (!eventId || !Array.isArray(body.notifications) || body.notifications.length === 0) {
+    throw new HttpError(400, "Invalid parameters. Missing eventId or notifications list.");
+  }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://pair-form.com";
-    const groupLink = eventId ? `${appUrl}/your-pairing?id=${eventId}` : appUrl;
+  const loaded = await loadEvent({ eventId, ownerHint: user.uid });
+  const event = loaded.data;
+  await assertCanManage(user.uid, event);
+  await rateLimit(`notify-round:${user.uid}:${eventId}`, 30, 3600);
 
-    const participantCount = notifications.length;
-    const requiredTokens = participantCount * 0.5; // 0.5 tokens per participant notified per round
+  // Only people who are actually in the event can be messaged.
+  const emails = new Set<string>();
+  const phones = new Set<string>();
+  for (const { participant } of allParticipants(event)) {
+    if (participant.email) emails.add(String(participant.email).trim().toLowerCase());
+    if (participant.phone) phones.add(formatWhatsAppPhone(String(participant.phone)));
+  }
+  const notifications = (body.notifications as unknown[])
+    .slice(0, 1000)
+    .map(obj)
+    .map((item) => ({
+      name: str(item.name, 120),
+      email: str(item.email, 200).toLowerCase(),
+      phone: str(item.phone, 30),
+      tableNumber: Number(item.tableNumber) || 0,
+      partners: str(item.partners, 500),
+    }))
+    .filter((item) => (item.email && emails.has(item.email)) || (item.phone && phones.has(formatWhatsAppPhone(item.phone))));
+  if (notifications.length === 0) {
+    throw new HttpError(400, "None of the recipients are participants of this event.");
+  }
 
-    // 1. Fetch event data to check owner / org
-    let eventRef = adminDb.collection("Pairings").doc(eventId);
-    let eventDoc = await eventRef.get();
-    let eventData: any = eventDoc.exists ? eventDoc.data() : {};
+  const requiredTokens = notifications.length * TOKENS_PER_NOTIFICATION;
+  const owner = eventOwner(event);
+  const { exempt } = await prepareCharge(owner);
 
-    const targetOwnerType: "personal" | "org" = eventData.ownerType || (eventData.orgId ? "org" : "personal");
-    const targetOwnerId: string = eventData.ownerId || eventData.orgId || userId;
-    const ledgerDocId = targetOwnerType === "personal" ? `ledger_user_${targetOwnerId}` : `ledger_org_${targetOwnerId}`;
-    const ledgerRef = adminDb.collection("TokenLedgers").doc(ledgerDocId);
-
-    // Super admin check
-    let isSuperAdmin = false;
-    if (targetOwnerType === "personal" && targetOwnerId) {
-      const ownerSnap = await adminDb.collection("Users").doc(targetOwnerId).get();
-      if (ownerSnap.exists) {
-        const ownerData = ownerSnap.data() || {};
-        if (ownerData.role === "super_admin" || ownerData.isSuperAdmin === true) {
-          isSuperAdmin = true;
-        }
-      }
-    }
-
-    let remainingTokens = 50;
-
-    // 2. Transaction to deduct tokens
-    try {
-      await adminDb.runTransaction(async (transaction) => {
-        const ledgerSnap = await transaction.get(ledgerRef);
-
-        let currentBalance = targetOwnerType === "personal" ? 50 : 75;
-        let isPaid = false;
-
-        if (ledgerSnap.exists) {
-          const ledgerData = ledgerSnap.data() || {};
-          currentBalance = typeof ledgerData.balance === "number" ? ledgerData.balance : currentBalance;
-          isPaid = ledgerData.hasEverPaid === true || ledgerData.tier === "paid";
-        }
-
-        if (!isSuperAdmin) {
-          if (isPaid && (currentBalance - requiredTokens) < -20) {
-            throw new Error("DEPLETED_PAID_LIMIT");
-          }
-          if (!isPaid && (currentBalance - requiredTokens) < 0) {
-            throw new Error("DEPLETED_FREE_LIMIT");
-          }
-        }
-
-        remainingTokens = isSuperAdmin ? 999999 : currentBalance - requiredTokens;
-        const now = Date.now();
-
-        if (ledgerSnap.exists) {
-          transaction.update(ledgerRef, {
-            balance: FieldValue.increment(-requiredTokens),
-            updatedAt: now,
-          });
-        } else {
-          transaction.set(ledgerRef, {
-            id: ledgerDocId,
-            ownerType: targetOwnerType,
-            ownerId: targetOwnerId,
-            balance: currentBalance - requiredTokens,
-            freeGrantAmount: currentBalance,
-            freeGrantUsed: true,
-            hasEverPaid: false,
-            tier: "free",
-            createdAt: now,
-            updatedAt: now,
-          });
-        }
-
-        const entryRef = adminDb.collection("TokenLedgerEntries").doc();
-        transaction.set(entryRef, {
-          id: entryRef.id,
-          accountId: targetOwnerId,
-          accountType: targetOwnerType === "org" ? "org" : "user",
-          type: "round_notification",
-          amount: -requiredTokens,
-          eventId: eventId || "unknown",
-          roundNumber: roundNumber,
-          participantCount: participantCount,
-          createdAt: now,
-        });
-
-        const legacyAccountRef = targetOwnerType === "org"
-          ? adminDb.collection("Organizations").doc(targetOwnerId)
-          : adminDb.collection("Users").doc(targetOwnerId);
-        transaction.set(legacyAccountRef, { tokenBalance: remainingTokens }, { merge: true });
+  const remainingTokens = await adminDb
+    .runTransaction(async (tx) => {
+      const plan = await planCharge(tx, owner, requiredTokens, { exempt });
+      return applyCharge(tx, plan, requiredTokens, {
+        type: "round_notification",
+        eventId,
+        roundNumber,
+        participantCount: notifications.length,
       });
-    } catch (txError: any) {
-      if (txError.message === "DEPLETED_FREE_LIMIT" || txError.message === "DEPLETED_PAID_LIMIT") {
-        return NextResponse.json(
-          {
-            error: `Insufficient token balance! Notifying ${participantCount} participants for Round ${roundNumber} requires ${requiredTokens} tokens (0.5 tokens/attendee). Please top up your token balance.`,
-            requiredTokens,
-          },
-          { status: 402 }
+    })
+    .catch((err) => {
+      if (err instanceof HttpError && err.status === 402) {
+        throw new HttpError(
+          402,
+          `Insufficient token balance! Notifying ${notifications.length} participants for Round ${roundNumber} requires ${requiredTokens} tokens (0.5 tokens/attendee). Please top up your token balance.`,
+          "TOKEN_BALANCE_DEPLETED",
+          { requiredTokens }
         );
       }
-      throw txError;
-    }
-
-    const whatsAppPayloads: any[] = [];
-
-    // 3. Dispatch Emails / Generate WhatsApp payloads
-    for (const item of notifications) {
-      const tableText = item.tableNumber === 0 ? "Solo / Floating Facilitator" : `Table ${item.tableNumber}`;
-      const msgText = `Hi ${item.name},\n\nRound ${roundNumber} for *${eventName}* has started! 🚀\n\n📍 *Assigned Location:* ${tableText}\n👥 *Partner(s):* ${item.partners || "Floating Facilitator"}\n\n🔗 View your group & table schedule:\n${groupLink}\n\n- The PairForm Team`;
-      
-      const phoneDigits = formatWhatsAppPhone(item.phone || "");
-      const waLink = phoneDigits
-        ? `https://api.whatsapp.com/send?phone=${phoneDigits}&text=${encodeURIComponent(msgText)}`
-        : `https://api.whatsapp.com/send?text=${encodeURIComponent(msgText)}`;
-
-      whatsAppPayloads.push({
-        participantName: item.name,
-        phone: item.phone || "",
-        whatsAppLink: waLink,
-        formattedText: msgText,
-      });
-
-      if ((channel === "email" || channel === "both") && item.email) {
-        try {
-          const emailContent = getRoundNotificationEmail(
-            eventName,
-            item.name,
-            roundNumber,
-            item.tableNumber,
-            item.partners || "",
-            groupLink
-          );
-          await fetch(`${appUrl}/api/send-email`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              to: item.email,
-              subject: emailContent.subject,
-              html: emailContent.html,
-              from: emailContent.from,
-            }),
-          });
-        } catch (e) {
-          console.error(`Failed sending email to ${item.email}:`, e);
-        }
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      deductedTokens: requiredTokens,
-      remainingTokens,
-      notifiedCount: participantCount,
-      roundNumber,
-      groupLink,
-      whatsAppPayloads,
+      throw err;
     });
-  } catch (error: any) {
-    console.error("Error in notify-round API:", error);
-    return NextResponse.json(
-      { error: error.message || "An unexpected error occurred while notifying participants." },
-      { status: 500 }
-    );
+
+  const eventName = eventTitle(event);
+  const groupLink = `${appOrigin(request)}/event/results/${event.createdBy || event.ownerId}/${eventId}`;
+  const whatsAppPayloads: Record<string, string>[] = [];
+  const emailJobs: Promise<unknown>[] = [];
+
+  for (const item of notifications) {
+    const tableText = item.tableNumber === 0 ? "Solo / Floating Facilitator" : `Table ${item.tableNumber}`;
+    const msgText = `Hi ${item.name},\n\nRound ${roundNumber} for *${eventName}* has started! 🚀\n\n📍 *Assigned Location:* ${tableText}\n👥 *Partner(s):* ${item.partners || "Floating Facilitator"}\n\n🔗 View your group & table schedule:\n${groupLink}\n\n- The PairForm Team`;
+    const phoneDigits = formatWhatsAppPhone(item.phone);
+    whatsAppPayloads.push({
+      participantName: item.name,
+      phone: item.phone,
+      whatsAppLink: phoneDigits
+        ? `https://api.whatsapp.com/send?phone=${phoneDigits}&text=${encodeURIComponent(msgText)}`
+        : `https://api.whatsapp.com/send?text=${encodeURIComponent(msgText)}`,
+      formattedText: msgText,
+    });
+
+    if ((channel === "email" || channel === "both") && item.email) {
+      const mail = getRoundNotificationEmail(eventName, item.name, roundNumber, item.tableNumber, item.partners, groupLink);
+      emailJobs.push(sendEmail({ to: item.email, ...mail }));
+    }
   }
-}
+  await Promise.allSettled(emailJobs);
+
+  return NextResponse.json({
+    success: true,
+    deductedTokens: exempt ? 0 : requiredTokens,
+    remainingTokens,
+    notifiedCount: notifications.length,
+    roundNumber,
+    groupLink,
+    whatsAppPayloads,
+  });
+});

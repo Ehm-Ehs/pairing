@@ -1,3 +1,14 @@
+/** Escapes user-supplied text before it is placed into email HTML. */
+const escapeHtml = (value: unknown): string =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const e = escapeHtml;
+
 export const EMAIL_SENDERS = {
   WELCOME: "Welcome <welcome@service.pair-form.com>",
   NOTIFY: "PairForm <notify@service.pair-form.com>",
@@ -14,7 +25,7 @@ export const getWelcomeEmail = (name: string) => {
           <img src="https://pair-form.com/logo.png" alt="PairForm Logo" style="max-width: 150px; height: auto;" />
         </div>
         
-        <h1 style="color: #111; font-size: 24px; font-weight: 700;">Hi there, ${name} </h1>
+        <h1 style="color: #111; font-size: 24px; font-weight: 700;">Hi there, ${e(name)} </h1>
         
         <p style="font-size: 16px;">Welcome to <strong>PairForm</strong>. We are excited to have you on board!</p>
         
@@ -62,7 +73,8 @@ export const getPairingEmail = (
   participantName: string,
   matchName: string,
   isSecretSanta: boolean,
-  matchDetails?: string
+  matchDetails?: string,
+  link: string = "https://pair-form.com"
 ) => {
   const typeText = isSecretSanta ? "Secret Santa Match" : "Pairing Result";
   const actionText = isSecretSanta ? "gifting to" : "paired with";
@@ -72,18 +84,19 @@ export const getPairingEmail = (
     subject: `${typeText}: ${eventName}`,
     html: `
       <div style="font-family: sans-serif; color: #333;">
-        <h1>${eventName} Results</h1>
-        <p>Hi ${participantName},</p>
+        <h1>${e(eventName)} Results</h1>
+        <p>Hi ${e(participantName)},</p>
         <p>The pairings have been generated!</p>
         <div style="padding: 20px; background-color: #f5f5f5; border-radius: 5px; margin: 20px 0;">
-          <p style="font-size: 18px; margin: 0;">You are ${actionText}: <strong>${matchName}</strong></p>
+          <p style="font-size: 18px; margin: 0;">You are ${actionText}: <strong>${e(matchName)}</strong></p>
           ${
             matchDetails
-              ? `<p style="margin-top: 10px; color: #666;">Details: ${matchDetails}</p>`
+              ? `<p style="margin-top: 10px; color: #666;">Details: ${e(matchDetails)}</p>`
               : ""
           }
         </div>
-        <p><a href="https://pair-form.com">View your pairing online</a></p>
+        <p><a href="${e(link)}">View your pairing online</a></p>
+        <p style="color: #666; font-size: 13px;">This link is private to you. Please do not share it.</p>
         <br/>
         <p>Best,<br/>The Pair Form Team</p>
       </div>
@@ -95,7 +108,8 @@ export const getRoleAssignedEmail = (
   eventName: string,
   participantName: string,
   groupNumber: number | string,
-  role?: string
+  role?: string,
+  privateLink?: string
 ) => {
   const groupLabel =
     typeof groupNumber === "string" &&
@@ -116,21 +130,27 @@ export const getRoleAssignedEmail = (
           <img src="https://pair-form.com/logo.png" alt="PairForm Logo" style="max-width: 150px; height: auto;" />
         </div>
 
-        <h1 style="color: #111; font-size: 24px; font-weight: 700;">Hi ${participantName},</h1>
+        <h1 style="color: #111; font-size: 24px; font-weight: 700;">Hi ${e(participantName)},</h1>
         
         <p style="font-size: 16px;">Thanks for completing the form, you’ve been successfully added to the group on <strong>PairForm</strong></p>
         
-        <p style="font-size: 16px;">Your information has been received and saved, and you’re now part of the <strong>${eventName}</strong> grouping process.</p>
+        <p style="font-size: 16px;">Your information has been received and saved, and you’re now part of the <strong>${e(eventName)}</strong> grouping process.</p>
         
         <div style="padding: 20px; background-color: #e6f7ff; border: 1px solid #91d5ff; border-radius: 6px; margin: 25px 0; text-align: center;">
-          <p style="font-size: 18px; margin: 0; color: #0050b3;"><strong>${groupLabel}</strong></p>
+          <p style="font-size: 18px; margin: 0; color: #0050b3;"><strong>${e(groupLabel)}</strong></p>
           ${
             role
-              ? `<p style="font-size: 16px; margin-top: 5px; color: #333;">Role: <strong>${role}</strong></p>`
+              ? `<p style="font-size: 16px; margin-top: 5px; color: #333;">Role: <strong>${e(role)}</strong></p>`
               : ""
           }
         </div>
         
+        ${
+          privateLink
+            ? `<p style="font-size: 16px; text-align: center;"><a href="${e(privateLink)}" style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View your assignment</a></p><p style="font-size: 13px; color: #666; text-align: center;">This link is private to you. Please do not share it.</p>`
+            : ""
+        }
+
         <h3 style="font-size: 18px; font-weight: 600; margin-top: 30px;">What happens next?</h3>
         
         <ul style="list-style: none; padding: 0;">
@@ -167,16 +187,14 @@ export const getRoleAssignedEmail = (
 export const getGroupCompleteEmail = (
   shareLink: string,
   groupName: string,
-  participants: any[]
+  participants: { name?: string; role?: string; track?: string }[]
 ) => {
   const membersList = participants
     .map(
       (p) =>
-        `<li style="margin-bottom: 8px; color: #333;"><strong>${
-          p.name
-        }</strong>${
+        `<li style="margin-bottom: 8px; color: #333;"><strong>${e(p.name)}</strong>${
           p.role || p.track
-            ? `  <span style="color: #666;">(${p.role || p.track})</span>`
+            ? `  <span style="color: #666;">(${e(p.role || p.track)})</span>`
             : ""
         }</li>`
     )
@@ -220,7 +238,7 @@ export const getGroupCompleteEmail = (
 
         <h1 style="color: #111; font-size: 24px; font-weight: 700;">Great news 👏</h1>
         
-        <p style="font-size: 16px;">All participants have successfully joined <strong>${groupName}</strong> your group is now complete!</p>
+        <p style="font-size: 16px;">All participants have successfully joined <strong>${e(groupName)}</strong> your group is now complete!</p>
         
         <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb;">
           <h3 style="margin-top: 0; font-size: 18px; color: #111;">Group Members:</h3>
@@ -232,7 +250,7 @@ export const getGroupCompleteEmail = (
         <p style="font-size: 16px;">Everything is locked in and ready to go. You can view the full dashboard using the link below:</p>
         
         <div style="margin: 30px 0; text-align: center;">
-          <a href="${shareLink}" style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">🔗 View & share your group</a>
+          <a href="${e(shareLink)}" style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">🔗 View & share your group</a>
         </div>
         
         <p style="font-size: 16px;">Best of luck — and have a great session!</p>
@@ -268,19 +286,19 @@ export const getRoundNotificationEmail = (
           <img src="https://pair-form.com/logo.png" alt="PairForm Logo" style="max-width: 150px; height: auto;" />
         </div>
 
-        <h1 style="color: #111; font-size: 24px; font-weight: 700;">Hi ${participantName},</h1>
+        <h1 style="color: #111; font-size: 24px; font-weight: 700;">Hi ${e(participantName)},</h1>
         
-        <p style="font-size: 16px;">Round <strong>${roundNumber}</strong> for <strong>${eventName}</strong> has started!</p>
+        <p style="font-size: 16px;">Round <strong>${e(roundNumber)}</strong> for <strong>${e(eventName)}</strong> has started!</p>
         
         <div style="padding: 20px; background-color: #e6f7ff; border: 1px solid #91d5ff; border-radius: 8px; margin: 25px 0; text-align: center;">
-          <p style="font-size: 20px; margin: 0; color: #0050b3;"><strong>${tableDisplay}</strong></p>
-          ${partnerNames ? `<p style="font-size: 16px; margin-top: 8px; color: #333;">Partner(s): <strong>${partnerNames}</strong></p>` : ""}
+          <p style="font-size: 20px; margin: 0; color: #0050b3;"><strong>${e(tableDisplay)}</strong></p>
+          ${partnerNames ? `<p style="font-size: 16px; margin-top: 8px; color: #333;">Partner(s): <strong>${e(partnerNames)}</strong></p>` : ""}
         </div>
         
         <p style="font-size: 15px;">Please head over to your assigned table for this round. You can view your new grouping & live schedule below:</p>
         
         <div style="margin: 30px 0; text-align: center;">
-          <a href="${groupLink}" style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+          <a href="${e(groupLink)}" style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
             🔗 View Your New Grouping & Table
           </a>
         </div>
@@ -292,6 +310,41 @@ export const getRoundNotificationEmail = (
           <strong>The PairForm Team</strong><br/>
           <span style="font-style: italic; color: #888;">Simple. Fair. Stress-free networking.</span>
         </p>
+      </div>
+    `,
+  };
+};
+
+export const getPrivateLinkEmail = (eventName: string, participantName: string, link: string) => {
+  return {
+    from: EMAIL_SENDERS.NOTIFY,
+    subject: `Your private link for ${eventName}`,
+    html: `
+      <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; line-height: 1.6;">
+        <h1 style="color: #111; font-size: 22px; font-weight: 700;">Hi ${e(participantName)},</h1>
+        <p style="font-size: 16px;">Here is your private link for <strong>${e(eventName)}</strong>. Use it to view your assignment at any time.</p>
+        <div style="margin: 30px 0; text-align: center;">
+          <a href="${e(link)}" style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block;">View my assignment</a>
+        </div>
+        <p style="font-size: 13px; color: #666;">This link is private to you. Please do not share it. If you did not request it, you can ignore this email.</p>
+        <p style="font-size: 14px; color: #666;">Best,<br/><strong>The PairForm Team</strong></p>
+      </div>
+    `,
+  };
+};
+
+export const getOrgInviteEmail = (orgName: string, role: string, inviteLink: string) => {
+  return {
+    from: EMAIL_SENDERS.NOTIFY,
+    subject: `You've been invited to join ${orgName} on PairForm`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #1e293b;">Organization Invitation</h2>
+        <p>You have been invited to join <strong>${e(orgName)}</strong> on PairForm as a <strong>${e(role)}</strong>.</p>
+        <p style="margin: 24px 0;">
+          <a href="${e(inviteLink)}" style="background-color: #4f46e5; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Accept Invitation</a>
+        </p>
+        <p style="color: #64748b; font-size: 14px;">If you do not have an account, clicking the link will let you sign up with this email.</p>
       </div>
     `,
   };

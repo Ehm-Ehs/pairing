@@ -1,47 +1,41 @@
+import { countSlots } from "@/utils/eventStats";
+import { logger } from "@/utils/logger";
 import { useState, useEffect } from "react";
-import { Button } from "../../../src/components/ui/button";
-import { Card, CardContent } from "../../../src/components/ui/card";
-import { FaPlus, FaSearch, FaChevronLeft, FaChevronRight, FaLayerGroup } from "react-icons/fa";
-import { GroupingsPageProps, Pairing } from "../../../src/types";
+import { FaSearch, FaChevronLeft, FaChevronRight, FaLayerGroup } from "react-icons/fa";
+import { GroupingsPageProps, Pairing } from "@/types";
 import DashboardStats from "./DashboardStats";
-import EventCard from "../../../src/utils/EventCard";
-import { useHomeActions } from "../../../src/hooks/useHomeActions";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useWorkspace } from "../../../src/context/WorkspaceContext";
-import { fetchWorkspacePairings } from "../../../src/services/endpoints";
+import EventCard from "@/utils/EventCard";
+import { useHomeActions } from "@/hooks/useHomeActions";
+import { useWorkspace } from "@/context/WorkspaceContext";
+import { fetchWorkspacePairings } from "@/services/endpoints";
 
 interface HomeProps {
   data: GroupingsPageProps | null;
 }
 
+const PAGE_SIZE = 6;
+
 export default function Home({ data }: HomeProps) {
-  const router = useRouter();
   const { activeWorkspace } = useWorkspace();
   const userId = data?.userId || data?.uid || "";
   const [workspacePairings, setWorkspacePairings] = useState<Pairing[]>([]);
-  const [loadingPairings, setLoadingPairings] = useState(true);
 
   useEffect(() => {
     async function loadWorkspaceEvents() {
       if (!userId) return;
-      setLoadingPairings(true);
       try {
         const events = await fetchWorkspacePairings(activeWorkspace, userId);
         setWorkspacePairings(events);
       } catch (err) {
-        console.error("Failed to load workspace pairings:", err);
-      } finally {
-        setLoadingPairings(false);
+        logger.error("Failed to load workspace pairings:", err);
       }
     }
     loadWorkspaceEvents();
   }, [activeWorkspace, userId]);
 
   const allEvents = workspacePairings;
-  const organizerName = data?.firstName || "Organizer";
   const {
     handleCreateNew,
-    handleGeneratePairs,
     handleShare,
   } = useHomeActions();
 
@@ -52,12 +46,12 @@ export default function Home({ data }: HomeProps) {
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(6);
+  const pageSize = PAGE_SIZE;
 
   // Reset pagination on filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, typeFilter, searchQuery, pageSize]);
+  }, [statusFilter, typeFilter, searchQuery]);
 
   // Calculate overall stats (All-time pairings)
   const totalEventsCount = allEvents.length;
@@ -65,13 +59,7 @@ export default function Home({ data }: HomeProps) {
 
   let totalParticipantsCount = 0;
   allEvents.forEach((event) => {
-    if (event.type === "secret-santa" || event.type === "random-positioning") {
-      totalParticipantsCount += event.participants?.length || 0;
-    } else {
-      Object.values(event.groups || {}).forEach((group: any) => {
-        totalParticipantsCount += group.filter((p: any) => p.name).length;
-      });
-    }
+    totalParticipantsCount += countSlots(event).filledSlots;
   });
 
   // Filter events list
@@ -216,7 +204,7 @@ export default function Home({ data }: HomeProps) {
           <div className="relative">
             <select
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as any)}
+              onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
               className="bg-white border border-gray-200 rounded-full px-4 py-2 text-xs font-bold text-gray-600 outline-none cursor-pointer appearance-none pr-8 select-none"
             >
               <option value="all">All Types</option>
@@ -259,7 +247,6 @@ export default function Home({ data }: HomeProps) {
                 key={event.id}
                 event={event}
                 index={originalIndex !== -1 ? originalIndex : index}
-                onGeneratePairs={handleGeneratePairs}
                 onViewDetails={() => handleShare(event.id, event)}
               />
             );

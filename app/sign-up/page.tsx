@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import Logo from "../../src/assets/logo";
+import Logo from "@/assets/logo";
 import SignupForm from "./_components/SignupForm";
 import Link from "next/link";
 

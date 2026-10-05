@@ -1,12 +1,17 @@
+import { logger } from "@/utils/logger";
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "react-toastify";
 import { auth, db } from "../services/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { addPairing } from "../services/endpoints";
+import { fetchTokenLedger, canSpend } from "../services/tokenLedgerService";
 import { useWorkspace } from "../context/WorkspaceContext";
 import {
+  BasePairing,
+  EventType,
+  Pairing,
   RoleBasedPairing,
   SecretSantaPairing,
   RandomPositioningPairing,
@@ -19,15 +24,54 @@ interface Characteristic {
   count: string;
 }
 
-export interface FormValues {
+export interface FormValues extends SharedFormOptions {
   numParticipants: string;
   numGroups: string;
   groupingPurpose: string;
   characteristicsLabel: string;
   characteristics: Characteristic[];
   isRandom?: boolean;
-  imageUrl?: string;
 }
+
+/** Options every event form can set, whatever the event type. */
+interface SharedFormOptions {
+  imageUrl?: string;
+  isSpeedNetworking?: boolean;
+  speedNetworkingRounds?: number;
+}
+
+export interface SecretSantaFormValues extends SharedFormOptions {
+  title: string;
+  allowWishlist: boolean;
+  expectedParticipants: number | string;
+}
+
+export interface RandomPositioningFormValues extends SharedFormOptions {
+  title: string;
+  description?: string;
+  deadline?: string;
+  hideNames: boolean;
+  assignmentMode?: "participants-pick" | "fcfs" | "random";
+}
+
+/** An event the user started creating; kept across the sign-in redirect. */
+interface EventDraft {
+  eventType: EventType;
+  formValues: (FormValues | SecretSantaFormValues | RandomPositioningFormValues) & SharedFormOptions;
+  groups?: RoleBasedPairing["groups"];
+}
+
+type CommonEventFields = Pick<
+  BasePairing,
+  "id" | "createdAt" | "imageUrl" | "visibilityMode" | "notificationChannel" | "isSpeedNetworking" | "speedNetworkingRounds"
+>;
+
+const DRAFT_KEY = "pending_event_draft";
+const DRAFT_MAX_AGE_MS = 60 * 60 * 1000;
+const DEFAULT_POSITION_SLOTS = 10;
+const EVENT_TYPES: EventType[] = ["role-based", "secret-santa", "random-positioning"];
+const toEventType = (value: string | null | undefined): EventType | null =>
+  EVENT_TYPES.includes(value as EventType) ? (value as EventType) : null;
 
 interface ModalState {
   isOpen: boolean;
@@ -36,27 +80,17 @@ interface ModalState {
   pendingValues: FormValues | null;
 }
 
-import { useSearchParams } from "next/navigation";
-
 export const useCreateEvent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryType = searchParams?.get("type");
   const { activeWorkspace } = useWorkspace();
 
-  const [eventType, setEventType] = useState<
-    "role-based" | "secret-santa" | "random-positioning" | null
-  >(() => {
-    if (queryType === "role-based" || queryType === "secret-santa" || queryType === "random-positioning") {
-      return queryType;
-    }
-    return null;
-  });
+  const [eventType, setEventType] = useState<EventType | null>(() => toEventType(queryType));
 
   useEffect(() => {
-    if (queryType === "role-based" || queryType === "secret-santa" || queryType === "random-positioning") {
-      setEventType(queryType);
-    }
+    const next = toEventType(queryType);
+    if (next) setEventType(next);
   }, [queryType]);
 
   const [formValues, setFormValues] = useState<FormValues>({
@@ -69,9 +103,7 @@ export const useCreateEvent = () => {
     imageUrl: "",
   });
 
-  const [groups, setGroups] = useState<{
-    [key: number]: { id: string; number: number; role: string }[];
-  } | null>(null);
+  const [groups, setGroups] = useState<RoleBasedPairing["groups"] | null>(null);
 
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
@@ -92,37 +124,35 @@ export const useCreateEvent = () => {
     }
   }, [groups]);
 
-  // Auto-resume pending draft when user logs in
+  // After signing in, finish creating the event the visitor had started while signed out.
   useEffect(() => {
-    const handleAutoResumeDraft = async () => {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-      const draftStr = sessionStorage.getItem("pending_event_draft");
+    let cancelled = false;
+
+    // Firebase restores the session asynchronously, so wait for it before deciding nobody is signed in.
+    auth.authStateReady().then(() => {
+      if (cancelled || !auth.currentUser) return;
+      const draftStr = sessionStorage.getItem(DRAFT_KEY);
       if (!draftStr) return;
+      sessionStorage.removeItem(DRAFT_KEY);
 
       try {
         const draft = JSON.parse(draftStr);
-        if (Date.now() - (draft.timestamp || 0) < 3600000) {
-          sessionStorage.removeItem("pending_event_draft");
-          toast.info("Saving your event...", { position: "top-center" });
+        if (!draft.formValues || Date.now() - (draft.timestamp || 0) >= DRAFT_MAX_AGE_MS) return;
+        toast.info("Saving your event...", { position: "top-center" });
 
-          if (draft.eventType === "role-based" && draft.formValues) {
-            await handleSubmitRoleBased(draft.formValues, draft.groups);
-          } else if (draft.eventType === "secret-santa" && draft.formValues) {
-            await handleSubmitSecretSanta(draft.formValues);
-          } else if (draft.eventType === "random-positioning" && draft.formValues) {
-            await handleSubmitRandomPositioning(draft.formValues);
-          }
-        } else {
-          sessionStorage.removeItem("pending_event_draft");
-        }
+        if (draft.eventType === "role-based") handleSubmitRoleBased(draft.formValues, draft.groups);
+        else if (draft.eventType === "secret-santa") handleSubmitSecretSanta(draft.formValues);
+        else if (draft.eventType === "random-positioning") handleSubmitRandomPositioning(draft.formValues);
       } catch (e) {
-        console.error("Error auto-resuming event draft:", e);
-        sessionStorage.removeItem("pending_event_draft");
+        logger.error("Error auto-resuming event draft:", e);
       }
-    };
+    });
 
-    handleAutoResumeDraft();
+    return () => {
+      cancelled = true;
+    };
+    // Runs once on mount: it resumes a draft saved before the sign-in redirect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const generateAndSubmit = (
@@ -192,166 +222,106 @@ export const useCreateEvent = () => {
     setModalState({ ...modalState, isOpen: false, pendingValues: null });
   };
 
-  const checkGuestLimit = async (userId: string): Promise<boolean> => {
-    try {
-      const userDocRef = doc(db, "Users", userId);
-      const userDocSnap = await getDoc(userDocRef);
-      if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
-
-        // Super Admin bypass
-        if (userData.role === "super_admin" || userData.isSuperAdmin === true) {
-          return false;
-        }
-
-        // Check Token Balance Rules
-        const balance = typeof userData.tokenBalance === "number" ? userData.tokenBalance : 50;
-        const isPaid = userData.hasEverPaid === true || (userData.tier && userData.tier !== "free");
-
-        if (isPaid && balance < -20) {
-          toast.error("Token buffer limit reached (-20 tokens)! Please top up your token balance to create new events.", {
-            position: "top-center"
-          });
-          return true;
-        }
-
-        if (!isPaid && balance <= 0) {
-          toast.error("Token balance depleted! Please purchase a token pack to continue creating events.", {
-            position: "top-center"
-          });
-          return true;
-        }
-      }
-    } catch (error) {
-      console.error("Error checking token limit:", error);
-    }
-    return false;
-  };
-
-  const handleSubmitRoleBased = async (formValues: FormValues, groups: any) => {
+  /**
+   * The steps every event type shares before it is saved: require sign-in (stashing the
+   * draft so it resumes after login), warn early if the workspace is out of tokens, and
+   * read the organizer's default settings. Returns null when creation should stop.
+   *
+   * The token check is only a hint; the server enforces the balance when participants join.
+   */
+  const beginCreate = async (draft: EventDraft) => {
     const userId = auth.currentUser?.uid;
-
     if (!userId) {
       try {
-        sessionStorage.setItem(
-          "pending_event_draft",
-          JSON.stringify({
-            eventType: "role-based",
-            formValues,
-            groups,
-            timestamp: Date.now(),
-          })
-        );
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, timestamp: Date.now() }));
       } catch (e) {
-        console.warn("Could not stash pending draft:", e);
+        logger.warn("Could not stash pending draft:", e);
       }
       setShowAuthModal(true);
-      return;
+      return null;
     }
 
     setLoading(true);
-
-    try {
-      const limitReached = await checkGuestLimit(userId);
-      if (limitReached) {
-        setLoading(false);
-        return;
-      }
-    } catch (err) {
-      console.error("Error during guest limit check:", err);
-    }
-
-    let userDefaults = { visibilityMode: "public" as "public" | "restricted", notificationChannel: "both" as "email" | "whatsapp" | "both" };
-    try {
-      const uSnap = await getDoc(doc(db, "Users", userId));
-      if (uSnap.exists()) {
-        const uData = uSnap.data();
-        if (uData.settings?.defaults?.visibilityMode) userDefaults.visibilityMode = uData.settings.defaults.visibilityMode;
-        if (uData.settings?.defaults?.notificationChannel) userDefaults.notificationChannel = uData.settings.defaults.notificationChannel;
-      }
-    } catch (err) {
-      console.warn("Could not fetch user default settings:", err);
-    }
-
-    const newPairing: RoleBasedPairing = {
-      id: uuidv4(),
-      createdAt: Date.now(),
-      type: "role-based",
-      title: formValues.groupingPurpose,
-      groupingPurpose: formValues.groupingPurpose,
-      numParticipants: parseInt(formValues.numParticipants, 10),
-      numGroups: parseInt(formValues.numGroups, 10),
-      characteristics: formValues.characteristics.map((c) => ({
-        name: c.name.trim(),
-        count: parseInt(c.count, 10),
-      })),
-      characteristicsLabel: formValues.characteristics && formValues.characteristics.length > 0 ? formValues.characteristicsLabel : "",
-      groups: groups,
-      imageUrl: (formValues as any).imageUrl || "",
-      visibilityMode: userDefaults.visibilityMode,
-      notificationChannel: userDefaults.notificationChannel,
-      isSpeedNetworking: (formValues as any).isSpeedNetworking || false,
-      speedNetworkingRounds: (formValues as any).speedNetworkingRounds || 3,
+    const defaults = {
+      visibilityMode: "public" as "public" | "restricted",
+      notificationChannel: "both" as "email" | "whatsapp" | "both",
     };
 
     try {
-      await addPairing(userId, newPairing, activeWorkspace);
-      router.push(`/your-pairing?id=${newPairing.id}`);
+      const isOrg = activeWorkspace.type === "organization";
+      const userData = (await getDoc(doc(db, "Users", userId))).data();
+      if (userData?.settings?.defaults?.visibilityMode) defaults.visibilityMode = userData.settings.defaults.visibilityMode;
+      if (userData?.settings?.defaults?.notificationChannel) {
+        defaults.notificationChannel = userData.settings.defaults.notificationChannel;
+      }
+
+      const isSuperAdmin = !isOrg && (userData?.role === "super_admin" || userData?.isSuperAdmin === true);
+      if (!isSuperAdmin) {
+        const ledger = await fetchTokenLedger(isOrg ? "org" : "personal", isOrg ? activeWorkspace.id : userId);
+        if (ledger && !canSpend(ledger, 1)) {
+          toast.error(
+            "You are out of tokens. Please buy a token pack to keep creating events.",
+            { position: "top-center" }
+          );
+          setLoading(false);
+          return null;
+        }
+      }
+    } catch (err) {
+      logger.warn("Could not check token balance or default settings:", err);
+    }
+
+    return { userId, defaults };
+  };
+
+  /** Saves a new event built from the shared fields plus the type-specific ones. */
+  const createEvent = async <T extends Pairing>(
+    draft: EventDraft,
+    build: (common: CommonEventFields) => T,
+    onCreated?: () => void
+  ) => {
+    const context = await beginCreate(draft);
+    if (!context) return;
+
+    const values = draft.formValues;
+    const pairing = build({
+      id: uuidv4(),
+      createdAt: Date.now(),
+      imageUrl: values.imageUrl || "",
+      visibilityMode: context.defaults.visibilityMode,
+      notificationChannel: context.defaults.notificationChannel,
+      isSpeedNetworking: values.isSpeedNetworking || false,
+      speedNetworkingRounds: values.speedNetworkingRounds || 3,
+    });
+
+    try {
+      await addPairing(context.userId, pairing, activeWorkspace);
+      onCreated?.();
+      router.push(`/your-pairing?id=${pairing.id}`);
     } catch (error) {
-      console.error("Error during submission:", error);
+      logger.error("Error creating event:", error);
       toast.error(getFriendlyFirebaseErrorMessage(error));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmitSecretSanta = async (values: any) => {
-    const userId = auth.currentUser?.uid;
+  const handleSubmitRoleBased = (values: FormValues, groups: RoleBasedPairing["groups"]) =>
+    createEvent<RoleBasedPairing>({ eventType: "role-based", formValues: values, groups }, (common) => ({
+      ...common,
+      type: "role-based",
+      title: values.groupingPurpose,
+      groupingPurpose: values.groupingPurpose,
+      numParticipants: parseInt(values.numParticipants, 10),
+      numGroups: parseInt(values.numGroups, 10),
+      characteristics: values.characteristics.map((c) => ({ name: c.name.trim(), count: parseInt(c.count, 10) })),
+      characteristicsLabel: values.characteristics?.length > 0 ? values.characteristicsLabel : "",
+      groups,
+    }));
 
-    if (!userId) {
-      try {
-        sessionStorage.setItem(
-          "pending_event_draft",
-          JSON.stringify({
-            eventType: "secret-santa",
-            formValues: values,
-            timestamp: Date.now(),
-          })
-        );
-      } catch (e) {
-        console.warn("Could not stash pending draft:", e);
-      }
-      setShowAuthModal(true);
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const limitReached = await checkGuestLimit(userId);
-      if (limitReached) {
-        setLoading(false);
-        return;
-      }
-    } catch (err) {
-      console.error("Error during guest limit check:", err);
-    }
-
-    let userDefaults = { visibilityMode: "public" as "public" | "restricted", notificationChannel: "both" as "email" | "whatsapp" | "both" };
-    try {
-      const uSnap = await getDoc(doc(db, "Users", userId));
-      if (uSnap.exists()) {
-        const uData = uSnap.data();
-        if (uData.settings?.defaults?.visibilityMode) userDefaults.visibilityMode = uData.settings.defaults.visibilityMode;
-        if (uData.settings?.defaults?.notificationChannel) userDefaults.notificationChannel = uData.settings.defaults.notificationChannel;
-      }
-    } catch (err) {
-      console.warn("Could not fetch user default settings:", err);
-    }
-
-    const newPairing: SecretSantaPairing = {
-      id: uuidv4(),
-      createdAt: Date.now(),
+  const handleSubmitSecretSanta = (values: SecretSantaFormValues) =>
+    createEvent<SecretSantaPairing>({ eventType: "secret-santa", formValues: values }, (common) => ({
+      ...common,
       type: "secret-santa",
       title: values.title,
       groupingPurpose: values.title,
@@ -361,104 +331,34 @@ export const useCreateEvent = () => {
         allowWishlist: values.allowWishlist,
         budget: "",
         exchangeDate: "",
-        expectedParticipants: parseInt(values.expectedParticipants, 10),
+        expectedParticipants: parseInt(String(values.expectedParticipants), 10),
       },
-      imageUrl: values.imageUrl || "",
-      visibilityMode: userDefaults.visibilityMode,
-      notificationChannel: userDefaults.notificationChannel,
-      isSpeedNetworking: values.isSpeedNetworking || false,
-      speedNetworkingRounds: values.speedNetworkingRounds || 3,
-    };
+    }));
 
-    try {
-      await addPairing(userId, newPairing, activeWorkspace);
-      router.push(`/your-pairing?id=${newPairing.id}`);
-    } catch (error) {
-      console.error("Error creating Secret Santa:", error);
-      toast.error(getFriendlyFirebaseErrorMessage(error));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmitRandomPositioning = async (values: any) => {
-    const userId = auth.currentUser?.uid;
-
-    if (!userId) {
-      try {
-        sessionStorage.setItem(
-          "pending_event_draft",
-          JSON.stringify({
-            eventType: "random-positioning",
-            formValues: values,
-            timestamp: Date.now(),
-          })
+  const handleSubmitRandomPositioning = (values: RandomPositioningFormValues) =>
+    createEvent<RandomPositioningPairing>(
+      { eventType: "random-positioning", formValues: values },
+      (common) => ({
+        ...common,
+        type: "random-positioning",
+        title: values.title,
+        groupingPurpose: values.title,
+        description: values.description,
+        deadline: values.deadline,
+        hideNames: values.hideNames,
+        assignmentMode: values.assignmentMode || "participants-pick",
+        status: "open",
+        participants: [],
+        expectedParticipants: DEFAULT_POSITION_SLOTS,
+      }),
+      () => {
+        toast.success("Event created successfully!");
+        toast.info(
+          `This event has a default limit of ${DEFAULT_POSITION_SLOTS} slots. Increasing slot capacity is a feature coming soon!`,
+          { autoClose: 8000 }
         );
-      } catch (e) {
-        console.warn("Could not stash pending draft:", e);
       }
-      setShowAuthModal(true);
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const limitReached = await checkGuestLimit(userId);
-      if (limitReached) {
-        setLoading(false);
-        return;
-      }
-    } catch (err) {
-      console.error("Error during guest limit check:", err);
-    }
-
-    let userDefaults = { visibilityMode: "public" as "public" | "restricted", notificationChannel: "both" as "email" | "whatsapp" | "both" };
-    try {
-      const uSnap = await getDoc(doc(db, "Users", userId));
-      if (uSnap.exists()) {
-        const uData = uSnap.data();
-        if (uData.settings?.defaults?.visibilityMode) userDefaults.visibilityMode = uData.settings.defaults.visibilityMode;
-        if (uData.settings?.defaults?.notificationChannel) userDefaults.notificationChannel = uData.settings.defaults.notificationChannel;
-      }
-    } catch (err) {
-      console.warn("Could not fetch user default settings:", err);
-    }
-
-    const newPairing: RandomPositioningPairing = {
-      id: uuidv4(),
-      createdAt: Date.now(),
-      type: "random-positioning",
-      title: values.title,
-      groupingPurpose: values.title,
-      description: values.description,
-      deadline: values.deadline,
-      hideNames: values.hideNames,
-      assignmentMode: values.assignmentMode || "participants-pick",
-      status: "open",
-      participants: [],
-      imageUrl: values.imageUrl || "",
-      expectedParticipants: 10,
-      visibilityMode: userDefaults.visibilityMode,
-      notificationChannel: userDefaults.notificationChannel,
-      isSpeedNetworking: values.isSpeedNetworking || false,
-      speedNetworkingRounds: values.speedNetworkingRounds || 3,
-    };
-
-    try {
-      await addPairing(userId, newPairing, activeWorkspace);
-      toast.success("Event created successfully!");
-      toast.info("This event has a default limit of 10 slots. Increasing slot capacity is a feature coming soon!", {
-        autoClose: 8000,
-      });
-      router.push(`/your-pairing?id=${newPairing.id}`);
-    } catch (error) {
-      console.error("Error creating Random Positioning event:", error);
-      toast.error(getFriendlyFirebaseErrorMessage(error));
-    } finally {
-      setLoading(false);
-    }
-  };
+    );
 
   return {
     eventType,

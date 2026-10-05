@@ -1,9 +1,12 @@
+import { toast } from "react-toastify";
+import { copyToClipboard } from "@/utils/clipboard";
+import { absoluteUrl, roleBasedFormPath } from "@/utils/eventLinks";
 import React from "react";
 import { usePathname } from "next/navigation";
 import { FaTimes, FaLock, FaLink } from "react-icons/fa";
-import { RoleBasedPairing, Participant } from "../../../src/types";
-import { getGravatarUrl } from "../../../src/utils/avatar";
-import { capitalizeWords, formatGroupName } from "../../../src/utils/stringUtils";
+import { RoleBasedPairing, Participant } from "@/types";
+import { getGravatarUrl } from "@/utils/avatar";
+import { capitalizeWords, formatGroupName } from "@/utils/stringUtils";
 
 interface RoleGridProps {
   pairing: RoleBasedPairing;
@@ -84,19 +87,11 @@ const RoleGrid: React.FC<RoleGridProps> = ({
                 {isYourPairingPage && (
                   <button
                     type="button"
-                    onClick={() => {
-                      const serializedGroup = encodeURIComponent(JSON.stringify({ [groupKey]: group }));
-                      const encryptedUserId = btoa(pairing.ownerId || "");
-                      const groupUrl = `${window.location.origin}/form?groupingPurpose=${encodeURIComponent(
-                        pairing.groupingPurpose
-                      )}&numGroups=1&numParticipants=${group.length}&characteristicsLabel=${encodeURIComponent(
-                        pairing.characteristicsLabel || ""
-                      )}&pairings=${serializedGroup}&userId=${encryptedUserId}&group=${groupKey}`;
-
-                      navigator.clipboard.writeText(groupUrl);
-                      import("react-toastify").then(({ toast }) => {
-                        toast.success(`Copied invite link for ${formatGroupName(groupKey, groupIndex)}!`);
-                      });
+                    onClick={async () => {
+                      const organizerId = pairing.createdBy || pairing.ownerId || "";
+                      const copied = await copyToClipboard(absoluteUrl(roleBasedFormPath(pairing, organizerId, groupKey)));
+                      if (copied) toast.success(`Copied invite link for ${formatGroupName(groupKey, groupIndex)}!`);
+                      else toast.error("Failed to copy link. Please check browser permissions.");
                     }}
                     className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg border border-blue-100 flex items-center gap-1 transition-colors cursor-pointer"
                     title="Copy invite link for this group only"

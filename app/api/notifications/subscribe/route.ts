@@ -1,41 +1,38 @@
 import { NextResponse } from "next/server";
-import { db } from "../../../../src/services/firebase";
-import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
+import { createHash } from "crypto";
+import { FieldValue } from "firebase-admin/firestore";
+import { adminDb } from "@/services/firebaseAdmin";
+import { getUser } from "@/server/auth";
+import { HttpError, clientIp, obj, readJson, route, str } from "@/server/http";
+import { rateLimit } from "@/server/rateLimit";
 
-export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-    const { subscription, userId, userAgent } = body;
+/** Stores a Web Push subscription. The owner is taken from the session, not the request body. */
+export const POST = route("notifications/subscribe", async (request) => {
+  const user = await getUser(request);
+  await rateLimit(`push-sub:${clientIp(request)}`, 20, 600);
 
-    if (!subscription || !subscription.endpoint) {
-      return NextResponse.json(
-        { error: "Invalid push subscription object" },
-        { status: 400 }
-      );
-    }
-
-    // Check if subscription endpoint already exists in Firestore
-    const subsRef = collection(db, "push_subscriptions");
-    const q = query(subsRef, where("endpoint", "==", subscription.endpoint));
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) {
-      await addDoc(subsRef, {
-        endpoint: subscription.endpoint,
-        keys: subscription.keys || {},
-        userId: userId || null,
-        userAgent: userAgent || null,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    }
-
-    return NextResponse.json({ success: true, message: "Push subscription saved." });
-  } catch (error: any) {
-    console.error("Error saving push subscription:", error);
-    return NextResponse.json(
-      { error: "Failed to save push subscription", details: error.message },
-      { status: 500 }
-    );
+  const body = await readJson(request);
+  const subscription = obj(body.subscription);
+  const endpoint = str(subscription.endpoint, 2000);
+  if (!endpoint || !/^https:\/\//.test(endpoint)) {
+    throw new HttpError(400, "Invalid push subscription object");
   }
-}
+
+  // One document per endpoint, so repeat subscriptions update instead of duplicating.
+  const id = createHash("sha256").update(endpoint).digest("hex").slice(0, 40);
+  await adminDb
+    .collection("push_subscriptions")
+    .doc(id)
+    .set(
+      {
+        endpoint,
+        keys: obj(subscription.keys),
+        userId: user?.uid || null,
+        userAgent: str(body.userAgent, 500) || null,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+  return NextResponse.json({ success: true, message: "Push subscription saved." });
+});

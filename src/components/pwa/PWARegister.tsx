@@ -1,5 +1,6 @@
 "use client";
 
+import { logger } from "@/utils/logger";
 import { useEffect } from "react";
 
 export function PWARegister() {
@@ -27,7 +28,7 @@ export function PWARegister() {
             }
           });
         } catch (error) {
-          console.error("PairForm SW Registration Failed:", error);
+          logger.error("PairForm SW Registration Failed:", error);
         }
       };
 

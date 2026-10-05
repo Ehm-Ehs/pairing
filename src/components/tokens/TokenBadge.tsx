@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { LuCoins, LuSparkles } from "react-icons/lu";
+import { LuCoins } from "react-icons/lu";
 
 interface TokenBadgeProps {
   balance?: number;

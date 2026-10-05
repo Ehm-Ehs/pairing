@@ -1,36 +1,35 @@
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-const capitalizeWords = (str: string) => {
-  if (!str) return "";
-  return str
-    .split(/\s+/)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-};
+import { JoinSuccessCard, SummaryRow } from "@/components/join/JoinSuccessCard";
+import { capitalizeWords } from "@/utils/stringUtils";
 
 const SuccessContent = () => {
   const searchParams = useSearchParams();
-  const router = useRouter();
 
-  const groupName = searchParams.get("groupName") || "Group 3";
-  const role = searchParams.get("role") || "";
+  const groupName = capitalizeWords(searchParams.get("groupName") || "Your group");
+  const role = capitalizeWords(searchParams.get("role") || "");
   const eventName = searchParams.get("eventName") || "Pairing Event";
   const email = searchParams.get("email") || "";
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-800/80 p-4">
-      <div className="w-full max-w-xl bg-white rounded-[2.5rem] shadow-2xl p-8 md:p-12 flex flex-col items-center relative overflow-hidden text-black">
-        {/* Close Button at top-right */}
-        <button
-          onClick={() => router.push("/")}
-          className="absolute top-6 right-6 w-8 h-8 rounded-full border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:border-gray-200 transition-colors"
-        >
-          <span className="text-lg">×</span>
-        </button>
+  const rows: SummaryRow[] = [{ label: "Event", value: capitalizeWords(eventName) }];
+  if (role) rows.push({ label: "Your Role", value: role });
+  rows.push({ label: "Assigned Group", value: groupName, highlight: true });
+  rows.push({ label: "Status", value: role ? `${groupName} - ${role}` : groupName, highlight: true });
 
-        {/* Confetti & Verified Seal Badge Container */}
+  return (
+    <JoinSuccessCard
+      rows={rows}
+      message={
+        <>
+          A confirmation with your group details has been sent to{" "}
+          {email ? <span className="font-bold text-gray-800">{email}</span> : "your email"}. Check your inbox (and
+          spam, just in case).
+        </>
+      }
+      badge={
+        <>
         <div className="relative w-full flex justify-center mb-6 mt-4">
           {/* Confetti SVGs/Graphics background */}
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
@@ -54,53 +53,9 @@ const SuccessContent = () => {
             </svg>
           </div>
         </div>
-
-        {/* You're in! text */}
-        <h1 className="text-4xl font-extrabold tracking-tight mb-2 text-center text-gray-900">
-          You're in!
-        </h1>
-        <p className="text-sm text-gray-500 text-center max-w-md mb-8 leading-relaxed">
-          A confirmation with your group details has been sent to {email ? <span className="font-bold text-gray-800">{email}</span> : "your email"}. Check your inbox (and spam, just in case).
-        </p>
-
-        {/* Assignment panel */}
-        <div className="w-full text-left mb-8 px-2">
-          <h2 className="text-lg font-bold text-gray-800 mb-3 tracking-tight">
-            Your Assignment
-          </h2>
-          <div className="w-full bg-[#f3f4f6] rounded-2xl p-5 border border-gray-100 flex flex-col gap-4">
-            <div className="flex justify-between items-center text-sm border-b border-gray-200/50 pb-3">
-              <span className="text-gray-500 font-medium">Event</span>
-              <span className="font-bold text-gray-900 capitalize">{capitalizeWords(eventName)}</span>
-            </div>
-            {role ? (
-              <div className="flex justify-between items-center text-sm border-b border-gray-200/50 pb-3">
-                <span className="text-gray-500 font-medium">Your Role</span>
-                <span className="font-bold text-gray-900 capitalize">{capitalizeWords(role)}</span>
-              </div>
-            ) : null}
-            <div className="flex justify-between items-center text-sm border-b border-gray-200/50 pb-3">
-              <span className="text-gray-500 font-medium">Assigned Group</span>
-              <span className="font-bold text-[#1449b2] capitalize">{capitalizeWords(groupName)}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-500 font-medium">Status</span>
-              <span className="font-bold text-[#1449b2] capitalize">
-                {role ? `${capitalizeWords(groupName)} - ${capitalizeWords(role)}` : capitalizeWords(groupName)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Go home button */}
-        <button
-          onClick={() => router.push("/")}
-          className="bg-[#e5e7eb] hover:bg-gray-300 text-[#0c3886] font-bold px-12 py-3.5 rounded-full text-sm transition-all shadow-sm cursor-pointer"
-        >
-          Go home
-        </button>
-      </div>
-    </div>
+        </>
+      }
+    />
   );
 };
 

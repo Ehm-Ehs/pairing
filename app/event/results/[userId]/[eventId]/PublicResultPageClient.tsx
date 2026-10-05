@@ -1,12 +1,13 @@
 "use client";
 
+import { errorStatus } from "@/utils/errors";
+import { logger } from "@/utils/logger";
 import React, { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../../../../../src/services/firebase";
-import { Pairing, GroupingsPageProps } from "../../../../../src/types";
+import { useParams } from "next/navigation";
+import { GroupingsPageProps } from "@/types";
+import { fetchPublicEvent } from "@/services/endpoints";
 import Result from "../../../../result/_components/Result";
-import { Loading } from "../../../../../src/components/ui/loading";
+import { Loading } from "@/components/ui/loading";
 import { toast } from "react-toastify";
 
 export default function PublicResultPageClient() {
@@ -21,57 +22,18 @@ export default function PublicResultPageClient() {
     const fetchEvent = async () => {
       if (!validUserId || !validEventId) return;
       try {
-        // 1. Try Pairings collection
-        const pairingDoc = await getDoc(doc(db, "Pairings", validEventId));
-        if (pairingDoc.exists()) {
-          const foundEvent = pairingDoc.data() as Pairing;
-          let userData: any = {};
-          try {
-            const userDocSnap = await getDoc(doc(db, "Users", validUserId));
-            if (userDocSnap.exists()) {
-              userData = userDocSnap.data();
-            }
-          } catch (userErr) {
-            console.warn("Could not fetch user details, using fallback:", userErr);
-          }
-
-          setData({
-            userId: validUserId,
-            firstName: userData.firstName || "",
-            lastName: userData.lastName || "",
-            email: userData.email || "",
-            pairings: [foundEvent],
-          });
-        } else {
-          // 2. Legacy fallback
-          try {
-            const userDoc = await getDoc(doc(db, "Users", validUserId));
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              const foundEvent = userData.pairings?.find(
-                (p: Pairing) => p.id === validEventId
-              );
-              if (foundEvent) {
-                setData({
-                  userId: validUserId,
-                  firstName: userData.firstName || "",
-                  lastName: userData.lastName || "",
-                  email: userData.email || "",
-                  pairings: [foundEvent],
-                });
-              } else {
-                toast.error("Event not found");
-              }
-            } else {
-              toast.error("Organizer not found");
-            }
-          } catch (legacyErr) {
-            console.error("Legacy fetch error:", legacyErr);
-          }
-        }
+        // The public view contains names and groups only; contact details stay private.
+        const { event, organizer } = await fetchPublicEvent({ ownerId: validUserId, eventId: validEventId });
+        setData({
+          userId: validUserId,
+          firstName: organizer.firstName,
+          lastName: organizer.lastName,
+          email: "",
+          pairings: [event],
+        });
       } catch (error) {
-        console.error("Error fetching event for public results:", error);
-        toast.error("Failed to load event details");
+        logger.error("Error fetching event for public results:", error);
+        toast.error(errorStatus(error) === 404 ? "Event not found" : "Failed to load event details");
       } finally {
         setLoading(false);
       }

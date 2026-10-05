@@ -1,5 +1,5 @@
 import React from "react";
-import { Pairing } from "../../../src/types";
+import { Pairing } from "@/types";
 import StatsCard from "./StatsCard";
 
 interface EventStatsProps {

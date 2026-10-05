@@ -1,13 +1,13 @@
 "use client";
 
+import { logger } from "@/utils/logger";
 import React, { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db, auth } from "../../../src/services/firebase";
-import { OrgInvite } from "../../../src/types/orgTypes";
-import { acceptOrgInvite } from "../../../src/services/orgService";
-import { useWorkspace } from "../../../src/context/WorkspaceContext";
-import { FaBuilding, FaCheckCircle, FaExclamationTriangle, FaSpinner, FaArrowRight } from "react-icons/fa";
+import { auth } from "@/services/firebase";
+import { OrgInvite } from "@/types/orgTypes";
+import { acceptOrgInvite, fetchInviteByToken } from "@/services/orgService";
+import { useWorkspace } from "@/context/WorkspaceContext";
+import { FaBuilding, FaExclamationTriangle, FaSpinner, FaArrowRight } from "react-icons/fa";
 import Link from "next/link";
 
 export default function InvitePage({ params }: { params: Promise<{ token: string }> }) {
@@ -25,21 +25,15 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
     async function loadInvite() {
       try {
         setLoading(true);
-        const q = query(
-          collection(db, "OrgInvites"),
-          where("token", "==", token),
-          where("status", "==", "pending")
-        );
-        const snap = await getDocs(q);
-
-        if (snap.empty) {
+        const found = await fetchInviteByToken(token);
+        if (!found) {
           setError("This invitation token is invalid, expired, or has already been used.");
           setInvite(null);
         } else {
-          setInvite(snap.docs[0].data() as OrgInvite);
+          setInvite(found);
         }
-      } catch (err: any) {
-        console.error("Error loading invite:", err);
+      } catch (err) {
+        logger.error("Error loading invite:", err);
         setError("Failed to load invitation details.");
       } finally {
         setLoading(false);
@@ -61,12 +55,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
     setAccepting(true);
     setError(null);
 
-    const res = await acceptOrgInvite(
-      token,
-      user.uid,
-      user.email || invite?.email || "",
-      user.displayName || ""
-    );
+    const res = await acceptOrgInvite(token, user.uid, user.email || "", user.displayName || "");
 
     setAccepting(false);
 

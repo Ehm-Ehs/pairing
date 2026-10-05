@@ -1,5 +1,5 @@
 import React from "react";
-import { RandomParticipant } from "../../../src/types";
+import { RandomParticipant } from "@/types";
 
 interface RandomPositionGridProps {
   filledParticipants: RandomParticipant[];

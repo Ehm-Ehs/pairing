@@ -1,124 +1,48 @@
 import { NextResponse } from "next/server";
-import { adminDb } from "../../../../../src/services/firebaseAdmin";
-import { FieldValue } from "firebase-admin/firestore";
+import { requireUser } from "@/server/auth";
+import { HttpError, route, str } from "@/server/http";
+import { orgRole } from "@/server/events";
+import { ownerFromMetadata, paystackSecret, settleTransaction, simulationAllowed } from "@/server/paystack";
 
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const reference = searchParams.get("reference");
-    const accountId = searchParams.get("accountId");
+/**
+ * Called when the buyer returns from Paystack. Confirms the transaction with Paystack
+ * and credits it. Crediting is idempotent, so this and the webhook can both run.
+ */
+export const GET = route("payments/verify", async (request) => {
+  const user = await requireUser(request);
+  const reference = str(new URL(request.url).searchParams.get("reference"), 200);
+  if (!reference) throw new HttpError(400, "Missing reference");
 
-    if (!reference) {
-      return NextResponse.json({ error: "Missing reference" }, { status: 400 });
+  const secret = paystackSecret();
+  if (!secret) {
+    if (!simulationAllowed()) {
+      throw new HttpError(503, "Payments are not available right now.", "PAYMENTS_NOT_CONFIGURED");
     }
-
-    const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
-
-    if (paystackSecretKey && paystackSecretKey.startsWith("sk_")) {
-      const verifyRes = await fetch(
-        `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${paystackSecretKey}`,
-          },
-        }
-      );
-      const data = await verifyRes.json();
-
-      if (!verifyRes.ok || !data.status || data.data.status !== "success") {
-        return NextResponse.json(
-          { error: data.message || "Transaction verification failed" },
-          { status: 400 }
-        );
-      }
-
-      const metadata = data.data.metadata || {};
-      const targetAccountId = accountId || metadata.accountId;
-      const accountType = metadata.accountType || "user";
-      const tokens = parseInt(metadata.tokens, 10) || 0;
-
-      if (targetAccountId && tokens > 0) {
-        try {
-          const accountRef =
-            accountType === "org"
-              ? adminDb.collection("Organizations").doc(targetAccountId)
-              : adminDb.collection("Users").doc(targetAccountId);
-
-          const ledgerDocId = accountType === "org" ? `ledger_org_${targetAccountId}` : `ledger_user_${targetAccountId}`;
-          const ledgerRef = adminDb.collection("TokenLedgers").doc(ledgerDocId);
-          const entryRef = adminDb.collection("TokenLedgerEntries").doc();
-
-          await adminDb.runTransaction(async (transaction) => {
-            const docSnap = await transaction.get(accountRef);
-            if (docSnap.exists) {
-              const currentTier = docSnap.data()?.tier || "free";
-              const newTier =
-                currentTier === "free" ? (accountType === "org" ? "growth" : "pro") : currentTier;
-
-              transaction.update(accountRef, {
-                tokenBalance: FieldValue.increment(tokens),
-                paidTokensPurchased: FieldValue.increment(tokens),
-                hasEverPaid: true,
-                tier: newTier,
-                updatedAt: Date.now(),
-              });
-            }
-
-            // Sync TokenLedgers document
-            const ledgerSnap = await transaction.get(ledgerRef);
-            if (ledgerSnap.exists) {
-              transaction.update(ledgerRef, {
-                balance: FieldValue.increment(tokens),
-                hasEverPaid: true,
-                tier: accountType === "org" ? "growth" : "pro",
-                updatedAt: Date.now(),
-              });
-            } else {
-              transaction.set(ledgerRef, {
-                id: ledgerDocId,
-                ownerType: accountType === "org" ? "org" : "personal",
-                ownerId: targetAccountId,
-                balance: tokens,
-                hasEverPaid: true,
-                tier: accountType === "org" ? "growth" : "pro",
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-              });
-            }
-
-            // Record entry in TokenLedgerEntries
-            transaction.set(entryRef, {
-              id: entryRef.id,
-              accountId: targetAccountId,
-              accountType,
-              type: "pack_purchase",
-              amount: tokens,
-              reference,
-              createdAt: Date.now(),
-            });
-          });
-        } catch (dbErr: any) {
-          console.warn("[Paystack Verify DB Warning]:", dbErr.message);
-        }
-      }
-
-      return NextResponse.json({
-        success: true,
-        data: data.data,
-      });
-    }
-
-    // Test Simulator fallback mode if key is not set
-    return NextResponse.json({
-      success: true,
-      simulated: true,
-      message: "Test transaction verified in simulation mode.",
-    });
-  } catch (error: any) {
-    console.error("Error verifying Paystack payment:", error);
-    return NextResponse.json(
-      { error: error.message || "Verification error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, simulated: true, message: "Simulation mode: no tokens credited." });
   }
-}
+
+  const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+    headers: { Authorization: `Bearer ${secret}` },
+  });
+  const payload = await verifyRes.json();
+  if (!verifyRes.ok || !payload.status || payload.data?.status !== "success") {
+    throw new HttpError(400, payload?.message || "Transaction verification failed", "NOT_SUCCESSFUL");
+  }
+
+  // Only the buyer, or a member of the org that was paid for, may trigger crediting.
+  const metadata = payload.data.metadata || {};
+  const owner = ownerFromMetadata(metadata);
+  const isBuyer = metadata.uid === user.uid || (owner?.ownerType === "personal" && owner.ownerId === user.uid);
+  const isOrgMember = owner?.ownerType === "org" && !!(await orgRole(owner.ownerId, user.uid));
+  if (!isBuyer && !isOrgMember) {
+    throw new HttpError(403, "This payment belongs to a different account.", "FORBIDDEN");
+  }
+
+  const result = await settleTransaction(payload.data);
+  return NextResponse.json({
+    success: true,
+    tokens: result.tokens,
+    balance: result.balance,
+    alreadyProcessed: result.alreadyProcessed,
+  });
+});

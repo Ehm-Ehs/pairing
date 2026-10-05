@@ -1,5 +1,6 @@
 "use client";
 
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 import React, { useState } from "react";
 import { createOrganization } from "../services/orgService";
 import { useWorkspace } from "../context/WorkspaceContext";
@@ -17,17 +18,7 @@ export const CreateOrgModal: React.FC<CreateOrgModalProps> = ({ isOpen, onClose 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "Esc") {
-        onClose();
-      }
-    };
-    if (isOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-    }
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(isOpen, onClose);
 
   if (!isOpen) return null;
 

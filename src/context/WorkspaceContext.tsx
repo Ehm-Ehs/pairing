@@ -1,9 +1,9 @@
 "use client";
 
+import { logger } from "@/utils/logger";
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Organization, Workspace } from "../types/orgTypes";
 import { fetchUserOrganizations, fetchOrgMembers } from "../services/orgService";
-import Auth from "../services/auth.module";
 import { auth } from "../services/firebase";
 
 interface WorkspaceContextType {
@@ -70,7 +70,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       // Default back to personal
       setActiveWorkspace(DEFAULT_PERSONAL_WORKSPACE);
     } catch (err) {
-      console.error("Error loading workspaces:", err);
+      logger.error("Error loading workspaces:", err);
       setActiveWorkspace(DEFAULT_PERSONAL_WORKSPACE);
     } finally {
       setIsLoadingWorkspaces(false);
@@ -92,7 +92,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   const switchWorkspace = async (workspace: Workspace) => {
-    let targetWorkspace = { ...workspace };
+    const targetWorkspace = { ...workspace };
     const currentUser = auth.currentUser;
 
     if (workspace.type === "organization" && currentUser) {
@@ -107,7 +107,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             const members = await fetchOrgMembers(workspace.id);
             const currentMember = members.find((m) => m.userId === currentUser.uid);
             role = currentMember?.role || (matchedOrg?.createdBy === currentUser.uid ? "admin" : "member");
-          } catch (e) {
+          } catch {
             role = matchedOrg?.createdBy === currentUser.uid ? "admin" : "member";
           }
         }

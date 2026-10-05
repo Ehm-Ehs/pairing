@@ -1,19 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import Auth from "../../src/services/auth.module";
-import Navbar from "../../src/components/landing/Navbar";
-import Hero from "../../src/components/landing/Hero";
-import DashboardMockups from "../../src/components/landing/DashboardMockups";
-import ProblemSection from "../../src/components/landing/ProblemSection";
-import HowItWorks from "../../src/components/landing/HowItWorks";
-import FeaturesSection from "../../src/components/landing/FeaturesSection";
-import EventsSection from "../../src/components/landing/EventsSection";
-import UseCases from "../../src/components/landing/UseCases";
-import CTASection from "../../src/components/landing/CTASection";
-import Footer from "../../src/components/landing/Footer";
+import Auth from "@/services/auth.module";
+import Navbar from "@/components/landing/Navbar";
+import Hero from "@/components/landing/Hero";
+import DashboardMockups from "@/components/landing/DashboardMockups";
+import ProblemSection from "@/components/landing/ProblemSection";
+import HowItWorks from "@/components/landing/HowItWorks";
+import FeaturesSection from "@/components/landing/FeaturesSection";
+import EventsSection from "@/components/landing/EventsSection";
+import UseCases from "@/components/landing/UseCases";
+import CTASection from "@/components/landing/CTASection";
+import Footer from "@/components/landing/Footer";
 
-import PricingSection from "../../src/components/landing/PricingSection";
+import PricingSection from "@/components/landing/PricingSection";
 
 const LandingPageClient = () => {
   const router = useRouter();

@@ -111,9 +111,6 @@ function drawPairFormIcon(x, y, w, h, isMaskable = false) {
   }
 
   // Draw pair icon geometry (two connected nodes / people silhouettes) inside center area
-  const cx = 0.5, cy = 0.5;
-  const dx = nx - cx;
-  const dy = ny - cy;
   
   // Left Node (Person 1) head & body
   const head1Dist = Math.hypot(nx - 0.36, ny - 0.38);

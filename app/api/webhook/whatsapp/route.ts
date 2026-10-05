@@ -1,81 +1,59 @@
+import { errorMessage } from "@/utils/errors";
+import { logger } from "@/utils/logger";
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 
 /**
- * Task 1: Webhook endpoint (GET — verification handshake)
- * Registers webhook URL with Meta WhatsApp Cloud API Dashboard.
+ * Meta WhatsApp Cloud API webhook.
+ * GET is the verification handshake. POST receives delivery statuses and replies.
  */
 export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const mode = searchParams.get("hub.mode");
-    const token = searchParams.get("hub.verify_token");
-    const challenge = searchParams.get("hub.challenge");
+  const { searchParams } = new URL(request.url);
+  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
 
-    console.log("[WhatsApp Webhook GET] Verification handshake request received:", {
-      mode,
-      token,
-      challenge,
+  if (
+    verifyToken &&
+    searchParams.get("hub.mode") === "subscribe" &&
+    searchParams.get("hub.verify_token") === verifyToken
+  ) {
+    // Meta requires the raw challenge value as plain text.
+    return new Response(searchParams.get("hub.challenge") || "", {
+      status: 200,
+      headers: { "Content-Type": "text/plain" },
     });
-
-    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || "pairform_verify_token";
-
-    if (mode === "subscribe" && token === verifyToken) {
-      console.log("[WhatsApp Webhook GET] Verification handshake successful!");
-      // Meta requires returning raw challenge value as plain text with 200 OK
-      return new Response(challenge || "", {
-        status: 200,
-        headers: { "Content-Type": "text/plain" },
-      });
-    }
-
-    console.warn("[WhatsApp Webhook GET] Verification failed: Token mismatch or invalid mode.");
-    return new Response("Forbidden", { status: 403 });
-  } catch (error) {
-    console.error("[WhatsApp Webhook GET] Verification error:", error);
-    return new Response("Internal Server Error", { status: 500 });
   }
+  return new Response("Forbidden", { status: 403 });
 }
 
-/**
- * Task 2: Webhook endpoint (POST — event receiver)
- * Receives delivery status updates, read receipts, and incoming replies from Meta.
- */
+function hasValidSignature(rawBody: string, header: string | null, secret: string): boolean {
+  if (!header) return false;
+  const expected = "sha256=" + crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+  return header.length === expected.length && crypto.timingSafeEqual(Buffer.from(header), Buffer.from(expected));
+}
+
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-
-    // 1. Log full payload to console for shape inspection
-    console.log(
-      "[WhatsApp Webhook POST] Received event payload:\n",
-      JSON.stringify(body, null, 2)
-    );
-
-    // 2. Parse delivery/read statuses if present
-    const entry = body?.entry?.[0];
-    const changes = entry?.changes?.[0];
-    const value = changes?.value;
-
-    if (value?.statuses && Array.isArray(value.statuses)) {
-      value.statuses.forEach((statusObj: any) => {
-        console.log(`[WhatsApp Status Update] Recipient: ${statusObj.recipient_id} | Status: ${statusObj.status} | Timestamp: ${statusObj.timestamp}`);
-        if (statusObj.errors) {
-          console.error("[WhatsApp Status Error]:", statusObj.errors);
-        }
-      });
-    }
-
-    // 3. Parse incoming replies if present
-    if (value?.messages && Array.isArray(value.messages)) {
-      value.messages.forEach((msgObj: any) => {
-        console.log(`[WhatsApp Incoming Message] From: ${msgObj.from} | Type: ${msgObj.type} | Content:`, msgObj.text || msgObj);
-      });
-    }
-
-    // 4. Always respond 200 OK quickly (Meta requires ack within seconds)
-    return NextResponse.json({ status: "success" }, { status: 200 });
-  } catch (error: any) {
-    console.error("[WhatsApp Webhook POST] Error processing event:", error);
-    // Still return 200 to prevent Meta retry loops on bad payloads
-    return NextResponse.json({ status: "error", error: error.message }, { status: 200 });
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+  if (!appSecret) {
+    logger.error("[whatsapp webhook] WHATSAPP_APP_SECRET is not set; rejecting webhook.");
+    return new Response("Webhook not configured", { status: 503 });
   }
+
+  const rawBody = await request.text();
+  if (!hasValidSignature(rawBody, request.headers.get("x-hub-signature-256"), appSecret)) {
+    return new Response("Invalid signature", { status: 401 });
+  }
+
+  // Signed by Meta from here on. Always acknowledge quickly so Meta does not retry.
+  try {
+    const body = JSON.parse(rawBody);
+    const value = body?.entry?.[0]?.changes?.[0]?.value;
+    for (const status of Array.isArray(value?.statuses) ? value.statuses : []) {
+      if (status.errors) {
+        logger.error("[whatsapp webhook] Delivery error:", status.status, JSON.stringify(status.errors));
+      }
+    }
+  } catch (err) {
+    logger.error("[whatsapp webhook] Could not parse payload:", errorMessage(err));
+  }
+  return NextResponse.json({ status: "success" }, { status: 200 });
 }

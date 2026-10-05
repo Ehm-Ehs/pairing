@@ -1,17 +1,19 @@
+import { LoginPromptModal } from "@/components/auth/LoginPromptModal";
+import { FREE_GRANT } from "@/utils/tokens";
 import React from "react";
 import dynamic from "next/dynamic";
 import { ModeSelection } from "./ModeSelection";
-import { useCreateEvent } from "../../../src/hooks/useCreateEvent";
+import { useCreateEvent } from "@/hooks/useCreateEvent";
 import { validationSchema } from "./createEventValidation";
-import GuestLimitBlocker from "../../../src/components/auth/GuestLimitBlocker";
-import { GroupingsPageProps } from "../../../src/types";
-import { Modal } from "../../../src/components/ui/modal";
+import GuestLimitBlocker from "@/components/auth/GuestLimitBlocker";
+import { GroupingsPageProps } from "@/types";
+import { Modal } from "@/components/ui/modal";
 import { useRouter } from "next/navigation";
 import {
   LogoCirclesIcon,
   SinglePairingIcon,
   CircleXFilledPinkIcon,
-} from "../../../src/components/ui/icons";
+} from "@/components/ui/icons";
 
 interface CreateParingProps {
   user?: GroupingsPageProps;
@@ -37,18 +39,16 @@ const CreateParing: React.FC<CreateParingProps> = ({ user }) => {
     eventType,
     setEventType,
     formValues,
-    groups,
     modalState,
     loading,
-    resultsRef,
+    showAuthModal,
+    setShowAuthModal,
     handleFormSubmit,
     handleModalConfirm,
     handleModalClose,
     handleSubmitSecretSanta,
     handleSubmitRandomPositioning,
   } = useCreateEvent();
-
-  const [isSecretSantaMode, setIsSecretSantaMode] = React.useState(true);
 
   // Render blocker if anonymous guest event limit reached
   if (user?.isAnonymous && (user?.pairings?.length || 0) >= 2) {
@@ -153,12 +153,25 @@ const CreateParing: React.FC<CreateParingProps> = ({ user }) => {
               }}
               onSubmit={handleSubmitSecretSanta}
               loading={loading}
-              onModeChange={setIsSecretSantaMode}
               onCancel={handleCancel}
             />
           )}
         </div>
       </div>
+
+      {/* A signed-out visitor pressed "Create event". Their form is saved and finishes after sign-in. */}
+      <LoginPromptModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        title="Sign in to create your event"
+        message={
+          <>
+            Your event details are saved. Create a free account to publish it and you will get{" "}
+            <strong>{FREE_GRANT.personal} free tokens</strong> to start, one per participant who joins.
+          </>
+        }
+        returnTo="/create-event"
+      />
 
       <Modal
         isOpen={modalState.isOpen}

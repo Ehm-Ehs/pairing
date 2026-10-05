@@ -1,63 +1,47 @@
+import { logger } from "@/utils/logger";
+import { auth } from "./firebase";
+
+export interface StoredUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+}
+
+const USER_KEY = "user";
+/** Keys written by older versions. The ID token is no longer stored anywhere by the app. */
+const LEGACY_KEYS = ["token", "organization"];
+
+/**
+ * Small local cache of the signed-in user's public profile, used for instant UI hints.
+ * Firebase Auth is the source of truth for the session; API calls read the ID token
+ * directly from Firebase (see services/api.ts).
+ */
 class Auth {
-  /**
-   * De-authenticate a user.
-   * @description Removes a token from localStorage.
-   */
+  static storeUser(user: StoredUser): void {
+    try {
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+      LEGACY_KEYS.forEach((key) => localStorage.removeItem(key));
+    } catch (error) {
+      logger.error("Error while storing user data:", error);
+    }
+  }
+
   static deAuthenticateUser(): void {
     try {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      localStorage.removeItem("organization");
+      localStorage.removeItem(USER_KEY);
+      LEGACY_KEYS.forEach((key) => localStorage.removeItem(key));
     } catch (error) {
-      console.error("Error while de-authenticating user:", error);
+      logger.error("Error while de-authenticating user:", error);
     }
   }
 
-  static storeUser(user: any): void {
-    try {
-      localStorage.setItem("user", JSON.stringify(user));
-    } catch (error) {
-      console.error("Error while storing user data:", error);
-    }
-  }
-
-  static authenticateUser(data: { accessToken: string; data: any }): void {
-    try {
-      const { accessToken, data: userData } = data;
-      console.log(accessToken);
-      localStorage.setItem("token", accessToken);
-      localStorage.setItem("user", JSON.stringify(userData));
-      //  CrossDomainStorage.sendMessage(data);
-    } catch (error) {
-      console.error("Error while authenticating user:", error);
-    }
-  }
-
-  /**
-   * Check if a user is authenticated.
-   * @returns {boolean} True if a token is saved in Local Storage, false otherwise.
-   */
+  /** True when Firebase has a session, or had one on the last visit (before auth finishes loading). */
   static isUserAuthenticated(): boolean {
+    if (auth.currentUser) return true;
     try {
-      const token = localStorage.getItem("token");
-
-      return Boolean(token);
-    } catch (error) {
-      console.error("Error while checking user authentication:", error);
-      return false;
-    }
-  }
-
-  /**
-   * Retrieve token from local storage.
-   * @returns {string | boolean} User token if available, false otherwise.
-   */
-  static getToken(): string | boolean {
-    try {
-      const token = localStorage.getItem("token");
-      return token || false;
-    } catch (error) {
-      console.error("Error while retrieving token:", error);
+      return Boolean(localStorage.getItem(USER_KEY));
+    } catch {
       return false;
     }
   }

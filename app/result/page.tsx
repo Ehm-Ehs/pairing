@@ -1,7 +1,7 @@
 "use client";
 import React, { Suspense } from "react";
 import Result from "./_components/Result";
-import NextProtectedRoute from "../../src/components/routes/NextProtectedRoute";
+import NextProtectedRoute from "@/components/routes/NextProtectedRoute";
 
 export default function ResultPage() {
   return (

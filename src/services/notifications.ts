@@ -1,9 +1,9 @@
+import { toDate, type TimeLike } from "../utils/timeUtils";
+import { logger } from "@/utils/logger";
 import {
   collection,
-  addDoc,
   query,
   where,
-  orderBy,
   onSnapshot,
   updateDoc,
   doc,
@@ -19,52 +19,36 @@ export interface Notification {
   message: string;
   type: "info" | "success" | "warning" | "error";
   read: boolean;
-  readAt?: any; // Timestamp when read
-  createdAt: any;
+  readAt?: TimeLike;
+  createdAt: TimeLike;
   link?: string;
 }
 
-export const createNotification = async (
-  userId: string,
-  message: string,
-  type: "info" | "success" | "warning" | "error" = "info",
-  link?: string
-) => {
-  try {
-    await addDoc(collection(db, "Notifications"), {
-      userId,
-      message,
-      type,
-      read: false,
-      createdAt: serverTimestamp(),
-      link,
-    });
-  } catch (error) {
-    console.error("Error creating notification:", error);
-  }
-};
+// Notifications are created by the server (see src/server/events.ts); the browser only reads and marks them.
 
+/**
+ * Live list of a user's notifications, newest first.
+ *
+ * Sorting happens here instead of in the query. A query that filters by user and orders by
+ * time needs a composite index created by hand in every Firebase project; a user's list is
+ * small, so sorting in the browser avoids that setup step entirely.
+ */
 export const subscribeToNotifications = (
   userId: string,
   callback: (notifications: Notification[]) => void
 ) => {
-  const q = query(
-    collection(db, "Notifications"),
-    where("userId", "==", userId),
-    orderBy("createdAt", "desc")
-  );
+  const q = query(collection(db, "Notifications"), where("userId", "==", userId));
+  // A notification whose server timestamp has not arrived yet counts as "now".
+  const time = (n: Notification) => toDate(n.createdAt)?.getTime() ?? Date.now();
 
   return onSnapshot(
     q,
     (snapshot) => {
-      const notifications = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Notification[];
-      callback(notifications);
+      const notifications = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Notification[];
+      callback(notifications.sort((a, b) => time(b) - time(a)));
     },
     (error) => {
-      console.error("Error subscribing to notifications:", error);
+      logger.error("Error subscribing to notifications:", error);
     }
   );
 };
@@ -77,7 +61,7 @@ export const markNotificationAsRead = async (notificationId: string) => {
       readAt: serverTimestamp(),
     });
   } catch (error) {
-    console.error("Error marking notification as read:", error);
+    logger.error("Error marking notification as read:", error);
   }
 };
 
@@ -97,8 +81,8 @@ export const markAllNotificationsAsRead = async (userId: string) => {
       });
     });
     await batch.commit();
-    console.log("All notifications marked as read!");
+    logger.debug("All notifications marked as read!");
   } catch (error) {
-    console.error("Error marking all notifications as read:", error);
+    logger.error("Error marking all notifications as read:", error);
   }
 };

@@ -1,34 +1,35 @@
+import { eventKindLabel } from "./eventStats";
+import { errorMessage } from "@/utils/errors";
+import { formatRelativeLong } from "./timeUtils";
+import { confirmToast, runWithToast } from "@/components/ui/confirmToast";
+import { logger } from "@/utils/logger";
+import { auth } from "../services/firebase";
 import { useState, useRef, useEffect } from "react";
 import { FaClock, FaUsers, FaEllipsisH, FaCopy, FaClone, FaLock, FaTrashAlt, FaCheck } from "react-icons/fa";
 import { Pairing } from "../types";
 import { getEventStats, copyJoinLink } from "../../app/home/_components/homeUtils";
 import { deletePairingEvent, duplicatePairingEvent, closePairingEvent } from "../services/endpoints";
 import { toast } from "react-toastify";
-import { useRouter } from "next/navigation";
 import { capitalizeWords } from "./stringUtils";
 
 interface EventCardProps {
   event: Pairing;
   index: number;
-  onGeneratePairs: (eventId: string, e: React.MouseEvent) => void;
   onViewDetails: (index: number) => void;
 }
 
 const EventCard = ({
   event,
   index,
-  onGeneratePairs,
   onViewDetails,
 }: EventCardProps) => {
-  const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const stats = getEventStats(event);
 
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const userId = user.uid;
+  const userId = auth.currentUser?.uid || "";
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -47,7 +48,7 @@ const EventCard = ({
       await copyJoinLink(event);
       setIsCopied(true);
     } catch (err) {
-      console.error("Copy error:", err);
+      logger.error("Copy error:", err);
     } finally {
       setIsCopying(false);
     }
@@ -64,10 +65,10 @@ const EventCard = ({
     try {
       await duplicatePairingEvent(userId, event.id);
       toast.success("Event duplicated successfully!");
-    } catch (err: any) {
-      console.error("Duplicate error:", err);
+    } catch (err) {
+      logger.error("Duplicate error:", err);
       let friendlyMsg = "Something went wrong while duplicating the event. Please try again.";
-      if (err.message?.includes("undefined")) {
+      if (errorMessage(err)?.includes("undefined")) {
         friendlyMsg = "Unable to duplicate: One of the fields in this event contains undefined data, which is unsupported by the database.";
       }
       toast.error(friendlyMsg);
@@ -78,121 +79,28 @@ const EventCard = ({
     e.stopPropagation();
     setShowMenu(false);
     if (!userId) return;
-
-    toast(
-      ({ closeToast }) => (
-        <div className="flex flex-col gap-2.5 text-left p-1">
-          <p className="font-bold text-gray-900 text-sm font-heading">
-            Close Event?
-          </p>
-          <p className="text-xs text-gray-500 leading-relaxed font-medium">
-            Are you sure you want to close this event? No further registrations will be allowed.
-          </p>
-          <div className="flex gap-2 justify-end mt-2">
-            <button
-              type="button"
-              onClick={closeToast}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-1.5 rounded-full text-[10px] transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                closeToast();
-                try {
-                  await closePairingEvent(userId, event.id);
-                  toast.success("Event closed successfully!");
-                } catch (err: any) {
-                  toast.error("Failed to close event: " + err.message);
-                }
-              }}
-              className="bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold px-4 py-1.5 rounded-full text-[10px] shadow-sm transition-colors cursor-pointer"
-            >
-              Close Event
-            </button>
-          </div>
-        </div>
-      ),
-      {
-        position: "top-center",
-        autoClose: false,
-        closeOnClick: false,
-        draggable: false,
-        closeButton: false,
-      }
-    );
+    confirmToast({
+      title: "Close Event?",
+      message: "Are you sure you want to close this event? No further registrations will be allowed.",
+      confirmLabel: "Close Event",
+      onConfirm: () =>
+        runWithToast(() => closePairingEvent(userId, event.id), "Event closed successfully!", "Failed to close event"),
+    });
   };
 
   const handleDeleteEvent = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowMenu(false);
     if (!userId) return;
-
-    toast(
-      ({ closeToast }) => (
-        <div className="flex flex-col gap-2.5 text-left p-1">
-          <p className="font-bold text-gray-900 text-sm font-heading">
-            Delete Event?
-          </p>
-          <p className="text-xs text-gray-500 leading-relaxed font-medium">
-            Are you sure you want to delete this event? This action is permanent.
-          </p>
-          <div className="flex gap-2 justify-end mt-2">
-            <button
-              type="button"
-              onClick={closeToast}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-1.5 rounded-full text-[10px] transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                closeToast();
-                try {
-                  await deletePairingEvent(userId, event.id);
-                  toast.success("Event deleted successfully!");
-                } catch (err: any) {
-                  toast.error("Failed to delete event: " + err.message);
-                }
-              }}
-              className="bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold px-4 py-1.5 rounded-full text-[10px] shadow-sm transition-colors cursor-pointer"
-            >
-              Delete Event
-            </button>
-          </div>
-        </div>
-      ),
-      {
-        position: "top-center",
-        autoClose: false,
-        closeOnClick: false,
-        draggable: false,
-        closeButton: false,
-      }
-    );
+    confirmToast({
+      title: "Delete Event?",
+      message: "Are you sure you want to delete this event? This action is permanent.",
+      confirmLabel: "Delete Event",
+      onConfirm: () =>
+        runWithToast(() => deletePairingEvent(userId, event.id), "Event deleted successfully!", "Failed to delete event"),
+    });
   };
 
-  const getCreatedTimeAgo = (createdAt: any) => {
-    try {
-      const date = createdAt?.seconds ? new Date(createdAt.seconds * 1000) : new Date(createdAt);
-      if (isNaN(date.getTime())) return "Recently";
-      const diffMs = Date.now() - date.getTime();
-      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-      if (diffHours < 1) {
-        const diffMins = Math.floor(diffMs / (1000 * 60));
-        return `${diffMins || 1} min ago`;
-      }
-      if (diffHours < 24) {
-        return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
-      }
-      const diffDays = Math.floor(diffHours / 24);
-      return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
-    } catch {
-      return "Recently";
-    }
-  };
 
   // Determine banner decoration
   const renderBanner = () => {
@@ -273,14 +181,10 @@ const EventCard = ({
           </span>
           <span className="flex items-center gap-1">
             <FaClock className="w-3 h-3 text-gray-350" />
-            {getCreatedTimeAgo(event.createdAt)}
+            {formatRelativeLong(event.createdAt)}
           </span>
           <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider">
-            {event.type === "role-based" ? "Group Pairs" :
-             event.type === "secret-santa"
-               ? (event.config?.allowWishlist ? "Secret Santa" : "Just Pair")
-               : ((event as any).assignmentMode === "fcfs" ? "First Come, First Served" :
-                  (event as any).assignmentMode === "random" ? "Random Assignment" : "Participants Pick")}
+            {eventKindLabel(event)}
           </span>
         </div>
 

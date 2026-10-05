@@ -1,18 +1,19 @@
 "use client";
 
+import { logger } from "@/utils/logger";
 import React from "react";
 import { useSearchParams } from "next/navigation";
-import Header from "../../../src/components/layout/header";
+import Header from "@/components/layout/header";
 import {
   Card,
   CardHeader,
   CardTitle,
   CardContent,
-} from "../../../src/components/ui/card";
-import { Badge } from "../../../src/components/ui/Badge";
-import { Participant } from "../../../src/types";
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/Badge";
+import { Pairing, Participant } from "@/types";
 import { FaUsers, FaGift, FaCalendarAlt, FaMoneyBillWave } from "react-icons/fa";
-import { capitalizeWords } from "../../../src/utils/stringUtils";
+import { capitalizeWords } from "@/utils/stringUtils";
 
 const SharePageClient: React.FC = () => {
   const searchParams = useSearchParams();
@@ -20,56 +21,21 @@ const SharePageClient: React.FC = () => {
   // --- Fetching Logic ---
   const userId = searchParams.get("userId");
   const eventId = searchParams.get("eventId");
-  const [fetchedPairing, setFetchedPairing] = React.useState<any>(null);
+  const [fetchedPairing, setFetchedPairing] = React.useState<Pairing | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
 
   React.useEffect(() => {
     if (userId && eventId) {
       setLoading(true);
-      import("../../../src/services/firebase").then(({ db }) => {
-        import("firebase/firestore").then(({ doc, getDoc }) => {
-          // 1. Try Pairings collection
-          const pairingRef = doc(db, "Pairings", eventId);
-          getDoc(pairingRef)
-            .then((pairingSnap) => {
-              if (pairingSnap.exists()) {
-                setFetchedPairing(pairingSnap.data());
-                setLoading(false);
-              } else {
-                // 2. Legacy fallback
-                const userRef = doc(db, "Users", userId);
-                getDoc(userRef)
-                  .then((userSnap) => {
-                    if (userSnap.exists()) {
-                      const userData = userSnap.data();
-                      const pairing = userData.pairings?.find(
-                        (p: any) => p.id === eventId
-                      );
-                      if (pairing) {
-                        setFetchedPairing(pairing);
-                      } else {
-                        setError("Event not found");
-                      }
-                    } else {
-                      setError("User not found");
-                    }
-                    setLoading(false);
-                  })
-                  .catch((err) => {
-                    console.error(err);
-                    setError("Error loading event");
-                    setLoading(false);
-                  });
-              }
-            })
-            .catch((err) => {
-              console.error(err);
-              setError("Error loading event");
-              setLoading(false);
-            });
-        });
-      });
+      import("@/services/endpoints")
+        .then(({ fetchPublicEvent }) => fetchPublicEvent({ ownerId: userId, eventId }))
+        .then(({ event }) => setFetchedPairing(event))
+        .catch((err) => {
+          logger.error(err);
+          setError(err?.status === 404 ? "Event not found" : "Error loading event");
+        })
+        .finally(() => setLoading(false));
     }
   }, [userId, eventId]);
 
@@ -375,9 +341,6 @@ const SharePageClient: React.FC = () => {
   // --- Role Based View (Fallback) ---
   const numGroups = searchParams.get("numGroups");
   const pairings = searchParams.get("pairings");
-  const parsedPairings = pairings
-    ? JSON.parse(decodeURIComponent(pairings))
-    : {};
 
   if (!numGroups || !pairings) {
     return (

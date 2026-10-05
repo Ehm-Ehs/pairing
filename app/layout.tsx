@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import Clarity from "../src/components/Clarity";
+import Clarity from "@/components/Clarity";
 import { Providers } from "./providers";
 import { Outfit, Playfair_Display, Sora } from "next/font/google";
 

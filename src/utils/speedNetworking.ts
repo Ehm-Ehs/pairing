@@ -1,3 +1,4 @@
+import { logger } from "@/utils/logger";
 import { toast } from "react-toastify";
 
 export interface ParticipantItem {
@@ -120,7 +121,7 @@ export function exportZoomBreakoutCsv(schedule: SpeedNetworkingMatrixResult, eve
 
     toast.success("Zoom Breakout Rooms CSV exported!");
   } catch (err) {
-    console.error("Zoom export error:", err);
+    logger.error("Zoom export error:", err);
     toast.error("Failed to export Zoom CSV.");
   }
 }
@@ -159,7 +160,7 @@ export function exportTeamsBreakoutCsv(schedule: SpeedNetworkingMatrixResult, ev
 
     toast.success("Multi-Round Schedule CSV exported!");
   } catch (err) {
-    console.error("Schedule export error:", err);
+    logger.error("Schedule export error:", err);
     toast.error("Failed to export schedule CSV.");
   }
 }

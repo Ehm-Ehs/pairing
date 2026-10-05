@@ -1,10 +1,3 @@
-export interface User {
-  uid: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-}
-
 export interface Participant {
   id: string;
   number: number;
@@ -12,6 +5,8 @@ export interface Participant {
   name?: string;
   email?: string;
   phone?: string;
+  /** Private token for the participant's own link. Only visible to organizers. */
+  accessToken?: string;
 }
 
 export interface SantaParticipant {
@@ -23,6 +18,8 @@ export interface SantaParticipant {
   assignedToId?: string; // ID of the person they are buying for
   pairIndex?: number;
   positionLetter?: "A" | "B";
+  accessToken?: string;
+  joinedAt?: number;
 }
 
 export type EventType = "role-based" | "secret-santa" | "random-positioning";
@@ -60,6 +57,7 @@ export interface RandomParticipant {
   phone?: string;
   assignedNumber?: number;
   joinedAt: number;
+  accessToken?: string;
 }
 
 export interface RandomPositioningPairing extends BasePairing {
@@ -81,6 +79,8 @@ export interface SecretSantaPairing extends BasePairing {
     exchangeDate?: string;
     allowWishlist: boolean;
     expectedParticipants: number;
+    /** Pairs of participant ids that must not draw each other. */
+    exclusions?: { a: string; b: string }[];
   };
   pairs?: { santaId: string; receiverId: string }[];
   status: "open" | "locked";
@@ -103,13 +103,4 @@ export interface GroupingsPageProps {
   isAnonymous?: boolean;
   role?: string;
   isSuperAdmin?: boolean;
-  tokenBalance?: number;
-  freeTokensGranted?: number;
-  paidTokensPurchased?: number;
-  tier?: "free" | "pro" | "growth" | "enterprise" | "super_admin";
-  hasEverPaid?: boolean;
-}
-
-export interface HomeProps {
-  data: GroupingsPageProps;
 }

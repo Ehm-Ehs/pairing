@@ -1,3 +1,4 @@
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 import React from "react";
 
 import {
@@ -29,17 +30,7 @@ export const Modal: React.FC<ModalProps> = ({
   confirmText = "Confirm",
   cancelText = "Cancel",
 }) => {
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "Esc") {
-        onClose();
-      }
-    };
-    if (isOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-    }
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(isOpen, onClose);
 
   if (!isOpen) return null;
 
