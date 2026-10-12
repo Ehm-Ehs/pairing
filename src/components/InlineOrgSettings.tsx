@@ -14,9 +14,11 @@ import {
   updateMemberRole,
   updateOrgSettings,
   deleteOrganization,
+  cancelOrganizationDeletion,
 } from "../services/orgService";
 import { auth, db } from "../services/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { ORG_DELETION_WORKING_DAYS } from "../content/legal";
 import {
   FaUsers,
   FaUserPlus,
@@ -30,7 +32,7 @@ import {
 } from "react-icons/fa";
 
 export const InlineOrgSettings: React.FC = () => {
-  const { activeWorkspace, switchWorkspace, refreshWorkspaces } = useWorkspace();
+  const { activeWorkspace, refreshWorkspaces } = useWorkspace();
 
   const [activeTab, setActiveTab] = useState<"members" | "integrations" | "danger">("members");
 
@@ -55,6 +57,7 @@ export const InlineOrgSettings: React.FC = () => {
   // Danger zone deletion
   const [confirmOrgName, setConfirmOrgName] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [deletionScheduledFor, setDeletionScheduledFor] = useState<number | null>(null);
 
   const currentMember = members.find((m) => m.userId === auth.currentUser?.uid);
   const isOrgAdmin =
@@ -78,6 +81,7 @@ export const InlineOrgSettings: React.FC = () => {
         const data = orgSnap.data() as Organization;
         setOrgName(data.name || "");
         setOrgCreatedBy(data.createdBy || "");
+        setDeletionScheduledFor(data.deletionScheduledFor || null);
         setWhatsappToken(data.integrations?.whatsappApiToken || "");
         setWhatsappPhoneId(data.integrations?.whatsappPhoneNumberId || "");
       }
@@ -217,11 +221,19 @@ export const InlineOrgSettings: React.FC = () => {
     setDeleting(false);
 
     if (res.success) {
-      await refreshWorkspaces();
-      switchWorkspace({ id: "personal", name: "Personal Space", type: "personal" });
+      setConfirmOrgName("");
+      setDeletionScheduledFor(res.deletionScheduledFor || null);
     } else {
       alert(res.error || "Failed to delete organization.");
     }
+  };
+
+  const handleCancelDeletion = async () => {
+    setDeleting(true);
+    const res = await cancelOrganizationDeletion(orgId);
+    setDeleting(false);
+    if (res.success) setDeletionScheduledFor(null);
+    else alert(res.error || "Failed to cancel the deletion.");
   };
 
   return (
@@ -512,32 +524,55 @@ export const InlineOrgSettings: React.FC = () => {
             <h4 className="text-sm font-bold">Delete Organization</h4>
           </div>
 
-          <p className="text-xs text-red-600 leading-relaxed font-medium">
-            Permanently delete this organization, member assignments, and pending invites. This action cannot be undone.
-          </p>
+          {deletionScheduledFor ? (
+            <div className="space-y-3 pt-1">
+              <p className="text-xs text-red-600 leading-relaxed font-medium">
+                This organization will be permanently deleted on{" "}
+                <strong>{new Date(deletionScheduledFor).toLocaleDateString(undefined, { dateStyle: "long" })}</strong>.
+                Until then everything keeps working and you can export what you need.
+              </p>
+              <button
+                type="button"
+                onClick={handleCancelDeletion}
+                disabled={deleting}
+                className="flex items-center gap-2 px-6 py-2.5 bg-white border border-red-300 hover:bg-red-100 disabled:opacity-40 text-red-700 rounded-full text-xs font-bold transition-all cursor-pointer"
+              >
+                {deleting && <FaSpinner className="w-3.5 h-3.5 animate-spin" />}
+                <span>Cancel deletion</span>
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-red-600 leading-relaxed font-medium">
+                The organization, its events, participants, members and invites are permanently deleted{" "}
+                {ORG_DELETION_WORKING_DAYS} working days after you confirm. You can cancel any time before then.
+                Token and payment records are kept.
+              </p>
 
-          <div className="space-y-3 pt-1">
-            <label className="block text-xs font-bold text-gray-600">
-              Type <strong>{activeWorkspace.name}</strong> to confirm deletion:
-            </label>
-            <input
-              type="text"
-              value={confirmOrgName}
-              onChange={(e) => setConfirmOrgName(e.target.value)}
-              placeholder={activeWorkspace.name}
-              className="w-full px-4 py-2.5 bg-white border border-red-300 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500 font-medium"
-            />
+              <div className="space-y-3 pt-1">
+                <label className="block text-xs font-bold text-gray-600">
+                  Type <strong>{activeWorkspace.name}</strong> to confirm deletion:
+                </label>
+                <input
+                  type="text"
+                  value={confirmOrgName}
+                  onChange={(e) => setConfirmOrgName(e.target.value)}
+                  placeholder={activeWorkspace.name}
+                  className="w-full px-4 py-2.5 bg-white border border-red-300 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500 font-medium"
+                />
 
-            <button
-              type="button"
-              onClick={handleDeleteOrg}
-              disabled={deleting || confirmOrgName.trim().toLowerCase() !== activeWorkspace.name.trim().toLowerCase()}
-              className="flex items-center gap-2 px-6 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white rounded-full text-xs font-bold transition-all shadow-md cursor-pointer"
-            >
-              {deleting && <FaSpinner className="w-3.5 h-3.5 animate-spin" />}
-              <span>Delete Organization Permanently</span>
-            </button>
-          </div>
+                <button
+                  type="button"
+                  onClick={handleDeleteOrg}
+                  disabled={deleting || confirmOrgName.trim().toLowerCase() !== activeWorkspace.name.trim().toLowerCase()}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white rounded-full text-xs font-bold transition-all shadow-md cursor-pointer"
+                >
+                  {deleting && <FaSpinner className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Delete Organization</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

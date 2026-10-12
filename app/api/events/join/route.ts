@@ -96,7 +96,7 @@ export const POST = route("events/join", async (request) => {
       eventId,
       participantId: placement.participant.id,
     });
-    tx.update(loaded.ref, placement.update);
+    tx.update(loaded.ref, { ...placement.update, lastActivityAt: Date.now() });
     return { ...placement, event, remainingTokens };
   });
 

@@ -46,16 +46,30 @@ export function createFakeFirestore(seed: Record<string, Data> = {}) {
     store.set(path, { ...data });
   };
 
+  const matches = (actual: any, op: string, value: any) => {
+    if (op === "==") return actual === value;
+    // Like Firestore, range filters only match values of the same type.
+    if (typeof actual !== typeof value) return false;
+    if (op === "<") return actual < value;
+    if (op === "<=") return actual <= value;
+    throw new Error(`fakeFirestore: unsupported operator ${op}`);
+  };
+
+  const query = (name: string, filters: [string, string, unknown][], max = Infinity) => ({
+    where: (field: string, op: string, value: unknown) => query(name, [...filters, [field, op, value]], max),
+    limit: (n: number) => query(name, filters, n),
+    get: async () => {
+      const docs = [...store.entries()]
+        .filter(([p, d]) => p.startsWith(`${name}/`) && filters.every(([f, op, v]) => matches(d[f], op, v)))
+        .slice(0, max)
+        .map(([p]) => snapshot(p));
+      return { size: docs.length, empty: docs.length === 0, docs };
+    },
+  });
+
   const collection = (name: string) => ({
     doc: (id?: string) => makeRef(`${name}/${id ?? `auto_${++autoId}`}`),
-    where: (field: string, _op: string, value: unknown) => ({
-      get: async () => {
-        const docs = [...store.entries()]
-          .filter(([p, d]) => p.startsWith(`${name}/`) && d[field] === value)
-          .map(([p]) => snapshot(p));
-        return { size: docs.length, empty: docs.length === 0, docs };
-      },
-    }),
+    where: (field: string, op: string, value: unknown) => query(name, [[field, op, value]]),
   });
 
   const writer = () => {

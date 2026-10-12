@@ -17,6 +17,8 @@ export const RESET_CODE_MINUTES = CODE_TTL_MS / 60000;
 const normalise = (email: string) => email.trim().toLowerCase();
 const sha = (value: string) => createHash("sha256").update(value).digest("hex");
 const resetRef = (email: string) => adminDb.collection("PasswordResets").doc(sha(normalise(email)));
+/** Removes any pending reset code for an email, for example when its account is deleted. */
+export const clearResetCode = (email: string) => resetRef(email).delete();
 const hashCode = (email: string, code: string) => sha(`${normalise(email)}:${code}`);
 
 /** Looks an account up by email. Returns null instead of throwing when there is none. */

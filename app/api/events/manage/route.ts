@@ -45,7 +45,11 @@ export const POST = route("events/manage", async (request) => {
       if (!snap.exists) throw new HttpError(404, "Event not found.", "EVENT_NOT_FOUND");
       const event = snap.data() as EventDoc;
       const { update, result } = fn(event);
-      if (Object.keys(update).length > 0) tx.update(loaded.ref, update as FirebaseFirestore.UpdateData<EventDoc>);
+      // Recorded so the retention cleanup can tell a dormant event from one still in use.
+      if (Object.keys(update).length > 0) {
+        update.lastActivityAt = Date.now();
+        tx.update(loaded.ref, update as FirebaseFirestore.UpdateData<EventDoc>);
+      }
       const { "config.exclusions": exclusions, ...top } = update;
       const merged = { ...event, ...top } as EventDoc;
       if (exclusions !== undefined) merged.config = { ...(event.config || {}), exclusions };

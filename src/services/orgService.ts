@@ -139,6 +139,18 @@ export function updateOrgSettings(
   return manage({ action: "updateSettings", orgId, updates });
 }
 
-export function deleteOrganization(orgId: string, orgNameConfirmation: string): Result {
-  return manage({ action: "delete", orgId, confirmName: orgNameConfirmation });
+/**
+ * Asks for an organization to be deleted. Nothing is removed straight away: the server
+ * deletes it after the waiting period, and an admin can cancel until then.
+ */
+export function deleteOrganization(orgId: string, orgNameConfirmation: string): Result<{ deletionScheduledFor: number }> {
+  return call<{ deletionScheduledFor: number }>("/api/orgs/manage", {
+    action: "delete",
+    orgId,
+    confirmName: orgNameConfirmation,
+  });
+}
+
+export function cancelOrganizationDeletion(orgId: string): Result {
+  return manage({ action: "cancelDelete", orgId });
 }

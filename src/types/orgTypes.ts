@@ -26,6 +26,8 @@ export interface Organization {
   createdBy: string;
   createdAt: number;
   updatedAt?: number;
+  /** Set while the organization is waiting to be permanently deleted. */
+  deletionScheduledFor?: number | null;
   userRole?: OrgRole;
 }
 

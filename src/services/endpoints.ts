@@ -228,7 +228,7 @@ export async function updateRoleBasedPairingGroups(
 }
 
 export async function closePairingEvent(_userId: string, eventId: string) {
-  await updateDoc(doc(db, "Pairings", eventId), { status: "locked" });
+  await updateDoc(doc(db, "Pairings", eventId), { status: "locked", lastActivityAt: Date.now() });
 }
 
 export async function updatePairingVisibility(
@@ -236,7 +236,7 @@ export async function updatePairingVisibility(
   eventId: string,
   visibilityMode: "public" | "restricted"
 ) {
-  await updateDoc(doc(db, "Pairings", eventId), { visibilityMode });
+  await updateDoc(doc(db, "Pairings", eventId), { visibilityMode, lastActivityAt: Date.now() });
 }
 
 export async function deletePairingEvent(_userId: string, eventId: string) {

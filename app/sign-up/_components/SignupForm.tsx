@@ -191,6 +191,18 @@ const SignupForm = ({ initialEmail = "", initialName = "" }: SignupFormProps) =>
               <FaGoogle className="text-red-500 text-base" />
               Continue with Google
             </Button>
+
+            <p className="text-center text-xs text-gray-500">
+              By creating an account you agree to our{" "}
+              <Link href="/terms" className="font-semibold text-[#1449b2] hover:underline">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="font-semibold text-[#1449b2] hover:underline">
+                Privacy Policy
+              </Link>
+              .
+            </p>
           </Form>
 
           <div className="bg-[#f3f4f6] px-8 py-6 flex justify-center border-t border-gray-100">

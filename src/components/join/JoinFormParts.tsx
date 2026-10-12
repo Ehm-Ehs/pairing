@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ErrorMessage, useFormikContext } from "formik";
 import { FaWhatsapp } from "react-icons/fa";
@@ -92,22 +93,30 @@ export const JoinFormFooter: React.FC<FooterProps> = ({ accent, submitting, labe
   const size = "font-bold px-4 sm:px-8 py-2.5 sm:py-3.5 rounded-full text-xs sm:text-sm transition-all flex-1 cursor-pointer whitespace-nowrap";
 
   return (
-    <div className="bg-[#F5F6F8] p-6 flex items-center justify-center gap-4 border-t border-gray-200 w-full rounded-b-[2rem]">
-      <button
-        type="button"
-        onClick={() => router.push("/")}
-        className={`bg-[#E5E7EB] hover:bg-[#D1D5DB] text-gray-700 shadow-sm text-center ${size}`}
-      >
-        Cancel
-      </button>
-      <Button
-        type="submit"
-        disabled={submitting}
-        isLoading={submitting}
-        className={`bg-gradient-to-b ${JOIN_THEMES[accent].button} hover:opacity-95 text-white shadow-md flex items-center justify-center gap-1.5 h-auto ${size}`}
-      >
-        {submitting ? "Joining..." : label}
-      </Button>
+    <div className="bg-[#F5F6F8] p-6 flex flex-col gap-4 border-t border-gray-200 w-full rounded-b-[2rem]">
+      <div className="flex items-center justify-center gap-4 w-full">
+        <button
+          type="button"
+          onClick={() => router.push("/")}
+          className={`bg-[#E5E7EB] hover:bg-[#D1D5DB] text-gray-700 shadow-sm text-center ${size}`}
+        >
+          Cancel
+        </button>
+        <Button
+          type="submit"
+          disabled={submitting}
+          isLoading={submitting}
+          className={`bg-gradient-to-b ${JOIN_THEMES[accent].button} hover:opacity-95 text-white shadow-md flex items-center justify-center gap-1.5 h-auto ${size}`}
+        >
+          {submitting ? "Joining..." : label}
+        </Button>
+      </div>
+      <p className="text-center text-[11px] text-gray-500">
+        Your details are shared with the organizer and used only to run this event.{" "}
+        <Link href="/privacy" target="_blank" className="underline hover:text-gray-700">
+          Privacy Policy
+        </Link>
+      </p>
     </div>
   );
 };

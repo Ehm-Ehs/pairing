@@ -2,6 +2,7 @@
 import type { GroupingsPageProps } from "@/types";
 import { errorMessage } from "@/utils/errors";
 import { signOutAndGoHome } from "@/services/session";
+import { apiFetch } from "@/services/api";
 import { logger } from "@/utils/logger";
 import React, { Suspense, useState, useEffect } from "react";
 import NextProtectedRoute from "@/components/routes/NextProtectedRoute";
@@ -174,20 +175,18 @@ const SettingsContent = ({ user }: { user: GroupingsPageProps }) => {
 
   const handleDeleteAccount = async () => {
     if (!userId) return;
-    if (
-      confirm(
-        "WARNING: This will permanently delete your account, pairings, and all associated data. This action cannot be undone. Do you wish to continue?"
-      )
-    ) {
-      try {
-        const { deleteDoc } = await import("firebase/firestore");
-        await deleteDoc(doc(db, "Users", userId));
-
-        toast.success("Account successfully deleted.");
-        await signOutAndGoHome();
-      } catch (err) {
-        toast.error("Failed to delete account: " + errorMessage(err));
-      }
+    const confirmed = confirm(
+      "This permanently deletes your account, your events and the participants in them. It cannot be undone.\n\n" +
+        "Events you created inside an organization stay with that organization. Token and payment records are kept.\n\n" +
+        "Do you wish to continue?"
+    );
+    if (!confirmed) return;
+    try {
+      await apiFetch("/api/users/delete", { body: {}, auth: "required" });
+      toast.success("Account successfully deleted.");
+      await signOutAndGoHome();
+    } catch (err) {
+      toast.error("Failed to delete account: " + errorMessage(err));
     }
   };
 
@@ -557,7 +556,7 @@ const SettingsContent = ({ user }: { user: GroupingsPageProps }) => {
               <div className="flex flex-col text-left">
                 <span className="text-sm font-bold text-gray-900">Delete Account</span>
                 <span className="text-xs text-gray-400 font-medium mt-0.5">
-                  Permanently delete your account and all associated data
+                  Permanently delete your account, events and participants. Token records are kept.
                 </span>
               </div>
               <button

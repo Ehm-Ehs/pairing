@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Logo from "../../assets/logo";
+import { LegalLinks } from "../legal/LegalDocument";
 
 interface FooterProps {
   scrollToHowItWorks?: () => void;
@@ -111,9 +112,7 @@ export default function Footer({
           <p className="text-sm text-blue-100">
             © 2026 PairForm. No spreadsheets. No manual pairing. Just balanced groups.
           </p>
-          <p className="text-sm text-blue-100">
-            Built for real events.
-          </p>
+          <LegalLinks className="text-sm text-blue-100 hover:text-white transition-colors" />
         </div>
       </div>
     </footer>

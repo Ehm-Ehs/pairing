@@ -5,6 +5,7 @@ import { requireUser } from "@/server/auth";
 import { HttpError, appOrigin, obj, readJson, route, str } from "@/server/http";
 import { rateLimit } from "@/server/rateLimit";
 import { orgRole } from "@/server/events";
+import { cancelOrgDeletion, leaveOrganization, scheduleOrgDeletion } from "@/server/deletion";
 import { cleanBranding, cleanIntegrations, requireOrgAdmin, shortId } from "@/server/orgs";
 import { isEmail } from "@/utils/validation";
 import { sendEmail } from "@/server/messaging";
@@ -68,21 +69,9 @@ export const POST = route("orgs/manage", async (request) => {
     if (targetUserId !== user.uid) await requireOrgAdmin(orgId, user.uid);
     else if (!(await orgRole(orgId, user.uid))) throw new HttpError(403, "You are not a member of this organization.");
 
-    const memberRef = members.doc(`${orgId}_${targetUserId}`);
-    const memberSnap = await memberRef.get();
+    const memberSnap = await members.doc(`${orgId}_${targetUserId}`).get();
     if (!memberSnap.exists) throw new HttpError(404, "Member not found in organization.");
-    const wasAdmin = memberSnap.data()!.role === "admin";
-    await memberRef.delete();
-
-    const remaining = (await members.where("orgId", "==", orgId).get()).docs
-      .map((d) => d.data())
-      .sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0));
-    if (remaining.length === 0) {
-      await orgRef.update({ status: "archived", updatedAt: Date.now() });
-    } else if (wasAdmin && !remaining.some((m) => m.role === "admin")) {
-      // Succession: the longest-tenured member becomes admin.
-      await members.doc(remaining[0].id).update({ role: "admin" });
-    }
+    await leaveOrganization(orgId, targetUserId);
     return NextResponse.json({ success: true });
   }
 
@@ -120,15 +109,14 @@ export const POST = route("orgs/manage", async (request) => {
     if (String(org.name).trim().toLowerCase() !== str(body.confirmName, 200).toLowerCase()) {
       throw new HttpError(400, "Organization name confirmation mismatch.");
     }
-    const [memberDocs, inviteDocs] = await Promise.all([
-      members.where("orgId", "==", orgId).get(),
-      invites.where("orgId", "==", orgId).get(),
-    ]);
-    const batch = adminDb.batch();
-    memberDocs.forEach((d) => batch.delete(d.ref));
-    inviteDocs.forEach((d) => batch.delete(d.ref));
-    batch.delete(orgRef);
-    await batch.commit();
+    // Nothing is removed yet: the organization is deleted after the waiting period, by the daily cleanup.
+    const deletionScheduledFor = org.deletionScheduledFor || (await scheduleOrgDeletion(orgId, user.uid));
+    return NextResponse.json({ success: true, deletionScheduledFor });
+  }
+
+  if (action === "cancelDelete") {
+    await requireOrgAdmin(orgId, user.uid);
+    await cancelOrgDeletion(orgId);
     return NextResponse.json({ success: true });
   }
 
